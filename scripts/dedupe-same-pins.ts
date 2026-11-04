@@ -27,13 +27,23 @@ const apply = process.argv.includes('--apply')
 const host = new URL(process.env.SUPABASE_URL ?? '').host
 const PAGE = 1000
 
-type Course = { id: string; external_id: string | null; name: string; city: string | null; state: string | null }
+type Course = {
+  id: string
+  external_id: string | null
+  name: string
+  city: string | null
+  state: string | null
+}
 const isOsm = (c: Course) => (c.external_id ?? '').startsWith('osm_')
 
 async function pagedSelect<T>(table: string, cols: string, filter?: (q: any) => any): Promise<T[]> {
   const out: T[] = []
   for (let from = 0; ; from += PAGE) {
-    let q = supabase.from(table).select(cols).order('id').range(from, from + PAGE - 1)
+    let q = supabase
+      .from(table)
+      .select(cols)
+      .order('id')
+      .range(from, from + PAGE - 1)
     if (filter) q = filter(q)
     const { data, error } = await q
     if (error) throw new Error(`${table} fetch failed at ${from}: ${error.message}`)
@@ -44,10 +54,13 @@ async function pagedSelect<T>(table: string, cols: string, filter?: (q: any) => 
 
 async function main() {
   console.log(`${apply ? 'APPLY' : 'DRY RUN'} against ${host}\n`)
-  const holes = await pagedSelect<{ course_id: string; number: number; pin_lat: number; pin_lng: number }>(
-    'holes',
-    'id, course_id, number, pin_lat, pin_lng',
-    (q) => q.not('pin_lat', 'is', null).not('pin_lng', 'is', null),
+  const holes = await pagedSelect<{
+    course_id: string
+    number: number
+    pin_lat: number
+    pin_lng: number
+  }>('holes', 'id, course_id, number, pin_lat, pin_lng', (q) =>
+    q.not('pin_lat', 'is', null).not('pin_lng', 'is', null),
   )
   const byCourse = new Map<string, string[]>()
   for (const h of holes) {
@@ -78,13 +91,16 @@ async function main() {
   const plan: { keeper: Course; copy: Course }[] = []
   let flagged = 0
   let skipped = 0
-  const label = (c: Course) => `"${c.name}" ${c.city ?? '?'}, ${c.state ?? '?'} [${c.external_id ?? 'manual'}] ${c.id}`
+  const label = (c: Course) =>
+    `"${c.name}" ${c.city ?? '?'}, ${c.state ?? '?'} [${c.external_id ?? 'manual'}] ${c.id}`
   for (const g of groups) {
     const rows = g.map((id) => courses.get(id)!).filter(Boolean)
     const osm = rows.filter(isOsm)
     if (osm.length !== 1) {
       flagged++
-      console.log(`FLAG  ${osm.length} OSM rows:\n${rows.map((c) => `        ${label(c)}`).join('\n')}`)
+      console.log(
+        `FLAG  ${osm.length} OSM rows:\n${rows.map((c) => `        ${label(c)}`).join('\n')}`,
+      )
       continue
     }
     const keeper = osm[0]
