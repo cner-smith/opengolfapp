@@ -4,6 +4,7 @@ import {
   distanceUnitAbbr as unitWord,
   insideRing,
   shotWords,
+  wholeDistance,
   type DispersionPoint,
   type DispersionStats,
   type DistanceUnit,
@@ -120,7 +121,9 @@ export function AimPlot(props: ChartProps) {
     : [cx, cx, cy, cy]
   const tw = useTween([avg.x, avg.y, ...span])
   const [bL, bR, bT, bB] = [tw[2]!, tw[3]!, tw[4]!, tw[5]!]
-  const plusMinus = (yd: number) => `±${Math.round(yd * grid.u)}`
+  // Labelled with the whole width and depth, rounded once as the numbers
+  // beside the chart are, so the two always agree.
+  const whole = (half: number) => String(wholeDistance(half * 2, unit))
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
   const acrossX = clamp((bL + bR) / 2, LEFT + 48, LEFT + AREA - 48)
   const deepY = clamp((bT + bB) / 2, TOP + 14, TOP + AREA - 16)
@@ -193,8 +196,8 @@ export function AimPlot(props: ChartProps) {
             <path d={`M${bL} ${TOP + AREA + 24}v5H${bR}v-5`} />
             <path d={`M${LEFT + AREA + 4} ${bT}h5V${bB}h-5`} />
             <g fontFamily={HAND} fontSize={14} fill={INK} stroke="none">
-              <text x={acrossX} y={TOP + AREA + 46} textAnchor="middle">{`${plusMinus(stats.cone68.lateral)} ${unitWord(unit)} across`}</text>
-              <text x={LEFT + AREA + 13} y={deepY - 2}>{plusMinus(stats.cone68.distance)}</text>
+              <text x={acrossX} y={TOP + AREA + 46} textAnchor="middle">{`${whole(stats.cone68.lateral)} ${unitWord(unit)} across`}</text>
+              <text x={LEFT + AREA + 13} y={deepY - 2}>{whole(stats.cone68.distance)}</text>
               <text x={LEFT + AREA + 13} y={deepY + 14}>deep</text>
             </g>
           </g>

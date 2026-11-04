@@ -1,5 +1,5 @@
 import { G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
-import { insideRing, ringExtent, shotWords, type DispersionRing, type DispersionStats } from '@oga/core'
+import { insideRing, ringExtent, shotWords, wholeDistance, type DispersionRing, type DispersionStats } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
 import { LEFT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
@@ -62,7 +62,8 @@ export function AimPlot(props: ChartProps) {
   if (stats && layers.average) avg = placeNear(px(stats.avgLateralOffset), py(stats.avgDistanceOffset), 'average', 12, visible, taken, bounds)
   const ly = TOP + area + BOTTOM
   // The brackets span the average ± the 68% half-width and half-depth: the
-  // upright box round the tilted ring.
+  // upright box round the tilted ring. They are labelled with the whole width
+  // and depth, rounded once as the numbers below the chart are.
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
   const bracket = stats
     ? {
@@ -72,8 +73,8 @@ export function AimPlot(props: ChartProps) {
         b: py(stats.avgDistanceOffset - stats.cone68.distance),
         acrossX: clamp(px(stats.avgLateralOffset), LEFT + 48, LEFT + area - 48),
         deepY: clamp(py(stats.avgDistanceOffset), TOP + 14, TOP + area - 16),
-        across: `±${Math.round(stats.cone68.lateral / unitYd)}`,
-        deep: `±${Math.round(stats.cone68.distance / unitYd)}`,
+        across: String(wholeDistance(stats.cone68.lateral * 2, unit)),
+        deep: String(wholeDistance(stats.cone68.distance * 2, unit)),
       }
     : null
   const hotD = hot ? visible.find((d) => d.p.id === hot) : null
