@@ -32,11 +32,12 @@ export function PaperTile({ children, style, innerStyle }: { children: ReactNode
 }
 
 // Stat tile: sentence-case label over a Fraunces figure.
-export function StatTile({ label, value, valueColor = P.ink, style }: { label: string; value: string; valueColor?: string; style?: StyleProp<ViewStyle> }) {
+export function StatTile({ label, value, valueColor = P.ink, style, children }: { label: string; value: string; valueColor?: string; style?: StyleProp<ViewStyle>; children?: ReactNode }) {
   return (
     <PaperTile style={style}>
       <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>{label}</Text>
       <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: valueColor, fontSize: 30, lineHeight: 36 }]}>{value}</Text>
+      {children}
     </PaperTile>
   )
 }

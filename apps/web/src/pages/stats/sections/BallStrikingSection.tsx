@@ -11,8 +11,8 @@ export function BallStrikingSection({ data }: { data: DetailedStats }) {
     <Section title="Ball striking">
       <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start" style={{ columnGap: 44, rowGap: 14 }}>
       <div className="grid grid-cols-2" style={{ gap: 16 }}>
-        <StatTile label="Fairways hit" value={fmtPct(b.fairwayPct)} />
-        <StatTile label="Greens in regulation" value={fmtPct(b.girPct)} />
+        <StatTile label="Fairways hit" value={fmtPct(b.fairwayPct)} spark={data.sparklines.fairwayPct} />
+        <StatTile label="Greens in regulation" value={fmtPct(b.girPct)} spark={data.sparklines.girPct} />
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-1" style={{ columnGap: 32 }}>
         <StatRow

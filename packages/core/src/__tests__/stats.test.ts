@@ -10,6 +10,8 @@ import {
   sgStandouts,
   sgTrend,
   shortGameStats,
+  sparkPoints,
+  statSparklines,
   type DetailedHoleScore,
   type DetailedRound,
 } from '../stats'
@@ -842,5 +844,60 @@ describe('ballStrikingStats — proximityAvg (#575)', () => {
       ],
     })
     expect(ballStrikingStats([r]).proximityAvg).toBeNull()
+  })
+})
+
+describe('statSparklines (#1354)', () => {
+  // Two-hole rounds with hole_count 2, so each one counts as whole.
+  const hole = (n: number, gir: boolean, score: number) =>
+    makeHoleScore({ id: `hs${n}`, score, gir, holes: makeHole({ id: `h${n}`, number: n, par: 4 }), shots: [] })
+  const whole = (id: string, played_at: string, o: Partial<DetailedRound>) =>
+    makeRound({ id, played_at, hole_count: 2, ...o })
+  // Newest first, as the rounds query returns them.
+  const rounds = [
+    // Ended early (1 of 2 holes): stays out of every line.
+    whole('d', '2026-04-01', { fairways_hit: 1, fairways_total: 1, total_putts: 12, hole_scores: [hole(1, true, 4), hole(2, true, 0)] }),
+    // 14/14 fairways, both greens hit (no up and down chance), 28 putts.
+    whole('c', '2026-03-01', { fairways_hit: 14, fairways_total: 14, total_putts: 28, hole_scores: [hole(1, true, 4), hole(2, true, 4)] }),
+    // No fairway data; one green missed and bogeyed (no up and down), 34 putts.
+    whole('b', '2026-02-01', { total_putts: 34, hole_scores: [hole(1, true, 4), hole(2, false, 5)] }),
+    // 7/14 fairways, one green missed and saved: GIR 50, up and down 100, 30 putts.
+    whole('a', '2026-01-01', { fairways_hit: 7, fairways_total: 14, total_putts: 30, hole_scores: [hole(1, true, 4), hole(2, false, 4)] }),
+  ]
+
+  it('runs each headline formula on one whole round, oldest first', () => {
+    const s = statSparklines(rounds)
+    expect(s.girPct).toEqual([50, 50, 100])
+    expect(s.puttsPerRound).toEqual([30, 34, 28])
+  })
+
+  it('a stat with data in fewer than 3 rounds has no line', () => {
+    const s = statSparklines(rounds)
+    // Fairways: rounds a and c only. Up and down: a (100) and b (0) only.
+    expect(s.fairwayPct).toEqual([])
+    expect(s.upAndDownPct).toEqual([])
+  })
+
+  it('keeps the last 10 rounds with data', () => {
+    const many = Array.from({ length: 12 }, (_, i) =>
+      whole(`r${i}`, `2026-01-${String(28 - i).padStart(2, '0')}`, { total_putts: 40 - i, hole_scores: [] }),
+    )
+    // r0 is newest (40 putts), r11 oldest (29): the oldest two drop.
+    expect(statSparklines(many).puttsPerRound).toEqual([31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+  })
+})
+
+describe('sparkPoints', () => {
+  it('spreads points evenly with the highest at the top', () => {
+    // 3 points over 100 wide: x 0, 50, 100. Range 30..50 over 20 tall: 50 → 0, 30 → 20, 40 → 10.
+    expect(sparkPoints([30, 50, 40], 100, 20)).toEqual([
+      { x: 0, y: 20 },
+      { x: 50, y: 0 },
+      { x: 100, y: 10 },
+    ])
+  })
+
+  it('a flat series sits on the middle line', () => {
+    expect(sparkPoints([32, 32, 32], 60, 20).map((p) => p.y)).toEqual([10, 10, 10])
   })
 })
