@@ -1,18 +1,23 @@
-import { G, Line, Rect, Text as SvgText } from 'react-native-svg'
+import { G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
 import { insideRing, ringExtent, shotWords, type DispersionRing, type DispersionStats } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
+import { LEFT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 
-const BOTTOM = 30
 const TOP = 10
+// The right margin and the strip under the grid hold the pencil brackets for
+// the ring's depth and width (as on the web).
+const RIGHT = 42
+const BOTTOM = 62
+// The key has no 95% row here, so it never needs a second line.
+const LEGEND_H = 50
 
 export function AimPlot(props: ChartProps) {
   const { points, stats, ghost, layers, width, unitYd, label, unit, empty, hot, onHot } = props
   const area = width - LEFT - RIGHT
-  const h = TOP + area + BOTTOM + legendHeight(width)
+  const h = TOP + area + BOTTOM + LEGEND_H
   const dense = points.length > DENSE
   const step = 5 * unitYd
   // The scale holds both rings (and the ghost) whether or not they are drawn,
@@ -56,6 +61,21 @@ export function AimPlot(props: ChartProps) {
   }
   if (stats && layers.average) avg = placeNear(px(stats.avgLateralOffset), py(stats.avgDistanceOffset), 'average', 12, visible, taken, bounds)
   const ly = TOP + area + BOTTOM
+  // The brackets span the average ± the 68% half-width and half-depth: the
+  // upright box round the tilted ring.
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+  const bracket = stats
+    ? {
+        l: px(stats.avgLateralOffset - stats.cone68.lateral),
+        r: px(stats.avgLateralOffset + stats.cone68.lateral),
+        t: py(stats.avgDistanceOffset + stats.cone68.distance),
+        b: py(stats.avgDistanceOffset - stats.cone68.distance),
+        acrossX: clamp(px(stats.avgLateralOffset), LEFT + 48, LEFT + area - 48),
+        deepY: clamp(py(stats.avgDistanceOffset), TOP + 14, TOP + area - 16),
+        across: `±${Math.round(stats.cone68.lateral / unitYd)}`,
+        deep: `±${Math.round(stats.cone68.distance / unitYd)}`,
+      }
+    : null
   const hotD = hot ? visible.find((d) => d.p.id === hot) : null
 
   return (
@@ -94,12 +114,22 @@ export function AimPlot(props: ChartProps) {
       <SvgText x={LEFT + 4} y={cy - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>← left</SvgText>
       <SvgText x={LEFT + area - 4} y={cy - 5} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>right →</SvgText>
       <SvgText x={cx} y={TOP + area + BOTTOM - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${label(ruleStep)} ${props.unitWord}`}</SvgText>
-      <ChartLegend y={ly} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} />
+      <ChartLegend y={ly} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} pencil />
 
       <Fade on={layers.rings}>
         {ghost && <TweenRing ring={ringPx(ghost.stats.ring68)} fill="none" stroke={P.inkDim} strokeOpacity={0.75} strokeWidth={1} dash="1,3" />}
-        {stats && <TweenRing ring={ringPx(stats.ring95)} fill="rgba(31,61,44,0.035)" stroke={P.forest} strokeOpacity={0.7} strokeWidth={1} dash="4,3" />}
-        {stats && <TweenRing ring={ringPx(stats.ring68)} fill="rgba(31,61,44,0.07)" stroke={P.forest} strokeWidth={1.3} />}
+        {/* Only the 68% ring, in pencil; it draws itself again when the club
+            changes. The 95% figure is in the numbers below the chart. */}
+        {stats && <PencilRing ring={ringPx(stats.ring68)} />}
+        {bracket && (
+          <>
+            <Path d={`M${bracket.l} ${TOP + area + 22}v5H${bracket.r}v-5`} stroke={P.ink} strokeOpacity={0.72} strokeWidth={1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d={`M${LEFT + area + 4} ${bracket.t}h5V${bracket.b}h-5`} stroke={P.ink} strokeOpacity={0.72} strokeWidth={1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <SvgText x={bracket.acrossX} y={TOP + area + 43} textAnchor="middle" fontFamily={FONT.hand} fontSize={14} fill={P.ink}>{`${bracket.across} ${props.unitWord} across`}</SvgText>
+            <SvgText x={LEFT + area + 13} y={bracket.deepY - 2} fontFamily={FONT.hand} fontSize={14} fill={P.ink}>{bracket.deep}</SvgText>
+            <SvgText x={LEFT + area + 13} y={bracket.deepY + 14} fontFamily={FONT.hand} fontSize={14} fill={P.ink}>deep</SvgText>
+          </>
+        )}
       </Fade>
       <Fade on={layers.shots} key={`dots-${points.length}-${points[0]?.id ?? ''}`} enter duration={200}>
         {groupBy(styled).map(([key, items]) => (

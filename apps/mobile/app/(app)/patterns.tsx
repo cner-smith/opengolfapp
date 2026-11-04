@@ -379,7 +379,7 @@ export default function Patterns() {
   const caption = [
     view === 'aim'
       ? stats && layers.rings
-        ? `Your next ${noun} will probably finish inside the solid ring.`
+        ? `Your next ${noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
         : ''
       : 'Lines leave on your recorded start line and bend by your recorded shape.',
     view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',

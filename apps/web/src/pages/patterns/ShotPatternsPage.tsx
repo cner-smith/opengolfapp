@@ -551,7 +551,13 @@ function chartCaption(a: {
     if (neither) parts.push(`${neither} dashed ${neither === 1 ? 'line has' : 'lines have'} nothing recorded.`)
     if (a.conflicts) parts.push(`${a.conflicts} shot${a.conflicts === 1 ? ' doesn’t' : 's don’t'} add up: the second half is dashed. Select one to see why.`)
   }
-  if (a.stats && a.shownLayers.rings) parts.push(`Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`)
+  if (a.stats && a.shownLayers.rings) {
+    parts.push(
+      a.view === 'aim'
+        ? `Your next ${a.noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
+        : `Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`,
+    )
+  }
   if (a.ghost && a.shownLayers.rings) parts.push(a.recentOn ? `The dotted ring is all of them, and the pencil dots the older shots.` : 'The dotted ring is your pattern from every lie.')
   if (a.hiddenWords.length) {
     parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)

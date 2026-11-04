@@ -21,6 +21,7 @@ import {
   OlderDots,
   PAPER,
   Pennant,
+  PencilRing,
   RULE,
   RULE_MAJOR,
   Readout,
@@ -46,8 +47,11 @@ import {
 // like a yardage book. The aim is the cross of the two heavy rules.
 
 const TOP = 12
-const RIGHT = 12
-const BOTTOM = 36
+// The right margin and the strip under the grid hold the pencil brackets for
+// the ring's depth and width.
+const RIGHT = 44
+const BOTTOM = 66
+const HAND = 'Kalam, cursive'
 
 /** The grid: a half-width in yards that holds every shot and both rings (so a
  *  toggle never rescales the chart), ruled every 5 or 10 of the player's unit. */
@@ -94,7 +98,7 @@ export function AimPlot(props: ChartProps) {
   const cy = TOP + AREA / 2
   const px = (lat: number) => cx + lat * scale
   const py = (d: number) => cy - d * scale
-  const labelEvery = stepYd * scale >= 18 ? 1 : 2
+  const labelEvery = stepYd * scale >= 19 ? 1 : 2
   const rules: number[] = []
   for (let k = -Math.round(halfDisp / step); k <= Math.round(halfDisp / step); k++) rules.push(k)
   const bounds: Box = { x: LEFT + 2, y: TOP + 2, w: AREA - 4, h: AREA - 4 }
@@ -104,14 +108,22 @@ export function AimPlot(props: ChartProps) {
   const order = useMemo(() => visible.map((d) => d.p).sort(byDistance).map((p) => p.id), [visible])
   const nav = useShotNav(svgRef, order, props.onOpenShot)
 
-  // Rings and the average glide when the club or the filters change.
-  const zero: ScreenRing = { cx, cy, rx: 0, ry: 0, rot: 0 }
-  const r68 = stats ? screenRing(stats.ring68, px, py, scale) : zero
-  const r95 = stats ? screenRing(stats.ring95, px, py, scale) : zero
+  // The average and the brackets glide when the club or the filters change;
+  // the pencil ring draws itself again in its new place. Only the 68% ring is
+  // drawn (the 95% figure is in the numbers beside the chart). The brackets
+  // span the average ± the 68% half-width and half-depth, which is exactly
+  // the upright box round the tilted ring.
+  const r68: ScreenRing | null = stats ? screenRing(stats.ring68, px, py, scale) : null
   const avg = stats ? { x: px(stats.avgLateralOffset), y: py(stats.avgDistanceOffset) } : { x: cx, y: cy }
-  const tw = useTween([r68.cx, r68.cy, r68.rx, r68.ry, r68.rot, r95.cx, r95.cy, r95.rx, r95.ry, r95.rot, avg.x, avg.y])
-  const t68: ScreenRing = { cx: tw[0]!, cy: tw[1]!, rx: tw[2]!, ry: tw[3]!, rot: tw[4]! }
-  const t95: ScreenRing = { cx: tw[5]!, cy: tw[6]!, rx: tw[7]!, ry: tw[8]!, rot: tw[9]! }
+  const span = stats
+    ? [px(stats.avgLateralOffset - stats.cone68.lateral), px(stats.avgLateralOffset + stats.cone68.lateral), py(stats.avgDistanceOffset + stats.cone68.distance), py(stats.avgDistanceOffset - stats.cone68.distance)]
+    : [cx, cx, cy, cy]
+  const tw = useTween([avg.x, avg.y, ...span])
+  const [bL, bR, bT, bB] = [tw[2]!, tw[3]!, tw[4]!, tw[5]!]
+  const plusMinus = (yd: number) => `±${Math.round(yd * grid.u)}`
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+  const acrossX = clamp((bL + bR) / 2, LEFT + 48, LEFT + AREA - 48)
+  const deepY = clamp((bT + bB) / 2, TOP + 14, TOP + AREA - 16)
   const ghostRing = ghost ? screenRing(ghost.stats.ring68, px, py, scale) : null
 
   // Labels: the aim first, then the inner ring, the outer ring, the ghost, the average.
@@ -170,21 +182,27 @@ export function AimPlot(props: ChartProps) {
         <text x={cx} y={ly - 4} textAnchor="middle" fontFamily={SANS} fontSize={12} fill={DIM}>
           {`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${step} ${unitWord(unit)}`}
         </text>
-        <ChartLegend x={LEFT} y={ly} ring68={stats && layers.rings ? `68% of shots (${inside} of ${points.length})` : null} />
+        <ChartLegend x={LEFT} y={ly} ring68={stats && layers.rings ? `68% of shots (${inside} of ${points.length})` : null} pencil />
       </g>
 
       <g aria-hidden style={fade(layers.rings)}>
         {ghostRing && <RingMark r={ghostRing} ghost />}
+        {r68 && <PencilRing r={r68} />}
         {stats && (
-          <>
-            <RingMark r={t95} outer />
-            <RingMark r={t68} />
-          </>
+          <g stroke={INK} strokeOpacity={0.72} strokeWidth={1} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d={`M${bL} ${TOP + AREA + 24}v5H${bR}v-5`} />
+            <path d={`M${LEFT + AREA + 4} ${bT}h5V${bB}h-5`} />
+            <g fontFamily={HAND} fontSize={14} fill={INK} stroke="none">
+              <text x={acrossX} y={TOP + AREA + 46} textAnchor="middle">{`${plusMinus(stats.cone68.lateral)} ${unitWord(unit)} across`}</text>
+              <text x={LEFT + AREA + 13} y={deepY - 2}>{plusMinus(stats.cone68.distance)}</text>
+              <text x={LEFT + AREA + 13} y={deepY + 14}>deep</text>
+            </g>
+          </g>
         )}
       </g>
       {stats && (
         <g aria-hidden style={fade(layers.average)}>
-          <line x1={cx} y1={cy} x2={tw[10]} y2={tw[11]} stroke={dense ? FOREST : INK} strokeWidth={dense ? 1.4 : 1} strokeDasharray="3 3" />
+          <line x1={cx} y1={cy} x2={tw[0]} y2={tw[1]} stroke={dense ? FOREST : INK} strokeWidth={dense ? 1.4 : 1} strokeDasharray="3 3" />
         </g>
       )}
 
@@ -207,7 +225,7 @@ export function AimPlot(props: ChartProps) {
 
       {stats && (
         <g aria-hidden style={fade(layers.average)}>
-          <circle cx={tw[10]} cy={tw[11]} r={5.5} fill={PAPER} stroke={FOREST} strokeWidth={1.8} />
+          <circle cx={tw[0]} cy={tw[1]} r={5.5} fill={PAPER} stroke={FOREST} strokeWidth={1.8} />
         </g>
       )}
       <g aria-hidden>
