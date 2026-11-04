@@ -24,7 +24,8 @@ import { supabase } from './crawl/client'
 import { courseHasUserData, mergeAndDeletePhantom } from './crawl/db-writer'
 
 const apply = process.argv.includes('--apply')
-const host = new URL(process.env.SUPABASE_URL ?? '').host
+if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is not set (DOTENV_CONFIG_PATH?)')
+const host = new URL(process.env.SUPABASE_URL).host
 const PAGE = 1000
 
 type Course = {
@@ -38,6 +39,7 @@ const isOsm = (c: Course) => (c.external_id ?? '').startsWith('osm_')
 
 async function pagedSelect<T>(table: string, cols: string, filter?: (q: any) => any): Promise<T[]> {
   const out: T[] = []
+  // `any`:  the PostgREST builder's generic type isn't worth spelling out for a one-off
   for (let from = 0; ; from += PAGE) {
     let q = supabase
       .from(table)
@@ -105,6 +107,12 @@ async function main() {
     }
     const keeper = osm[0]
     for (const copy of rows.filter((c) => c !== keeper)) {
+      // Same pins in two states = the importer gave one course's holes to another.
+      if (copy.state && keeper.state && copy.state !== keeper.state) {
+        skipped++
+        console.log(`SKIP  ${label(copy)}\n        state differs from keeper ${label(keeper)}`)
+        continue
+      }
       if (await courseHasUserData(copy.id)) {
         skipped++
         console.log(`SKIP  ${label(copy)}\n        has rounds/hole scores; keeper ${label(keeper)}`)
@@ -117,7 +125,7 @@ async function main() {
 
   console.log(
     `\n${groups.length} groups, ${ids.length} courses: ${plan.length} to merge, ` +
-      `${skipped} skipped (user data), ${flagged} groups flagged`,
+      `${skipped} skipped (user data or state), ${flagged} groups flagged`,
   )
   if (!apply || plan.length === 0) return
 
@@ -133,8 +141,16 @@ async function main() {
   const file = `docs/internal/data-repair/${new Date().toISOString().slice(0, 10)}-1369-same-pin-courses.json`
   writeFileSync(file, JSON.stringify(backup, null, 1))
   console.log(`backup → ${file}`)
-  for (const { keeper, copy } of plan) await mergeAndDeletePhantom(copy.id, keeper.id)
-  console.log(`merged ${plan.length}`)
+  let merged = 0
+  for (const { keeper, copy } of plan) {
+    try {
+      await mergeAndDeletePhantom(copy.id, keeper.id)
+      merged++
+    } catch (e) {
+      console.error(`FAILED ${copy.id} → ${keeper.id}: ${(e as Error).message}`)
+    }
+  }
+  console.log(`merged ${merged} of ${plan.length}`)
 }
 
 main().catch((e) => {
