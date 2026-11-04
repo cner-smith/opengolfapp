@@ -8,6 +8,7 @@ import {
   distanceText,
   distanceUnitAbbr,
   findingLine,
+  puttMissHeadline,
   mostlyTeeShots,
   readQuality,
   recordedNote,
@@ -18,6 +19,7 @@ import {
   wholeDistance,
   type ShotExtras,
 } from './shot-pattern-words'
+import type { PuttMissCounts, PuttMissTally } from './shot-patterns'
 import { SHOT_SHAPE_LABELS, SHOT_START_LINE_LABELS } from './constants'
 import { computeDispersionStats, shapeTally, startLineTally, type DispersionPoint } from './shot-patterns'
 
@@ -256,5 +258,52 @@ describe('capFirst / distanceUnitAbbr', () => {
   it('names the unit the player reads distances in', () => {
     expect(distanceUnitAbbr('yards')).toBe('yd')
     expect(distanceUnitAbbr('meters')).toBe('m')
+  })
+})
+
+describe('puttMissHeadline', () => {
+  const counts = (short: number, long: number, left: number, right: number, sl = 0, sr = 0, ll = 0, lr = 0): PuttMissCounts => ({
+    misses: Math.max(short + long, left + right),
+    short,
+    long,
+    left,
+    right,
+    corners: { shortLeft: sl, shortRight: sr, longLeft: ll, longRight: lr },
+    onLine: { short: 0, long: 0 },
+  })
+  // The #747 mock: 40 misses, 24 short, 16 long, 13 left, 21 right; corners 8/13/5/8.
+  const mock: PuttMissTally = {
+    ...counts(24, 16, 13, 21, 8, 13, 5, 8),
+    bands: { inside6: counts(5, 7, 3, 7), mid: counts(10, 6, 5, 9), outside15: counts(9, 3, 5, 5) },
+  }
+
+  it('says the commonest corner (A)', () => {
+    expect(puttMissHeadline(mock, 'corners')).toBe('Your missed putts finish short and right most often: 13 of 40.')
+  })
+
+  it('says both axes (B)', () => {
+    expect(puttMissHeadline(mock, 'bars')).toBe('Your missed putts finish short: 24 of 40. Sideways, they go right more than left.')
+  })
+
+  it('leads with the most lopsided band and names one leaning the other way (C)', () => {
+    // 15 and out: 9 of 12 short (75%) beats 6–15 (10 of 16, 62.5%); inside 6 leans long (7 of 12).
+    expect(puttMissHeadline(mock, 'length')).toBe('From 15 ft and out, your misses finish short: 9 of 12. Inside 6 ft they go long.')
+  })
+
+  it('skips bands under 8 misses and falls back to the All sentence', () => {
+    const thin: PuttMissTally = {
+      ...counts(7, 3, 2, 2),
+      bands: { inside6: counts(0, 3, 0, 0), mid: counts(0, 0, 0, 0), outside15: counts(7, 0, 2, 2) },
+    }
+    expect(puttMissHeadline(thin, 'length')).toBe('Your missed putts finish short: 7 of 10. Sideways, they split evenly.')
+  })
+
+  it('handles ties and no misses', () => {
+    const even: PuttMissTally = { ...counts(4, 4, 0, 0, 0, 0, 0, 0), bands: mock.bands }
+    expect(puttMissHeadline(even, 'bars')).toBe('Your missed putts finish short as often as long.')
+    const twoCorners: PuttMissTally = { ...counts(4, 4, 4, 4, 2, 2, 2, 2), bands: mock.bands }
+    expect(puttMissHeadline(twoCorners, 'corners')).toBe('Your missed putts spread across the corners.')
+    const none: PuttMissTally = { ...counts(0, 0, 0, 0), bands: { inside6: counts(0, 0, 0, 0), mid: counts(0, 0, 0, 0), outside15: counts(0, 0, 0, 0) } }
+    expect(puttMissHeadline(none, 'length')).toBeNull()
   })
 })

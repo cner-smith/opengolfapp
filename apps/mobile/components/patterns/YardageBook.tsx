@@ -9,7 +9,7 @@ import { FONT_CAP, P } from '../paper/tokens'
 // Shot Patterns drawn like a yardage book: the club row as a gapping chart and
 // the two chart tabs. The charts are in AimPlot.tsx and TeePlot.tsx.
 
-const short = (c: Club) => (c === 'driver' ? 'dr' : c)
+const short = (c: Club) => (c === 'driver' ? 'dr' : c === 'putter' ? 'Putter' : c)
 
 // The club row as a printed gapping chart: club over its typical distance, or
 // how far it is from a pattern, with the gap to the next club printed on the
@@ -25,6 +25,7 @@ export function ClubLadder({
   aimed,
   unitWords,
   width,
+  missedPutts,
 }: {
   clubs: readonly Club[]
   value: Club
@@ -33,6 +34,8 @@ export function ClubLadder({
   aimed: (c: Club) => number
   unitWords: string
   width: number
+  /** The Putter stop's number: missed putts with a result (#747). */
+  missedPutts?: number | null
 }) {
   const row = useRef<ScrollView>(null)
   const scrollX = useRef(0)
@@ -61,10 +64,14 @@ export function ClubLadder({
     >
       {clubs.map((c, j) => {
         const on = c === value
-        const t = typical(c)
-        const n = aimed(c)
-        const prev = j > 0 ? typical(clubs[j - 1]!) : null
-        const a11y = t != null ? `${clubNoun(c)}, ${t} ${unitWords}` : n > 0 ? `${clubNoun(c)}, ${n} of ${MIN_SAMPLES_FOR_STATS} aimed shots` : `${clubNoun(c)}, no aimed shots yet`
+        const putter = c === 'putter'
+        // The putter's number is its missed putts, not a distance.
+        const t = putter ? missedPutts ?? null : typical(c)
+        const n = putter ? 0 : aimed(c)
+        const prev = j > 0 && !putter ? typical(clubs[j - 1]!) : null
+        const a11y = putter
+          ? `Putter, ${missedPutts ?? 0} missed putt${missedPutts === 1 ? '' : 's'} with a result`
+          : t != null ? `${clubNoun(c)}, ${t} ${unitWords}` : n > 0 ? `${clubNoun(c)}, ${n} of ${MIN_SAMPLES_FOR_STATS} aimed shots` : `${clubNoun(c)}, no aimed shots yet`
         return (
           <PressableTouch
             key={c}

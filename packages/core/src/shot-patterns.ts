@@ -637,3 +637,83 @@ export function dispersionVerdict(stats: DispersionStats): string {
   if (shape === 'straight') return `Straight, missing ${dominantMiss}`
   return `A ${shape} that leaks ${dominantMiss}`
 }
+
+// ── Missed putts (#747) ─────────────────────────────────────────────────────
+
+/** Putt length bands, by the stored putt length (distance to the pin). */
+export type PuttBand = 'inside6' | 'mid' | 'outside15'
+export const PUTT_BANDS: readonly { band: PuttBand; label: string }[] = [
+  { band: 'inside6', label: 'Inside 6 ft' },
+  { band: 'mid', label: '6–15 ft' },
+  { band: 'outside15', label: '15 ft and out' },
+]
+/** A length band with fewer misses shows its counts and no bar. */
+export const MIN_PUTT_MISSES_FOR_BAR = 8
+
+export interface PuttMissCounts {
+  /** Putts that missed with at least one recorded axis. */
+  misses: number
+  short: number
+  long: number
+  left: number
+  right: number
+  /** Misses with both axes recorded. */
+  corners: { shortLeft: number; shortRight: number; longLeft: number; longRight: number }
+  /** Short or long with no side: missed on line. */
+  onLine: { short: number; long: number }
+}
+
+export interface PuttMissTally extends PuttMissCounts {
+  /** Misses with a stored length only; a miss without one counts in the totals alone. */
+  bands: Record<PuttBand, PuttMissCounts>
+}
+
+type PuttMissInput = Pick<Shot, 'puttMade' | 'puttDistanceResult' | 'puttDirectionResult' | 'puttDistanceFt'>
+
+function emptyPuttCounts(): PuttMissCounts {
+  return {
+    misses: 0,
+    short: 0,
+    long: 0,
+    left: 0,
+    right: 0,
+    corners: { shortLeft: 0, shortRight: 0, longLeft: 0, longRight: 0 },
+    onLine: { short: 0, long: 0 },
+  }
+}
+
+function addPuttMiss(c: PuttMissCounts, distance: 'short' | 'long' | undefined, side: 'left' | 'right' | undefined) {
+  c.misses++
+  if (distance) c[distance]++
+  if (side) c[side]++
+  if (distance && side) {
+    const key = `${distance}${side === 'left' ? 'Left' : 'Right'}` as keyof PuttMissCounts['corners']
+    c.corners[key]++
+  } else if (distance) c.onLine[distance]++
+}
+
+/** Short/long and left/right of every missed putt, in all and by length band.
+ *  A holed putt is not a miss; a putt with neither axis recorded is skipped. */
+export function puttMissTally(putts: readonly PuttMissInput[]): PuttMissTally {
+  const all = emptyPuttCounts()
+  const bands: Record<PuttBand, PuttMissCounts> = { inside6: emptyPuttCounts(), mid: emptyPuttCounts(), outside15: emptyPuttCounts() }
+  for (const p of putts) {
+    if (p.puttMade) continue
+    const distance = p.puttDistanceResult ?? undefined
+    const side = p.puttDirectionResult ?? undefined
+    if (!distance && !side) continue
+    addPuttMiss(all, distance, side)
+    const ft = p.puttDistanceFt
+    if (ft == null) continue
+    addPuttMiss(bands[ft < 6 ? 'inside6' : ft < 15 ? 'mid' : 'outside15'], distance, side)
+  }
+  return { ...all, bands }
+}
+
+/** The corner with the most misses, or null when none has any or two tie for the top. */
+export function topPuttCorner(c: PuttMissCounts): { corner: keyof PuttMissCounts['corners']; count: number } | null {
+  const ranked = (Object.entries(c.corners) as [keyof PuttMissCounts['corners'], number][]).sort((a, b) => b[1] - a[1])
+  const [top, next] = ranked
+  if (!top || top[1] === 0 || top[1] === next![1]) return null
+  return { corner: top[0], count: top[1] }
+}
