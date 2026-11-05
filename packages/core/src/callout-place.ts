@@ -80,3 +80,23 @@ export function placeCallout(q: CalloutInput): CalloutPlacement {
   const foot: ScreenPt = [a[0] + Math.cos(ang) * RING, a[1] + Math.sin(ang) * RING]
   return { bx, by, foot, head }
 }
+
+const TAG_GAP = 14
+const TAG_EDGE = 8
+
+// The plan map's aim tag (#1336): beside the selected shot's aim point,
+// right of it by default, flipped left at the map's right edge, and held
+// inside the map. No staff, so it never jumps between candidates mid-drag.
+export function placeAimTag(q: {
+  anchor: ScreenPt
+  box: { w: number; h: number }
+  size: { w: number; h: number }
+}): { x: number; y: number } {
+  const [ax, ay] = q.anchor
+  const { w, h } = q.box
+  let x = ax + TAG_GAP
+  if (x + w > q.size.w - TAG_EDGE) x = ax - TAG_GAP - w
+  x = Math.max(TAG_EDGE, Math.min(q.size.w - TAG_EDGE - w, x))
+  const y = Math.max(TAG_EDGE, Math.min(q.size.h - TAG_EDGE - h, ay - h / 2))
+  return { x, y }
+}

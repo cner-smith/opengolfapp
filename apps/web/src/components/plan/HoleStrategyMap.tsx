@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { coneRingGeoJSON, scatterGeoJSON, type GeoPoint } from '@oga/core'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { coneRingGeoJSON, placeAimTag, scatterGeoJSON, type GeoPoint } from '@oga/core'
 import { mapboxgl, MAPBOX_TOKEN_PRESENT, createMap, fitHoleUpward } from '../../lib/mapbox'
 import type { ClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 
@@ -15,6 +15,10 @@ export interface HoleStrategyMapProps {
   legs: Leg[]
   focusedLeg: number
   onAimChange: (legIndex: number, aim: GeoPoint) => void
+  /** Fires on every move of an aim drag; onAimChange still fires on drop. */
+  onAimDrag: (legIndex: number, aim: GeoPoint) => void
+  /** Paper tag that rides the focused leg's aim point (#1336). */
+  tag: ReactNode
 }
 
 // Fresh map for the course planner — deliberately NOT built on top of
@@ -119,6 +123,8 @@ export default function HoleStrategyMap({
   legs,
   focusedLeg,
   onAimChange,
+  onAimDrag,
+  tag,
 }: HoleStrategyMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -133,6 +139,29 @@ export default function HoleStrategyMap({
   // max so the render effect can tear those orphans down. (Per-leg aim
   // markers don't need this — every render clears and rebuilds all markers.)
   const renderedLegCountRef = useRef(0)
+  // The tag is a plain div over the map, moved by hand on every camera move
+  // and aim drag so placeAimTag can flip and clamp it at the map's edges.
+  const tagRef = useRef<HTMLDivElement>(null)
+  const tagAtRef = useRef<GeoPoint | null>(null)
+  const placeTagRef = useRef(() => {
+    const map = mapRef.current
+    const el = tagRef.current
+    const at = tagAtRef.current
+    if (!el) return
+    const c = map?.getContainer()
+    const p = map && at ? map.project([at.lng, at.lat]) : null
+    const onMap = c && p && p.x >= 0 && p.y >= 0 && p.x <= c.clientWidth && p.y <= c.clientHeight
+    el.style.display = onMap ? '' : 'none'
+    if (!onMap) return
+    const { x, y } = placeAimTag({
+      anchor: [p.x, p.y],
+      box: { w: el.offsetWidth, h: el.offsetHeight },
+      size: { w: c.clientWidth, h: c.clientHeight },
+    })
+    el.style.transform = `translate(${x}px, ${y}px)`
+  })
+  // The tag's text changes size with the numbers: re-place after each render.
+  useLayoutEffect(() => placeTagRef.current())
 
   // Init the map once, at a neutral world view — matches RoundMap's pattern
   // (apps/web/src/components/round/RoundMap.tsx): style loads async, camera
@@ -161,6 +190,8 @@ export default function HoleStrategyMap({
       'bottom-right',
     )
     map.on('load', () => setMapLoaded(true))
+    map.on('move', placeTagRef.current)
+    map.on('resize', placeTagRef.current)
     mapRef.current = map
     return () => {
       for (const m of markersRef.current) m.remove()
@@ -210,6 +241,8 @@ export default function HoleStrategyMap({
         }
       }
       renderedLegCountRef.current = legs.length
+      tagAtRef.current = legs[focusedLeg]?.aim ?? null
+      placeTagRef.current()
 
       markersRef.current.push(
         new mapboxgl.Marker({ element: makeTeeDotEl() })
@@ -287,6 +320,14 @@ export default function HoleStrategyMap({
         })
           .setLngLat([leg.aim.lng, leg.aim.lat])
           .addTo(map)
+        aimMarker.on('drag', () => {
+          const ll = aimMarker.getLngLat()
+          if (focused) {
+            tagAtRef.current = { lat: ll.lat, lng: ll.lng }
+            placeTagRef.current()
+          }
+          onAimDrag(index, { lat: ll.lat, lng: ll.lng })
+        })
         aimMarker.on('dragend', () => {
           const ll = aimMarker.getLngLat()
           onAimChange(index, { lat: ll.lat, lng: ll.lng })
@@ -324,7 +365,7 @@ export default function HoleStrategyMap({
       return
     }
     render()
-  }, [legs, focusedLeg, tee, pin, onAimChange])
+  }, [legs, focusedLeg, tee, pin, onAimChange, onAimDrag])
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
@@ -336,6 +377,27 @@ export default function HoleStrategyMap({
           background: '#1C211C',
         }}
       />
+      {tag && (
+        <div
+          ref={tagRef}
+          className="text-caddie-ink"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            zIndex: 2,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            background: '#FBF8F1',
+            border: '1px solid #1C211C',
+            borderRadius: 3,
+            boxShadow: '2px 2px 0 rgba(28,33,28,.55)',
+            padding: '5px 8px',
+          }}
+        >
+          {tag}
+        </div>
+      )}
       {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
         // One message for a missing token and a runtime failure (owner,
         // 2026-11-02). lib/mapbox logs both.
