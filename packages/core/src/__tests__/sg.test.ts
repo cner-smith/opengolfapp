@@ -241,6 +241,7 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
     return {
       id: overrides.id ?? 'h1',
       course_id: overrides.course_id ?? 'c',
+      loop_of: null,
       number: overrides.number ?? 1,
       par: overrides.par ?? 4,
       par_source: overrides.par_source ?? null,
