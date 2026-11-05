@@ -131,15 +131,7 @@ onFlowComplete:
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: rc-08-share-sheet
-# Open the image in Preview to see the share card full size, then relaunch to leave the sheet.
-- runFlow:
-    when:
-      visible: "Preview"
-    commands:
-      - tapOn: "Preview"
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - takeScreenshot: rc-08b-share-card-preview
+# Relaunch to leave the share sheet.
 - launchApp
 - extendedWaitUntil:
     visible: "Skip splash|Log past round|Skip intro tour|Shot patterns"
@@ -176,7 +168,13 @@ onFlowComplete:
     timeout: 30000
 - waitForAnimationToEnd:
     timeout: 4000
-- takeScreenshot: rc-09-putter-corners
+- takeScreenshot: rc-09-putter-default
+- runFlow:
+    when:
+      visible: "Corners"
+    commands:
+      - tapOn: "Corners"
+      - takeScreenshot: rc-09b-putter-corners
 - runFlow:
     when:
       visible: "Bars"
@@ -197,6 +195,7 @@ onFlowComplete:
     direction: DOWN
     centerElement: true
     timeout: 20000
+- takeScreenshot: rc-12a-home-before-round
 - tapOn: "Open round at .*"
 - extendedWaitUntil:
     visible: "Map|Skip tips"

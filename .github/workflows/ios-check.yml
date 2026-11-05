@@ -231,8 +231,18 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/shots"
           xcrun simctl location "$UDID" set 43.849856,-87.734575
+          rc=0
           maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
-            "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-release-check.yaml"
+            "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-release-check.yaml" || rc=$?
+          if [ "$rc" != 0 ]; then
+            # Failure screenshots (PNG only) from this run, once it got past sign-in; never the log.
+            for dir in "$HOME"/.maestro/tests/*/; do
+              [ -e "${dir}rc-00-signed-in.png" ] || continue
+              find "$dir" -name 'step-*.png' -exec sh -c 'cp -n "$1" "$RUNNER_TEMP/shots/rc-fail-$(basename "$1")"' _ {} \;
+            done
+            echo "crash reports:"; ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i -E 'oga|golf' || echo none
+          fi
+          exit "$rc"
 
       # Maestro 2.11 saves takeScreenshot files (and failure screenshots, named step-*) under
       # ~/.maestro/tests/<run>/, next to maestro.log, which contains the typed password. Copy ONLY PNGs, and
