@@ -35,8 +35,8 @@ All values live in `tokens.css` and `tokens.json`. Highlights:
 
 ### Type
 - **Serif:** Fraunces (or GT Sectra) — for ALL display, headlines, ledes, and any number that represents a quantity (score, handicap, distance). Use Italic 500 for headlines.
-- **Sans:** Inter — for UI controls (buttons, inputs, navigation, table data).
-- **Mono:** JetBrains Mono — for kickers (uppercase, 10px, `letter-spacing: 0.14em`) and timestamp/coordinate metadata only.
+- **Sans:** Epilogue — for UI controls (buttons, inputs, navigation, table data).
+- **Mono:** Inconsolata — for kickers (uppercase, 10px, `letter-spacing: 0.14em`) and timestamp/coordinate metadata only.
 
 ### Type scale
 | Token | px | Family | Use |
