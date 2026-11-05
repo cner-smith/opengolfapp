@@ -1,4 +1,4 @@
-import { formatSG, formatBandLabel, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
+import { formatSG, formatBandLabel, sparkPoints, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import { useCountUp } from '../../../hooks/useCountUp'
 import { fmtPct } from '../format'
@@ -66,10 +66,13 @@ export function StatTile({
   label,
   value,
   subtle,
+  spark,
 }: {
   label: string
   value: string
   subtle?: string
+  /** Per-round values, oldest → newest (#1354); empty draws nothing. */
+  spark?: number[]
 }) {
   return (
     <div className="paper-tile" style={{ padding: '16px 18px' }}>
@@ -84,6 +87,54 @@ export function StatTile({
           {subtle}
         </div>
       )}
+      {spark && spark.length > 0 && <Sparkline values={spark} />}
+    </div>
+  )
+}
+
+// The last rounds under a tile's number: no axis, a dot and the exact value
+// on the latest round, no trend words (#1354).
+const SPARK_W = 100
+const SPARK_H = 22
+
+function Sparkline({ values }: { values: number[] }) {
+  const pts = sparkPoints(values, SPARK_W, SPARK_H)
+  const last = pts[pts.length - 1]!
+  const latest = Math.round(values[values.length - 1]!)
+  return (
+    <div
+      role="img"
+      aria-label={`Last ${values.length} rounds: ${values.map((v) => Math.round(v)).join(', ')}. Latest ${latest}.`}
+      className="flex items-center"
+      style={{ gap: 8, marginTop: 10 }}
+    >
+      <div style={{ position: 'relative', flex: 1, minWidth: 0, height: SPARK_H + 6 }}>
+        <svg
+          viewBox={`0 -3 ${SPARK_W} ${SPARK_H + 6}`}
+          preserveAspectRatio="none"
+          aria-hidden
+          style={{ display: 'block', width: '100%', height: '100%', overflow: 'visible' }}
+        >
+          <polyline
+            points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#5C6356"
+            strokeWidth={1.25}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div
+          style={{ position: 'absolute', right: -3, top: last.y, width: 6, height: 6, borderRadius: 3, background: '#1C211C' }}
+        />
+      </div>
+      <span
+        aria-hidden
+        className="font-serif tabular text-caddie-ink"
+        style={{ fontSize: 13, lineHeight: 1, minWidth: 18, position: 'relative', top: last.y - SPARK_H / 2 }}
+      >
+        {latest}
+      </span>
     </div>
   )
 }

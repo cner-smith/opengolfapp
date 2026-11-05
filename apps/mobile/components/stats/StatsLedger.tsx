@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Text, View } from 'react-native'
-import { formatBandLabel, formatSG, type ApproachBandStat } from '@oga/core'
+import Svg, { Circle, Polyline } from 'react-native-svg'
+import { formatBandLabel, formatSG, sparkPoints, type ApproachBandStat } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
@@ -68,6 +70,47 @@ export function ApproachBandRow({ band, max }: { band: ApproachBandStat; max: nu
           />
         )}
       </View>
+    </View>
+  )
+}
+
+// The last rounds under a headline tile's number (#1354): no axis, a dot and
+// the exact value on the latest round, no trend words. Empty draws nothing.
+const SPARK_H = 20
+const DOT = 2.5
+
+export function Sparkline({ values }: { values: number[] }) {
+  const [w, setW] = useState(0)
+  if (values.length === 0) return null
+  const pts = w > 0 ? sparkPoints(values, w - DOT, SPARK_H) : []
+  const last = pts[pts.length - 1]
+  const latest = Math.round(values[values.length - 1]!)
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Last ${values.length} rounds: ${values.map((v) => Math.round(v)).join(', ')}. Latest ${latest}.`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}
+    >
+      <View style={{ flex: 1, height: SPARK_H + DOT * 2 }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+        {last && (
+          <Svg width={w} height={SPARK_H + DOT * 2}>
+            <Polyline
+              points={pts.map((p) => `${p.x},${p.y + DOT}`).join(' ')}
+              fill="none"
+              stroke={P.inkDim}
+              strokeWidth={1.25}
+              strokeLinejoin="round"
+            />
+            <Circle cx={last.x} cy={last.y + DOT} r={DOT} fill={P.ink} />
+          </Svg>
+        )}
+      </View>
+      <Text
+        maxFontSizeMultiplier={FONT_CAP}
+        style={[TYPE.serif, { color: P.ink, fontSize: 12, minWidth: 16, top: last ? last.y + DOT - (SPARK_H + DOT * 2) / 2 : 0 }]}
+      >
+        {latest}
+      </Text>
     </View>
   )
 }

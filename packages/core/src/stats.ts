@@ -673,6 +673,47 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
   }
 }
 
+// The four headline tiles' values round by round, oldest → newest, for a
+// sparkline under each number (#1354). Each point is the headline formula run
+// on one round, so the line and the number can't disagree. Whole rounds only
+// (a half round's putts would read as a great day); the last 10 rounds with
+// data; under 3 points the series is empty and no line is drawn.
+export interface StatSparklines {
+  fairwayPct: number[]
+  girPct: number[]
+  puttsPerRound: number[]
+  upAndDownPct: number[]
+}
+
+const SPARK_MAX = 10
+const SPARK_MIN = 3
+
+export function statSparklines(rounds: DetailedRound[]): StatSparklines {
+  const perRound = wholeRounds(rounds)
+    .reverse()
+    .map((r) => ({ b: ballStrikingStats([r]), s: shortGameStats([r]) }))
+  const series = (pick: (p: (typeof perRound)[number]) => number | null): number[] => {
+    const vs = perRound.map(pick).filter((v): v is number => v != null).slice(-SPARK_MAX)
+    return vs.length >= SPARK_MIN ? vs : []
+  }
+  return {
+    fairwayPct: series((p) => p.b.fairwayPct),
+    girPct: series((p) => p.b.girPct),
+    puttsPerRound: series((p) => p.s.puttsPerRound),
+    upAndDownPct: series((p) => p.s.upAndDownPct),
+  }
+}
+
+// A series laid into a w × h box, evenly spaced, the highest value at the
+// top (y = 0). No axis, so the line uses the series' own range; a flat
+// series sits on the middle line.
+export function sparkPoints(values: number[], w: number, h: number): { x: number; y: number }[] {
+  const lo = Math.min(...values)
+  const span = Math.max(...values) - lo
+  const step = values.length > 1 ? w / (values.length - 1) : 0
+  return values.map((v, i) => ({ x: i * step, y: span > 0 ? h - ((v - lo) / span) * h : h / 2 }))
+}
+
 // ---------------------------------------------------------------------------
 // Section 5: Patterns
 // ---------------------------------------------------------------------------
@@ -886,6 +927,7 @@ export interface DetailedStats {
   scoringDistribution: ReturnType<typeof scoringDistribution>
   ballStriking: BallStrikingStats
   shortGame: ShortGameStats
+  sparklines: StatSparklines
   missTendency: MissTendencyEntry[]
   costlyLies: CostlyLieEntry[]
   clubAccuracy: ClubAccuracyEntry[]
@@ -908,6 +950,7 @@ export function computeDetailedStats(
     scoringDistribution: scoringDistribution(rounds),
     ballStriking: ballStrikingStats(rounds),
     shortGame: shortGameStats(rounds),
+    sparklines: statSparklines(rounds),
     missTendency: missTendency(rounds),
     costlyLies: costlyLies(rounds),
     clubAccuracy: clubAccuracy(rounds),

@@ -35,7 +35,7 @@ import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
-import { ApproachBandRow, LedgerRow } from '../../components/stats/StatsLedger'
+import { ApproachBandRow, LedgerRow, Sparkline } from '../../components/stats/StatsLedger'
 import { ClubHistory } from '../../components/stats/ClubHistory'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -531,8 +531,8 @@ export default function Stats() {
               <Entrance index={3}>
               <Section title="Ball striking">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
-                  <StatTile style={TILE} label="Fairways hit" value={fmtPct(stats.ballStriking.fairwayPct)} />
-                  <StatTile style={TILE} label="Greens in regulation" value={fmtPct(stats.ballStriking.girPct)} />
+                  <StatTile style={TILE} label="Fairways hit" value={fmtPct(stats.ballStriking.fairwayPct)}><Sparkline values={stats.sparklines.fairwayPct} /></StatTile>
+                  <StatTile style={TILE} label="Greens in regulation" value={fmtPct(stats.ballStriking.girPct)}><Sparkline values={stats.sparklines.girPct} /></StatTile>
                 </View>
                 <LedgerRow
                   label="Drive"
@@ -551,8 +551,8 @@ export default function Stats() {
               <Entrance index={4}>
               <Section title="Short game">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
-                  <StatTile style={TILE} label="Putts a round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
-                  <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)} />
+                  <StatTile style={TILE} label="Putts a round" value={fmtNum(stats.shortGame.puttsPerRound, 1)}><Sparkline values={stats.sparklines.puttsPerRound} /></StatTile>
+                  <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)}><Sparkline values={stats.sparklines.upAndDownPct} /></StatTile>
                 </View>
                 <LedgerRow label="Putts per green hit" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
                 <LedgerRow label="Three-putts" value={fmtPct(stats.shortGame.threePuttPct)} />
