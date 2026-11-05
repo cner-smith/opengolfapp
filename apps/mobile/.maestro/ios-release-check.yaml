@@ -100,8 +100,8 @@ onFlowComplete:
 - scrollUntilVisible:
     element: "Club history"
     direction: DOWN
+    centerElement: true
     timeout: 30000
-- scroll
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: rc-04-stats-club-history
@@ -131,39 +131,45 @@ onFlowComplete:
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: rc-08-share-sheet
+# Open the image in Preview to see the share card full size, then relaunch to leave the sheet.
 - runFlow:
     when:
-      visible: "Share failed|Sharing unavailable"
+      visible: "Preview"
     commands:
-      - tapOn: "OK"
+      - tapOn: "Preview"
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - takeScreenshot: rc-08b-share-card-preview
+- launchApp
+- extendedWaitUntil:
+    visible: "Skip splash|Log past round|Skip intro tour|Shot patterns"
+    timeout: 60000
 - runFlow:
     when:
-      visible: "Close"
+      visible: "Skip splash"
     commands:
-      - tapOn: "Close"
+      - tapOn: "Skip splash"
 - runFlow:
     when:
-      notVisible: "Patterns.*"
+      visible: "Skip intro tour"
     commands:
-      - swipe:
-          direction: DOWN
-# Back to the top: the club ladder sits under the headline. Putter is its last stop.
-- swipe:
-    direction: DOWN
-- swipe:
-    direction: DOWN
-- swipe:
-    direction: DOWN
-- swipe:
-    from: ".*, [0-9]+ yards"
-    direction: LEFT
-- runFlow:
-    when:
+      - tapOn: "Skip intro tour"
+- tapOn: "Patterns.*"
+- extendedWaitUntil:
+    notVisible: "Loading.*"
+    timeout: 30000
+# The club ladder sits under the headline. Putter is its last stop.
+- repeat:
+    times: 6
+    while:
       notVisible: "Putter,.*"
     commands:
+      # The ladder row sits about 34% down under the 7-iron headline on an iPhone 16.
       - swipe:
-          from: ".*, [0-9]+ yards"
-          direction: LEFT
+          start: 90%, 34%
+          end: 10%, 34%
+          duration: 600
+- takeScreenshot: rc-09a-ladder-end
 - tapOn: "Putter,.*"
 - extendedWaitUntil:
     notVisible: "Loading.*"
