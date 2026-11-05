@@ -7,10 +7,16 @@ import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
 import { useAuth } from '../../../hooks/useAuth'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { markSeenFlags, seenFlags } from '../../../lib/seenFlags'
 import { logDiag } from '../../../lib/db'
 
 const AIM_HINT_KEY = 'oga.aim-hint-shown'
+// "Drag the ring to move your aim" (#950) runs through the first
+// AIM_DRAG_HINT_ROUNDS rounds on this device in which an aim was set. The key
+// holds those rounds' ids, so a resumed round keeps its hint.
+const AIM_DRAG_HINT_KEY = 'oga.aim-drag-hint-rounds-v1'
+const AIM_DRAG_HINT_ROUNDS = 3
 
 // Fraction of the straight ball→pin line where the aim auto-spawns when
 // the player enters SET_AIM without having dropped one yet. ~0.65 puts the
@@ -21,6 +27,7 @@ const AIM_HINT_KEY = 'oga.aim-hint-shown'
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
 interface UseHoleStateInput {
+  roundId: string | undefined
   currentHoleId: string | null | undefined
   currentHoleScoreId: string | null | undefined
   isPastMode: boolean
@@ -65,6 +72,8 @@ export interface UseHoleStateResult {
   lastSavedShotLocalIdRef: MutableRefObject<number | null>
   aimHintVisible: boolean
   setAimHintVisible: Dispatch<SetStateAction<boolean>>
+  /** This round is one of the player's first few with an aim (#950). */
+  aimDragHint: boolean
   nearPin: boolean
   /** True when the player has navigated BACK to a hole that already has
    *  logged shots and has NOT yet opted into adding another shot. Live aids
@@ -80,6 +89,7 @@ export interface UseHoleStateResult {
 }
 
 export function useHoleState({
+  roundId,
   currentHoleId,
   currentHoleScoreId,
   isPastMode,
@@ -150,6 +160,30 @@ export function useHoleState({
       if (timer) clearTimeout(timer)
     }
   }, [aim?.lat, aim?.lng, userId])
+
+  const [aimDragHint, setAimDragHint] = useState(false)
+  const hasAim = aim != null
+  useEffect(() => {
+    if (!hasAim || !roundId || isPastMode) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(AIM_DRAG_HINT_KEY)
+        const parsed: unknown = raw ? JSON.parse(raw) : []
+        const ids = Array.isArray(parsed) ? parsed : []
+        const show = ids.includes(roundId) || ids.length < AIM_DRAG_HINT_ROUNDS
+        if (show && !ids.includes(roundId)) {
+          await AsyncStorage.setItem(AIM_DRAG_HINT_KEY, JSON.stringify([...ids, roundId]))
+        }
+        if (!cancelled) setAimDragHint(show)
+      } catch {
+        /* storage error: no hint */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [hasAim, roundId, isPastMode])
 
   // Auto-spawn the aim target when the player enters SET_AIM. With a ball
   // and a pin but no aim yet, seed one on the straight ball→pin line at
@@ -465,6 +499,7 @@ export function useHoleState({
     lastSavedShotLocalIdRef,
     aimHintVisible,
     setAimHintVisible,
+    aimDragHint,
     nearPin,
     isRevisitingPlayedHole,
     setAppendEngaged,
