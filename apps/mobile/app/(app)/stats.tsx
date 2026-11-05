@@ -35,7 +35,7 @@ import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
-import { ApproachBandRow, LedgerRow, Sparkline } from '../../components/stats/StatsLedger'
+import { ApproachBandRow, LedgerRow, PuttStrip, Sparkline } from '../../components/stats/StatsLedger'
 import { ClubHistory } from '../../components/stats/ClubHistory'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -555,7 +555,7 @@ export default function Stats() {
                   <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)}><Sparkline values={stats.sparklines.upAndDownPct} /></StatTile>
                 </View>
                 <LedgerRow label="Putts per green hit" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
-                <LedgerRow label="Three-putts" value={fmtPct(stats.shortGame.threePuttPct)} />
+                <PuttStrip split={stats.shortGame.puttSplit} />
                 <LedgerRow label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
                 <LedgerRow label="Sand saves" value={fmtPct(stats.shortGame.sandSavePct)} />
               </Section>

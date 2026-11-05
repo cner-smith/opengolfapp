@@ -901,3 +901,29 @@ describe('sparkPoints', () => {
     expect(sparkPoints([32, 32, 32], 60, 20).map((p) => p.y)).toEqual([10, 10, 10])
   })
 })
+
+describe('shortGameStats — puttSplit (#1355)', () => {
+  const hs = (n: number, putts: number | null, score = 4) =>
+    makeHoleScore({ id: `hs${n}`, score, putts, holes: makeHole({ id: `h${n}`, number: n, par: 4 }), shots: [] })
+
+  it('shares of putted holes with 1, 2 and 3+ putts', () => {
+    // Putted holes: 1, 2, 2, 3, 4 → one 1-putt, two 2-putts, two 3+ of 5.
+    // Left out: a chip-in (0), a hole with no putts logged, an unplayed hole.
+    const round = makeRound({
+      hole_scores: [hs(1, 1), hs(2, 2), hs(3, 2), hs(4, 3), hs(5, 4, 7), hs(6, 0, 3), hs(7, null), hs(8, 2, 0)],
+    })
+    expect(shortGameStats([round]).puttSplit).toEqual({
+      holes: 5,
+      buckets: [
+        { putts: '1', count: 1, pct: 20 },
+        { putts: '2', count: 2, pct: 40 },
+        { putts: '3+', count: 2, pct: 40 },
+      ],
+    })
+  })
+
+  it('is null with no putts logged', () => {
+    const round = makeRound({ hole_scores: [hs(1, null), hs(2, 0, 3)] })
+    expect(shortGameStats([round]).puttSplit).toBeNull()
+  })
+})

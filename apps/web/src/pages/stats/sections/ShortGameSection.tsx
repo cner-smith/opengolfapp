@@ -1,6 +1,6 @@
 import type { DetailedStats } from '@oga/core'
 import { Section } from '../components/Section'
-import { StatRow, StatTile } from '../components/StatTiles'
+import { PuttStrip, StatRow, StatTile } from '../components/StatTiles'
 import { fmtNumber, fmtPct } from '../format'
 
 export function ShortGameSection({ data }: { data: DetailedStats }) {
@@ -15,7 +15,7 @@ export function ShortGameSection({ data }: { data: DetailedStats }) {
       <div className="grid sm:grid-cols-2 lg:grid-cols-1" style={{ columnGap: 32 }}>
         <div>
           <StatRow label="Putts per green hit" value={fmtNumber(sg.puttsPerGir, 2)} />
-          <StatRow label="Three-putts" value={fmtPct(sg.threePuttPct)} />
+          <PuttStrip split={sg.puttSplit} />
         </div>
         <div>
           <StatRow label="Scrambling" value={fmtPct(sg.scramblingPct)} />

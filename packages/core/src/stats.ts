@@ -614,6 +614,15 @@ export interface ShortGameStats {
   upAndDownPct: number | null
   scramblingPct: number | null
   sandSavePct: number | null
+  /** Holes putted out by putt count, 1 / 2 / 3+ (#1355); null when none. */
+  puttSplit: PuttSplit | null
+}
+
+// Share of putted holes (putts logged, 1 or more) by putt count. A chip-in
+// (0 putts) and a hole with no putts logged stay out, so the shares add to 100.
+export interface PuttSplit {
+  holes: number
+  buckets: { putts: '1' | '2' | '3+'; count: number; pct: number }[]
 }
 
 const AROUND_GREEN_LIES = new Set(['sand', 'fringe', 'rough', 'recovery'])
@@ -633,6 +642,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
   let scrambleMakes = 0
   let sandChances = 0
   let sandMakes = 0
+  const puttCounts = [0, 0, 0]
 
   for (const { hs, hole, shots } of flatten(rounds)) {
     if (!isPlayed(hs)) continue
@@ -642,6 +652,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
       puttsOnGirHoles += hs.putts ?? 0
     }
     if ((hs.putts ?? 0) >= 3) threePuttHoles += 1
+    if (hs.putts != null && hs.putts >= 1) puttCounts[Math.min(hs.putts, 3) - 1]! += 1
     if (hs.gir === false) {
       upDownChances += 1
       if (hs.score <= hole.par) upDownMakes += 1
@@ -670,6 +681,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
     upAndDownPct: pct(upDownMakes, upDownChances),
     scramblingPct: pct(scrambleMakes, scrambleChances),
     sandSavePct: pct(sandMakes, sandChances),
+    puttSplit: puttSplit(puttCounts),
   }
 }
 
@@ -712,6 +724,13 @@ export function sparkPoints(values: number[], w: number, h: number): { x: number
   const span = Math.max(...values) - lo
   const step = values.length > 1 ? w / (values.length - 1) : 0
   return values.map((v, i) => ({ x: i * step, y: span > 0 ? h - ((v - lo) / span) * h : h / 2 }))
+}
+
+function puttSplit(counts: number[]): PuttSplit | null {
+  const holes = counts.reduce((a, b) => a + b, 0)
+  if (holes === 0) return null
+  const keys = ['1', '2', '3+'] as const
+  return { holes, buckets: keys.map((putts, i) => ({ putts, count: counts[i]!, pct: (counts[i]! / holes) * 100 })) }
 }
 
 // ---------------------------------------------------------------------------
