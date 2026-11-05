@@ -11,12 +11,14 @@ Confirm a clean baseline before touching code:
 
 ```bash
 pnpm typecheck       # 3 workspace packages (core, supabase, web) must be clean
-pnpm test            # Vitest, in @oga/core
+pnpm test            # Vitest, in @oga/core, @oga/supabase and web
 pnpm --filter web build
 cd apps/mobile && npm run typecheck
 ```
 
-CI runs the same four commands. A PR with a red CI gate will not be
+CI runs the same four commands, plus a vendor drift check
+(`node scripts/check-shared-vendor.mjs`) and a check that no source file
+is over 1,000 lines. A PR with a red CI gate will not be
 reviewed until it's green.
 
 ### Live-round flows (Android emulator)
@@ -279,7 +281,8 @@ Drill checklist before submitting:
       sentence.
 
 To add: drop new rows into `supabase/seed.sql` following the existing
-pattern, run `npx supabase db reset` locally to verify, then PR. Title
+pattern, run `npx supabase@2 db reset` locally (CLI 3.0 rejects this repo's
+`supabase/config.toml`) to verify, then PR. Title
 format: `seed: add <drill-name>`.
 
 ## Course data

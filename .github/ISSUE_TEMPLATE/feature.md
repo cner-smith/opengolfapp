@@ -71,7 +71,7 @@ XS / S / M / L / XL  <!-- XS=~1hr, S=~half day, M=~1-2 days, L=~3-5 days, XL=~1+
 - **Rollback:** <how to undo — feature flag, migration revert, etc.>
 
 ## Decision log
-<!-- When picking Path A over Path B, capture the reason here so future agents
+<!-- When picking Path A over Path B, capture the reason here so future readers
      can challenge it with full context. -->
 
 ## Project rules / invariants to preserve

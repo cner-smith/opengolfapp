@@ -10,7 +10,7 @@ Estimated time: 30–45 minutes the first time.
 - A [Supabase](https://supabase.com) account — the free tier is plenty. (Or Docker + the Supabase CLI, if you'd rather run Supabase locally — see "Alternative: run Supabase locally" below.)
 - A [Vercel](https://vercel.com) account — also free tier.
 - A [Mapbox](https://mapbox.com) account if you want the live round map (web is fine without it; mobile needs it).
-- Node 20+ and `pnpm` 10+ locally.
+- Node 20.19.4+ and `pnpm` 10+ locally.
 
 Course search is powered by [OpenGolfAPI](https://opengolfapi.org) — no API key needed, 1,000 calls/day free, ODbL licensed. Course data fetched through the search box is attributed in the app footer.
 
@@ -37,7 +37,8 @@ You'll also need the **service_role** key for the seed script. Treat it like a d
 
 ### Alternative: run Supabase locally
 
-Instead of a hosted project, `supabase start` runs the whole stack (Postgres, Auth, Storage, a local Studio dashboard) in Docker on your machine — no account needed for this step, but you do need Docker running and the [Supabase CLI](https://supabase.com/docs/guides/cli) installed (`brew install supabase/tap/supabase`, or `npx supabase`).
+Instead of a hosted project, `supabase start` runs the whole stack (Postgres, Auth, Storage, a local Studio dashboard) in Docker on your machine — no account needed for this step, but you do need Docker running and the [Supabase CLI](https://supabase.com/docs/guides/cli) installed. Use CLI 2.x (`npx supabase@2`): 3.0 rejects this repo's
+`supabase/config.toml`.
 
 ```bash
 supabase start
@@ -45,19 +46,19 @@ supabase start
 
 On a fresh project this applies every migration in `supabase/migrations/` plus `supabase/seed.sql` automatically — no separate `db push` needed locally (that command is for syncing to a *hosted* project). `supabase status` prints the local API URL, anon key, and Studio URL to use in place of the hosted dashboard values below.
 
-The two Edge Functions (`round-summary-email`, `generate-practice-plan`) import shared code vendored out of `packages/core` — Deno can't resolve workspace-package imports the way the web app does, so `supabase start` fails to boot them until you generate those files:
+The two Edge Functions (`round-summary-email`, `generate-practice-plan`) import shared code vendored out of `packages/core` — Deno can't resolve workspace-package imports the way the web app does. The practice-plan copy (`supabase/functions/_shared/practice-plan/`) is committed, but the email's `_shared/round-summary.ts` is not, so `supabase start` fails to boot `round-summary-email` until you generate it:
 
 ```bash
 pnpm email:vendor-core
-pnpm vendor:practice-plan
 ```
 
-Run both before `supabase start` (or a retry after installing/updating the CLI). Neither is wired as an automatic pre-step yet.
+Run it before `supabase start` (or a retry after installing/updating the CLI). It isn't wired as an automatic pre-step yet. `pnpm vendor:practice-plan` refreshes the committed practice-plan copy after you change `packages/core/src/practice-plan/`; CI's vendor drift check fails if you forget.
 
 ## 3. Run the migrations
 
 Migrations live in `supabase/migrations/`, numbered sequentially from
-`0001_initial_schema.sql` onward (39 at the time of writing). Apply the
+`0001_initial_schema.sql` onward (through `0066` at the time of writing;
+there is no `0025`). Apply the
 whole folder — `db push` handles ordering. Highlights:
 
 - `0001` — base schema (profiles, courses, rounds, hole_scores, shots,
@@ -79,8 +80,8 @@ Apply them in order. Either:
 **Option A — Supabase CLI (recommended):**
 
 ```bash
-npx supabase link --project-ref <your-project-ref>
-npx supabase db push
+npx supabase@2 link --project-ref <your-project-ref>
+npx supabase@2 db push
 ```
 
 `db push` applies every file in `supabase/migrations/` that hasn't run yet, in filename order, so a single command covers `0001` through the latest migration on a fresh project.
@@ -155,9 +156,9 @@ You'll need an [Expo account](https://expo.dev) — also free for development bu
 
 **"unauthorized" on every query** — the Supabase client isn't attaching the auth token. Make sure you set `VITE_SUPABASE_ANON_KEY` (web) or `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile), not the service role key.
 
-**`supabase start` fails with `failed to read file: open supabase/functions/_shared/round-summary.ts` (or `.../_shared/practice-plan/...`)** — the Edge Functions' vendored dependencies haven't been generated yet. Run `pnpm email:vendor-core && pnpm vendor:practice-plan`, then retry.
+**`supabase start` fails with `failed to read file: open supabase/functions/_shared/round-summary.ts`** — the email function's vendored file hasn't been generated yet. Run `pnpm email:vendor-core`, then retry.
 
-**`supabase start` fails with a `profile` error (e.g. `NotFound: FileSystem.readFile (~/.supabase/profile)`)** — a CLI config-file quirk, not specific to this project. Try `mkdir -p ~/.supabase && supabase login` once, then retry `supabase start`. If it persists, it's likely a bug in whatever CLI version you just pulled — pin an older known-good release rather than always grabbing latest via `npx supabase`.
+**`supabase start` fails with a `profile` error (e.g. `NotFound: FileSystem.readFile (~/.supabase/profile)`)** — a CLI config-file quirk, not specific to this project. Try `mkdir -p ~/.supabase && supabase login` once, then retry `supabase start`. If it persists, it's likely a bug in whatever CLI version you just pulled — pin an older known-good 2.x release rather than always grabbing latest via `npx supabase`.
 
 **Mobile EAS build fails on `gradle-plugin`** — `apps/mobile` uses npm separately from the pnpm workspace; the React Native Gradle plugin can't resolve transitive deps through pnpm's symlinked layout. Run `cd apps/mobile && npm install --legacy-peer-deps` before any EAS build, and let EAS regenerate `android/` via prebuild.
 
@@ -170,8 +171,8 @@ git remote add upstream https://github.com/cner-smith/opengolfapp.git
 git fetch upstream
 git merge upstream/main
 pnpm install
-# Apply any new migrations (e.g. 0002+ on existing forks):
-npx supabase db push
+# Apply any new migrations:
+npx supabase@2 db push
 ```
 
 Vercel redeploys automatically when you push to your fork.
