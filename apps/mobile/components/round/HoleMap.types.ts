@@ -184,7 +184,7 @@ export type { PlateSide }
 
 export interface PastCrumbs {
   /** Every placed shot start except the selected one (that's `ball`). */
-  crumbs: { at: LatLng; n: number; ob: boolean; plate?: PlateSide }[]
+  crumbs: { at: LatLng; n: number; ob: boolean; club: string | null; plate?: PlateSide }[]
   /** All placed starts in shot order — the dotted path. */
   path: LatLng[]
   /** The selected shot's leg (start → next start, or the pin), drawn solid. */

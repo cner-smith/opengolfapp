@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import { plateWidth } from '@oga/core'
 import type { LatLng, PlateSide } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { P } from '../../paper/tokens'
@@ -35,6 +36,8 @@ interface BreadcrumbLayersProps {
   numbers: number[]
   /** Plate side per entry; unset = up and to the right. */
   plates?: (PlateSide | undefined)[]
+  /** The past round's short club label per entry (#737); unset = number only. */
+  clubs?: (string | null)[]
   /** The past round's selected leg, drawn solid. */
   segment?: GeoJSON.Feature | null
   onSelect?: (i: number) => void
@@ -56,6 +59,7 @@ export function BreadcrumbLayers({
   obs,
   numbers,
   plates,
+  clubs,
   segment,
   onSelect,
 }: BreadcrumbLayersProps) {
@@ -171,6 +175,7 @@ export function BreadcrumbLayers({
           coordinate={f.geometry.coordinates as [number, number]}
           n={numbers[i] ?? i + 1}
           plate={plates?.[i]}
+          club={clubs?.[i] ?? null}
           ob={f.properties?.ob === true}
           shifted={f.properties?.obShifted === true}
           onPress={onSelect ? () => onSelect(i) : undefined}
@@ -184,6 +189,7 @@ export function BreadcrumbLayers({
 // number on a small plate out to one side on a flat leader (#1208): up and
 // to the right unless ShotCallout fans it to another side clear of its
 // neighbours, so stacked shots near the green don't cover each other's spots.
+// A past-round plate names the club past a faint divider (#737): "1 | Dr".
 // @oga/core's plate-fan boxes mirror these positions; change both together. MarkerView (not a GL symbol) because the
 // numeral is Fraunces, which the satellite style's glyph server doesn't have.
 // An OB shot keeps its brick dot and plate (#839) and the -20 nudge when a re-hit sits
@@ -196,11 +202,13 @@ function PaperCrumb({
   ob,
   shifted,
   plate = 'ur',
+  club,
   onPress,
 }: {
   id: string
   coordinate: [number, number]
   n: number
+  club: string | null
   ob: boolean
   shifted: boolean
   plate?: PlateSide
@@ -262,15 +270,16 @@ function PaperCrumb({
               position: 'absolute',
               ...(left ? { right: 42 } : { left: 42 }),
               top: down ? 23 : 1,
-              minWidth: 20,
+              width: plateWidth(n, club),
               height: 20,
-              paddingHorizontal: 5,
+              paddingHorizontal: club ? 6 : 5,
               borderRadius: 3,
               backgroundColor: ob ? P.neg : P.raised,
               borderWidth: 1,
               borderColor: P.ink,
+              flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: club ? 'flex-start' : 'center',
             }}
           >
             <Text
@@ -279,6 +288,25 @@ function PaperCrumb({
             >
               {n}
             </Text>
+            {club && (
+              <>
+                <View
+                  style={{
+                    width: 1,
+                    height: 12,
+                    marginHorizontal: 3,
+                    backgroundColor: ob ? 'rgba(251,248,241,0.5)' : 'rgba(28,33,28,0.35)',
+                  }}
+                />
+                <Text
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  style={[TYPE.body, { fontSize: 12, lineHeight: 14, color: ob ? P.raised : P.ink }]}
+                >
+                  {club}
+                </Text>
+              </>
+            )}
           </View>
         </View>
       </Pressable>
