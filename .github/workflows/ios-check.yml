@@ -222,6 +222,18 @@ jobs:
           maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
             "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-live-round.yaml"
 
+      - name: Release-check flow
+        id: release
+        if: ${{ !cancelled() && steps.smoke.conclusion != 'skipped' }}
+        env:
+          E2E_EMAIL: ${{ secrets.CI_E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.CI_E2E_PASSWORD }}
+        run: |
+          cd "$RUNNER_TEMP/shots"
+          xcrun simctl location "$UDID" set 43.849856,-87.734575
+          maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
+            "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-release-check.yaml"
+
       # Maestro 2.11 saves takeScreenshot files (and failure screenshots, named step-*) under
       # ~/.maestro/tests/<run>/, next to maestro.log, which contains the typed password. Copy ONLY PNGs, and
       # only publish a run's failure screenshots (step-*) once that run got past sign-in: a failed login can

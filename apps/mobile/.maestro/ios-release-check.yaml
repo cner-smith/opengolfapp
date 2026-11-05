@@ -1,0 +1,297 @@
+# iOS release check. Run by .github/workflows/ios-check.yml after the live-round flow (the simulator is
+# still on Whistling Straits hole 1). Screenshots the newer screens: Stats (SG cards, sparklines, putts
+# strip, club history), Shot patterns (aim chart ring, share card, Putter view), a past round's map
+# plates, and the live aim ring with a drag. Deletes the live round it starts (onFlowComplete runs on
+# failure too).
+appId: golf.oga.app
+name: iOS release check — new screens
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Skip tips"
+      commands:
+        - tapOn: "Skip tips"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+        - extendedWaitUntil:
+            visible: "Log past round"
+            timeout: 30000
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: "Sign in to OGA"
+    timeout: 60000
+- tapOn:
+    below: "Email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    below: "Password"
+- inputText: ${E2E_PASSWORD}
+- tapOn: "Sign in to OGA"
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Not Now"
+    timeout: 6000
+    optional: true
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- extendedWaitUntil:
+    visible: "Skip splash|Log past round|Skip intro tour"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip splash"
+    commands:
+      - tapOn: "Skip splash"
+- extendedWaitUntil:
+    visible: "Not Now"
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- extendedWaitUntil:
+    visible: "Log past round|Skip intro tour"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip intro tour"
+    commands:
+      - tapOn: "Skip intro tour"
+- extendedWaitUntil:
+    visible: "Log past round"
+    timeout: 30000
+- takeScreenshot: rc-00-signed-in
+
+# ── Stats ──
+- tapOn: "Stats.*"
+- extendedWaitUntil:
+    notVisible: "Loading.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: rc-01-stats-sg-cards
+- scrollUntilVisible:
+    element: "Ball striking"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- takeScreenshot: rc-02-stats-sparklines
+- scrollUntilVisible:
+    element: "Putts per hole"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- takeScreenshot: rc-03-stats-putts-strip
+- scrollUntilVisible:
+    element: "Club history"
+    direction: DOWN
+    timeout: 30000
+- scroll
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: rc-04-stats-club-history
+- scroll
+- takeScreenshot: rc-04b-stats-club-history-more
+
+# ── Shot patterns ──
+- tapOn: "Patterns.*"
+- extendedWaitUntil:
+    notVisible: "Loading.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: rc-05-patterns
+- scroll
+- takeScreenshot: rc-06-patterns-ring
+- scrollUntilVisible:
+    element: "Export shot pattern image"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: rc-07-patterns-numbers
+- tapOn: "Export shot pattern image"
+- extendedWaitUntil:
+    visible: "Close|Copy|Save Image|Share failed|Sharing unavailable"
+    timeout: 15000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: rc-08-share-sheet
+- runFlow:
+    when:
+      visible: "Share failed|Sharing unavailable"
+    commands:
+      - tapOn: "OK"
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+- runFlow:
+    when:
+      notVisible: "Patterns.*"
+    commands:
+      - swipe:
+          direction: DOWN
+# Back to the top: the club ladder sits under the headline. Putter is its last stop.
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- swipe:
+    from: ".*, [0-9]+ yards"
+    direction: LEFT
+- runFlow:
+    when:
+      notVisible: "Putter,.*"
+    commands:
+      - swipe:
+          from: ".*, [0-9]+ yards"
+          direction: LEFT
+- tapOn: "Putter,.*"
+- extendedWaitUntil:
+    notVisible: "Loading.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: rc-09-putter-corners
+- runFlow:
+    when:
+      visible: "Bars"
+    commands:
+      - tapOn: "Bars"
+      - takeScreenshot: rc-10-putter-bars
+- runFlow:
+    when:
+      visible: "By length"
+    commands:
+      - tapOn: "By length"
+      - takeScreenshot: rc-11-putter-by-length
+
+# ── Past round: plates name the club ──
+- tapOn: "Home.*"
+- scrollUntilVisible:
+    element: "Open round at .*"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: "Open round at .*"
+- extendedWaitUntil:
+    visible: "Map|Skip tips"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- takeScreenshot: rc-12-past-round
+- tapOn: "Map"
+- extendedWaitUntil:
+    visible: "Skip tips"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: rc-13-past-round-map-plates
+- runFlow:
+    when:
+      visible: "Back to Home"
+    commands:
+      - tapOn: "Back to Home"
+- runFlow:
+    when:
+      notVisible: "Log past round"
+    commands:
+      - tapOn: "Home.*"
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+
+# ── Live round: the aim grip ring and a drag of it ──
+- runFlow:
+    when:
+      visible: "Resume.*"
+    commands:
+      - tapOn: "Resume.*"
+      - extendedWaitUntil:
+          visible: "Round options|Skip tips"
+          timeout: 30000
+      - runFlow:
+          when:
+            visible: "Skip tips"
+          commands:
+            - tapOn: "Skip tips"
+      - tapOn: "Round options"
+      - tapOn: "Delete round"
+      - tapOn: "Delete"
+      - extendedWaitUntil:
+          visible: "Log past round"
+          timeout: 30000
+- tapOn: "Start live round"
+- extendedWaitUntil:
+    visible: "Pick a course to start"
+    timeout: 30000
+- tapOn: "Search courses…"
+- inputText: "Whistling"
+- tapOn: "Whistling Straits.*"
+- runFlow:
+    when:
+      visible: "‹ Back"
+    commands:
+      - tapOn:
+          below: "‹ Back"
+- tapOn: "Start round →"
+- extendedWaitUntil:
+    visible: "Mark my ball.*|Waiting for GPS…|Skip tips"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- extendedWaitUntil:
+    visible: "Mark my ball.*"
+    timeout: 60000
+- tapOn: "Mark my ball.*"
+- extendedWaitUntil:
+    visible: "Skip tips"
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: rc-14-aim-ring
+# The aim handle sits mid-map on Whistling Straits hole 1 (about 50% across, 47% down on an iPhone 16).
+- swipe:
+    start: 50%, 47%
+    end: 66%, 38%
+    duration: 1500
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: rc-15-aim-ring-dragged
