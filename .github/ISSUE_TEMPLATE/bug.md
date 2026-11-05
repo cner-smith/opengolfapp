@@ -6,7 +6,7 @@ labels: bug
 ---
 
 **Severity:** low / medium / high / blocker
-**Audit source:** <where this was found — agent, user report, code review, etc.>
+**Audit source:** <where this was found — user report, code review, audit, etc.>
 
 ## Symptom
 <!-- What the user actually sees / experiences. -->
