@@ -563,29 +563,29 @@ export interface ClubDistanceStat {
 const CLUB_DISTANCE_MIN_YARDS = 3
 const CLUB_DISTANCE_MAX_YARDS = 450
 
-export function clubDistanceStats(
-  shots: {
-    club: string | null
-    lie_type: string | null
-    start_lat: number | null
-    start_lng: number | null
-    end_lat: number | null
-    end_lng: number | null
-  }[],
-): ClubDistanceStat[] {
+export interface ClubDistanceShot {
+  club: string | null
+  lie_type: string | null
+  start_lat: number | null
+  start_lng: number | null
+  end_lat: number | null
+  end_lng: number | null
+}
+
+/** One shot's start→finish yards under the Club distances rule (no putts or
+ *  green lies, 3–450 yd); null when it doesn't count. Club history reads it too. */
+export function clubShotYards(s: ClubDistanceShot): number | null {
+  if (!s.club || s.club === 'putter' || s.lie_type === 'green') return null
+  if (s.start_lat == null || s.start_lng == null || s.end_lat == null || s.end_lng == null) return null
+  const d = haversineYards(s.start_lat, s.start_lng, s.end_lat, s.end_lng)
+  return d < CLUB_DISTANCE_MIN_YARDS || d > CLUB_DISTANCE_MAX_YARDS ? null : d
+}
+
+export function clubDistanceStats(shots: ClubDistanceShot[]): ClubDistanceStat[] {
   const byClub = new Map<string, number[]>()
   for (const s of shots) {
-    if (!s.club || s.club === 'putter' || s.lie_type === 'green') continue
-    if (
-      s.start_lat == null ||
-      s.start_lng == null ||
-      s.end_lat == null ||
-      s.end_lng == null
-    ) {
-      continue
-    }
-    const d = haversineYards(s.start_lat, s.start_lng, s.end_lat, s.end_lng)
-    if (d < CLUB_DISTANCE_MIN_YARDS || d > CLUB_DISTANCE_MAX_YARDS) continue
+    const d = clubShotYards(s)
+    if (d == null || !s.club) continue
     const arr = byClub.get(s.club)
     if (arr) arr.push(d)
     else byClub.set(s.club, [d])

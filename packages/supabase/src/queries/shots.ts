@@ -104,6 +104,30 @@ export async function getShotsForUser(client: OgaSupabaseClient, userId: string)
   }
 }
 
+// One club's shots with a start and a finish (aimed or not) and the round's
+// played date: Stats' Club history (core clubHistory). Paged past the
+// 1000-row cap so a long history isn't silently cut.
+export async function getClubHistoryShots(client: OgaSupabaseClient, userId: string, club: string) {
+  const page = (from: number) =>
+    client
+      .from('shots')
+      .select('id, club, lie_type, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, shape, hole_scores!inner(round_id, rounds(played_at))')
+      .eq('user_id', userId)
+      .eq('club', club)
+      .not('start_lat', 'is', null)
+      .not('end_lat', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + SHOTS_PAGE - 1)
+  const rows: NonNullable<Awaited<ReturnType<typeof page>>['data']> = []
+  for (let from = 0; ; from += SHOTS_PAGE) {
+    const { data, error } = await page(from)
+    if (error) return { data: null, error }
+    rows.push(...data)
+    if (data.length < SHOTS_PAGE) return { data: rows, error: null }
+  }
+}
+
 export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {
   return client.from('shots').insert(shot).select().single()
 }
