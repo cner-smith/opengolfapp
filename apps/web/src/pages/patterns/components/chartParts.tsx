@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import {
   NOT_RECORDED,
   categoryOf,
+  marksDuration,
+  marksPath,
+  pencilEllipse,
   type ColourBy,
   type DispersionPoint,
   type DispersionRing,
@@ -11,6 +14,7 @@ import {
   type ShotExtras,
 } from '@oga/core'
 import { UNRECORDED_INK, type Glyph, type Layer } from '../layers'
+import { GRAPHITE } from '../../rounds/components/PencilMarks'
 
 // What the two chart views (AimPlot, TeePlot) share: the marks, the label
 // placers, the readout, the keyboard walk through the shots and the tweens.
@@ -149,6 +153,33 @@ export function RingMark({ r, outer, ghost }: { r: ScreenRing; outer?: boolean; 
       strokeLinecap="round"
     />
   )
+}
+
+/** The 68% ring in pencil (core pencilEllipse), turned by the ring's tilt.
+ *  It draws itself again whenever the ring moves (a new club, a filter); under
+ *  reduced motion, or with `still`, it is simply there. The line is drawn at
+ *  `k`× and scaled down, so a larger k gives a finer line. */
+export function PencilRing({ r, still, k = 1.5 }: { r: ScreenRing; still?: boolean; k?: number }) {
+  const marks = useMemo(() => pencilEllipse(Math.max(r.rx, 0.5) * k, Math.max(r.ry, 0.5) * k, 420, 5, r.rot), [r.rx, r.ry, r.rot, k])
+  const key = [r.cx, r.cy, r.rx, r.ry, r.rot].map((n) => n.toFixed(1)).join(',')
+  const [t, setT] = useState(() => (still || reducedMotion() ? 1e9 : 0))
+  useEffect(() => {
+    if (still || reducedMotion()) return setT(1e9)
+    const dur = marksDuration(marks)
+    const t0 = performance.now()
+    let raf = 0
+    const step = (now: number) => {
+      const e = now - t0
+      setT(e >= dur ? 1e9 : e)
+      if (e < dur) raf = requestAnimationFrame(step)
+    }
+    setT(0)
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the ring's value
+  }, [key, still])
+  const d = useMemo(() => marksPath(marks, t), [marks, t])
+  return d ? <path d={d} transform={`translate(${r.cx} ${r.cy}) scale(${1 / k})`} fill={GRAPHITE} fillOpacity={0.88} /> : null
 }
 
 type Anchor = 'start' | 'middle' | 'end'
@@ -482,9 +513,11 @@ export function Readout({ x, y, lines, bounds, dots, warn, link }: {
 export const byDistance = (a: DispersionPoint, b: DispersionPoint) => a.distanceOffsetYards - b.distanceOffsetYards
 
 /** The key under both charts: a shot, the average, the aim, and the rings
- *  (`ring68` names the inner one; null while the rings are hidden). */
+ *  (`ring68` names the inner one; null while the rings are hidden). With
+ *  `pencil` (Around the aim) the inner ring is the pencil one and there is no
+ *  95% ring. */
 export const LEGEND_H = 50
-export function ChartLegend({ x, y, ring68 }: { x: number; y: number; ring68: string | null }) {
+export function ChartLegend({ x, y, ring68, pencil }: { x: number; y: number; ring68: string | null; pencil?: boolean }) {
   return (
     <g fontFamily={SANS} fontSize={12} fill={INK}>
       <circle cx={x + 6} cy={y + 14} r={4} fill={INK} />
@@ -495,10 +528,14 @@ export function ChartLegend({ x, y, ring68 }: { x: number; y: number; ring68: st
       <text x={x + 182} y={y + 18}>aim</text>
       {ring68 != null && (
         <>
-          <RingMark r={{ cx: x + 10, cy: y + 36, rx: 10, ry: 6, rot: 0 }} />
+          {pencil ? <PencilRing r={{ cx: x + 10, cy: y + 36, rx: 10, ry: 6, rot: 0 }} still /> : <RingMark r={{ cx: x + 10, cy: y + 36, rx: 10, ry: 6, rot: 0 }} />}
           <text x={x + 26} y={y + 40}>{ring68}</text>
-          <RingMark r={{ cx: x + 196, cy: y + 36, rx: 10, ry: 6, rot: 0 }} outer />
-          <text x={x + 212} y={y + 40}>95% of shots</text>
+          {!pencil && (
+            <>
+              <RingMark r={{ cx: x + 196, cy: y + 36, rx: 10, ry: 6, rot: 0 }} outer />
+              <text x={x + 212} y={y + 40}>95% of shots</text>
+            </>
+          )}
         </>
       )}
     </g>

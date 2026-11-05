@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Pressable, Text, View, type GestureResponderEvent } from 'react-native'
 import Svg, { Circle, Ellipse, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
 import Animated, {
@@ -14,6 +14,9 @@ import {
   NOT_RECORDED,
   categoryOf,
   flightControls,
+  marksDuration,
+  marksPath,
+  pencilEllipse,
   type ColourBy,
   type DispersionPoint,
   type DispersionStats,
@@ -226,6 +229,44 @@ export function TweenRing({ ring, fill, stroke, strokeWidth, strokeOpacity, dash
   const rot = useTween(ring.rot, reduce)
   const ap = useAnimatedProps(() => ({ d: ringD(cx.value, cy.value, rx.value, ry.value, rot.value) }))
   return <APath animatedProps={ap} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} strokeDasharray={dash} />
+}
+
+/** The 68% ring in pencil (core pencilEllipse), as on the web. It draws itself
+ *  again whenever the ring moves (a new club, a filter); under reduce motion,
+ *  or with `still`, it is simply there. Drawn at 1.5× and scaled down for a
+ *  fine line. */
+const PENCIL_K = 1.5
+export function PencilRing({ ring, still }: { ring: RingPx; still?: boolean }) {
+  const reduce = useReducedMotion()
+  const marks = useMemo(
+    () => pencilEllipse(Math.max(ring.rx, 0.5) * PENCIL_K, Math.max(ring.ry, 0.5) * PENCIL_K, 420, 5, -ring.rot),
+    [ring.rx, ring.ry, ring.rot],
+  )
+  const key = [ring.cx, ring.cy, ring.rx, ring.ry, ring.rot].map((n) => n.toFixed(1)).join(',')
+  const [t, setT] = useState(() => (still || reduce ? 1e9 : 0))
+  useEffect(() => {
+    if (still || reduce) return setT(1e9)
+    const dur = marksDuration(marks)
+    let t0 = 0
+    let raf = 0
+    const step = (now: number) => {
+      if (!t0) t0 = now
+      const e = now - t0
+      setT(e >= dur ? 1e9 : e)
+      if (e < dur) raf = requestAnimationFrame(step)
+    }
+    setT(0)
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the ring's value
+  }, [key, still, reduce])
+  const d = useMemo(() => marksPath(marks, t), [marks, t])
+  if (!d) return null
+  return (
+    <G transform={`translate(${ring.cx} ${ring.cy}) scale(${1 / PENCIL_K})`}>
+      <Path d={d} fill={P.graphite} fillOpacity={0.88} />
+    </G>
+  )
 }
 
 export function TweenAverage({ x0, y0, x, y, dense }: { x0: number; y0: number; x: number; y: number; dense: boolean }) {
@@ -496,9 +537,10 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
 
 /** The key under both charts: a shot, the average, the aim, and the rings
  *  (`ring68` names the inner one; null while the rings are hidden). On a narrow
- *  phone the 95% ring takes its own row. */
+ *  phone the 95% ring takes its own row. With `pencil` (Around the aim) the
+ *  inner ring is the pencil one and there is no 95% ring. */
 export const legendHeight = (width: number) => (width >= 380 ? 50 : 72)
-export function ChartLegend({ y, width, ring68 }: { y: number; width: number; ring68: string | null }) {
+export function ChartLegend({ y, width, ring68, pencil }: { y: number; width: number; ring68: string | null; pencil?: boolean }) {
   const wide = width >= 380
   return (
     <G>
@@ -510,10 +552,18 @@ export function ChartLegend({ y, width, ring68 }: { y: number; width: number; ri
       <SvgText x={LEFT + 168} y={y + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>aim</SvgText>
       {ring68 != null && (
         <>
-          <Ellipse cx={LEFT + 10} cy={y + 36} rx={10} ry={6} fill="rgba(31,61,44,0.07)" stroke={P.forest} strokeWidth={1.3} />
+          {pencil ? (
+            <PencilRing ring={{ cx: LEFT + 10, cy: y + 36, rx: 10, ry: 6, rot: 0 }} still />
+          ) : (
+            <Ellipse cx={LEFT + 10} cy={y + 36} rx={10} ry={6} fill="rgba(31,61,44,0.07)" stroke={P.forest} strokeWidth={1.3} />
+          )}
           <SvgText x={LEFT + 26} y={y + 40} fontFamily={FONT.body} fontSize={12} fill={P.ink}>{ring68}</SvgText>
-          <Ellipse cx={wide ? LEFT + 182 : LEFT + 10} cy={wide ? y + 36 : y + 58} rx={10} ry={6} fill="rgba(31,61,44,0.035)" stroke={P.forest} strokeOpacity={0.7} strokeWidth={1} strokeDasharray="4,3" />
-          <SvgText x={wide ? LEFT + 198 : LEFT + 26} y={wide ? y + 40 : y + 62} fontFamily={FONT.body} fontSize={12} fill={P.ink}>95% of shots</SvgText>
+          {!pencil && (
+            <>
+              <Ellipse cx={wide ? LEFT + 182 : LEFT + 10} cy={wide ? y + 36 : y + 58} rx={10} ry={6} fill="rgba(31,61,44,0.035)" stroke={P.forest} strokeOpacity={0.7} strokeWidth={1} strokeDasharray="4,3" />
+              <SvgText x={wide ? LEFT + 198 : LEFT + 26} y={wide ? y + 40 : y + 62} fontFamily={FONT.body} fontSize={12} fill={P.ink}>95% of shots</SvgText>
+            </>
+          )}
         </>
       )}
     </G>
