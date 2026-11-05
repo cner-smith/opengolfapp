@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   process.env.SUPABASE_URL ??= env.SUPABASE_URL
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= env.SUPABASE_SERVICE_ROLE_KEY
+  // /dev/admin's Suggest key (#1158); dev server only, never VITE_-prefixed.
+  process.env.ANTHROPIC_API_KEY ??= env.ANTHROPIC_API_KEY
 
   return {
     plugins: [react(), devCsp(), devCourseApi(), devAdminApi()],
