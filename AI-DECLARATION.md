@@ -27,6 +27,18 @@ OGA is built by its maintainer working with an AI coding assistant.
   deploys and app-store releases happen only with the maintainer's go-ahead, and
   app changes are tested by hand on real devices.
 
+### AI in the app
+
+- **Practice plans** are written by Claude through Anthropic's API once a player
+  has five rounds with strokes gained. Before that, the app builds a starter plan
+  from the player's profile without AI. Every AI plan is checked against fixed
+  rules before it's shown, and the app falls back to the non-AI plan if it fails.
+- **Course review** (a maintainer-only page, not part of the app players use)
+  suggests a verdict for newly submitted courses with Claude Haiku. A person
+  makes the call.
+- Nothing else in the app uses AI: strokes gained, stats, dispersion and maps are
+  plain code.
+
 ### How the codebase stays healthy
 
 AI-written or not, every change is held to the same rules, and you can check them
