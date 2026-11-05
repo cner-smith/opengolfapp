@@ -58,6 +58,18 @@ export function getShotsByClub(
     .limit(limit)
 }
 
+// A user's latest missed putts (either miss axis recorded), newest first, with
+// the round, course and hole for the putting table on Shot patterns (#747).
+export function getMissedPutts(client: OgaSupabaseClient, userId: string, limit = 200) {
+  return client
+    .from('shots')
+    .select('id, putt_distance_result, putt_direction_result, putt_distance_ft, putt_result, hole_scores!inner(round_id, rounds(played_at, courses(name)), holes(number))')
+    .eq('user_id', userId)
+    .or('putt_distance_result.not.is.null,putt_direction_result.not.is.null')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+}
+
 // Every one of a user's shots with aim+end coords, newest first. Feeds the
 // live-round overlay, My Bag and the Patterns club ladder, which build
 // per-club counts, dispersion and median distance in ONE query

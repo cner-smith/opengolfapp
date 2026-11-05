@@ -11,11 +11,13 @@ import {
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
   type Shot,
   type ShotContact,
   type ShotExtras,
 } from '@oga/core'
-import { getShotsByClub, getShotsForUser } from '@oga/supabase'
+import { getMissedPutts, getShotsByClub, getShotsForUser } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -137,6 +139,43 @@ export function useClubLadder() {
       const out = new Map<Club, LadderClub>()
       for (const [club, c] of byClub) out.set(club, { aimed: c.aimed, medianYards: median(c.distances) })
       return out
+    },
+  })
+}
+
+export interface MissedPutt {
+  id: string
+  puttDistanceResult?: PuttDistanceResult
+  puttDirectionResult?: PuttDirectionResult
+  puttDistanceFt?: number
+  playedAt: string | null
+  course: string | null
+  hole: number | null
+  roundId: string | null
+}
+
+// The player's latest missed putts, for the Putter stop on the ladder (#747).
+export function useMissedPutts() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['patterns-putts', user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<MissedPutt[]> => {
+      const { data, error } = await getMissedPutts(supabase, user!.id)
+      if (error) throw error
+      return ((data ?? []) as Row[]).map((r) => {
+        const hs = r.hole_scores as RowRound | undefined
+        return {
+          id: r.id as string,
+          puttDistanceResult: (r.putt_distance_result as PuttDistanceResult | null) ?? undefined,
+          puttDirectionResult: (r.putt_direction_result as PuttDirectionResult | null) ?? undefined,
+          puttDistanceFt: (r.putt_distance_ft as number | null) ?? undefined,
+          playedAt: hs?.rounds?.played_at ?? null,
+          course: hs?.rounds?.courses?.name ?? null,
+          hole: hs?.holes?.number ?? null,
+          roundId: hs?.round_id ?? null,
+        }
+      })
     },
   })
 }
