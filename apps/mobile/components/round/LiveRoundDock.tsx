@@ -50,6 +50,9 @@ export interface LiveRoundDockProps {
   onTogglePattern: () => void
   /** Club wheel (§4); hidden while putting or with no pin. */
   wheel: WheelProps
+  /** The mini green key, or the flag key on a hole with no outline (#1381). */
+  greenKey: ReactNode
+  /** The no-flag voice line's "set the pin": the map's placement mode. */
   onTogglePin: () => void
   overlayMode: 'tee' | 'appr'
   onSetOverlayMode: (m: 'tee' | 'appr') => void
@@ -107,46 +110,31 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
   const putting = p.roundState === 'PUTTING'
   const showStacks = p.editStepper == null
 
+  // The key column (L1, #1381): the mini green key over a full-width Pattern
+  // key; the club key goes under them. The Pin key is retired: the pin is set
+  // in the green view.
   const keys = (
-    <View style={{ flexDirection: 'row', gap: GAP, width: 124 }}>
-      <CoachTarget id="live.pattern" style={{ flex: 1 }}>
-      <Key
-        accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
-        onPress={() => {
-          haptic(p.patternOn ? 'toggleOff' : 'toggleOn')
-          p.onTogglePattern()
-        }}
-        latched={p.patternOn && !putting && p.hasPin}
-        pressHaptic={false}
-        disabled={putting || !p.hasPin}
-        style={{ flex: 1 }}
-        faceStyle={{ height: 46, gap: 1 }}
-      >
-        <Icon.pattern size={20} color={putting || !p.hasPin ? P.ink35 : P.ink} />
-        <KeyText size={11} bold={p.patternOn && !putting && p.hasPin} disabled={putting || !p.hasPin}>
-          Pattern
-        </KeyText>
-      </Key>
+    <>
+      <CoachTarget id="live.green">{p.greenKey}</CoachTarget>
+      <CoachTarget id="live.pattern">
+        <Key
+          accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
+          onPress={() => {
+            haptic(p.patternOn ? 'toggleOff' : 'toggleOn')
+            p.onTogglePattern()
+          }}
+          latched={p.patternOn && !putting && p.hasPin}
+          pressHaptic={false}
+          disabled={putting || !p.hasPin}
+          faceStyle={{ height: 46, gap: 1 }}
+        >
+          <Icon.pattern size={20} color={putting || !p.hasPin ? P.ink35 : P.ink} />
+          <KeyText size={11} bold={p.patternOn && !putting && p.hasPin} disabled={putting || !p.hasPin}>
+            Pattern
+          </KeyText>
+        </Key>
       </CoachTarget>
-      <CoachTarget id="live.pin" style={{ flex: 1 }}>
-      <Key
-        accessibilityLabel={p.pinPlacementOpen ? 'Cancel pin placement' : 'Place pin'}
-        onPress={() => {
-          haptic(p.pinPlacementOpen ? 'toggleOff' : 'toggleOn')
-          p.onTogglePin()
-        }}
-        latched={p.pinPlacementOpen}
-        pressHaptic={false}
-        style={{ flex: 1 }}
-        faceStyle={{ height: 46, gap: 1 }}
-      >
-        <Icon.pin size={20} />
-        <KeyText size={11} bold={p.pinPlacementOpen}>
-          Pin
-        </KeyText>
-      </Key>
-      </CoachTarget>
-    </View>
+    </>
   )
 
   // The ruler folds into one key. A tap opens the drawer (Tee/Appr and the

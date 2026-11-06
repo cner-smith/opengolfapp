@@ -31,6 +31,7 @@ import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { useSummaryRows } from './hole/useSummaryRows'
+import { useGreenView } from './green/GreenView'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
 import { BackOnlineTag, useBackOnlineTag } from './BackOnline'
@@ -85,7 +86,7 @@ export default function LiveRoundSession({
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, offline: authOffline } = useAuth()
   const { unit, toDisplay } = useUnits()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
@@ -459,19 +460,38 @@ export default function LiveRoundSession({
     onRoundCompleted,
   })
 
+  // The green view (#1381): the mini green key, the view, and its map layers.
+  const green = useGreenView({
+    courseId: data.round?.course_id,
+    holes: data.holes,
+    hole: data.currentHole,
+    holeNumber,
+    pin: data.roundPin ?? data.storedPin,
+    ball: heroBall,
+    previousShots: data.previousShots,
+    tee: data.tee,
+    userId: user?.id,
+    offline: authOffline,
+    unit,
+    pinPlacementOpen,
+    onSetPin: actions.persistRoundPin,
+    onStartPinPlacement: () => setPinPlacementOpen(true),
+    onCancelPinPlacement: () => setPinPlacementOpen(false),
+  })
+
   // Coach marks (#900): what's on screen in this state; first-time tips open
   // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
   // is up; a played hole shows its own (#1115).
   const rs = finalState.roundState
   const coach = useCoach(
-    menuOpen || pinPlacementOpen || activeDialog
+    menuOpen || pinPlacementOpen || activeDialog || green.open
       ? null
       : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
   )
 
   const idle = useIdleBlackout({
     paused: activeDialog != null || scorecardOpen || deleteShotId != null,
-    reading: rs === 'SET_AIM' || coach.steps != null,
+    reading: rs === 'SET_AIM' || coach.steps != null || green.open,
     draggingRef: finalState.ballDraggingRef,
   })
 
@@ -490,7 +510,8 @@ export default function LiveRoundSession({
       // to its review rather than asking to leave the round (#938).
       const editingUnsaved = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
         !data.currentHoleScore.finished_at && editHole === holeNumber
-      if (wheelOpen) setWheelOpen(false)
+      if (green.open) green.close()
+      else if (wheelOpen) setWheelOpen(false)
       else if (menuOpen) setMenuOpen(false)
       else if (pinPlacementOpen) setPinPlacementOpen(false)
       else if (editingUnsaved && finalState.roundState === 'PLACE_BALL') finalState.setRoundState('SUMMARY')
@@ -499,7 +520,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld, idle.black]))
+  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld, idle.black, green.open]))
 
   const summaryRows = useSummaryRows(finalState.roundState, data, actions.shotObs, bag, byClub)
 
@@ -694,6 +715,7 @@ export default function LiveRoundSession({
             haptic('confirm')
             return actions.persistRoundPin(c)
           }}
+          greenLayers={green.mapLayers}
         />
         {puttDrop && <PuttDrop from={puttDrop.from} to={puttDrop.to} onDone={endPuttDrop} />}
         <LiveRoundDock
@@ -749,6 +771,7 @@ export default function LiveRoundSession({
             open: wheelOpen,
             onOpenChange: setWheelOpen,
           }}
+          greenKey={green.key}
           onTogglePin={() => setPinPlacementOpen((o) => !o)}
           overlayMode={overlayMode}
           onSetOverlayMode={setOverlayMode}
@@ -821,6 +844,7 @@ export default function LiveRoundSession({
           onDockHeight={setDockHeight}
           onRulerDrawer={setRulerDrawer}
         />
+        {green.view}
         {backTag && (
           <BackOnlineTag
             holeNumber={holeNumber}

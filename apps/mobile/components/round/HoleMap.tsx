@@ -135,6 +135,7 @@ export function HoleMap({
   projectRef,
   hideBall = false,
   teeShot = false,
+  greenLayers,
 }: HoleMapProps) {
   const { toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -692,6 +693,8 @@ export function HoleMap({
               Conditional mount (not visible={...}) is required to actually
               pause the native GPS subscription — see HoleMapProps.showLocationPuck. */}
           {showLocationPuck && <Mapbox.LocationPuck visible />}
+
+          {styleLoaded && !isPinMode && greenLayers}
 
           {pastCrumbs ? (
             <BreadcrumbLayers
