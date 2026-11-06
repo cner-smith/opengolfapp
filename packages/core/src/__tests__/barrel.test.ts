@@ -44,6 +44,8 @@ describe('@oga/core barrel', () => {
     ['greenFrame'],
     ['greenContours'],
     ['paceLines'],
+    ['wayfinder'],
+    ['viewPoint'],
     ['greenApproach'],
     ['hachureTriangle'],
     ['averageAimDistance'],
