@@ -113,6 +113,8 @@ export interface OgaHoleGeo {
   teeLng?: number
   pinLat?: number
   pinLng?: number
+  /** The hole way's green end, before any snap: green_maps matches on it (#1374). */
+  greenEnd?: { lat: number; lng: number }
 }
 
 /** Minimal course shape for nearest-centroid hole assignment. */

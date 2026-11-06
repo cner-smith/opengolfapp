@@ -26,6 +26,7 @@
  * just CLI arg parsing + console output.
  */
 import 'dotenv/config'
+import { osmGreenMap } from '@oga/core'
 import { createOgaServiceClient, runOsmImport, type OsmImportArgs } from '@oga/supabase'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
@@ -75,7 +76,7 @@ function parseArgs(argv: string[]): OsmImportArgs {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radius)) {
     throw new Error('--lat, --lng, --radius must be numeric')
   }
-  return { name, lat, lng, radius, updateExisting, courseFilter }
+  return { name, lat, lng, radius, updateExisting, courseFilter, greenMap: osmGreenMap }
 }
 
 async function main() {
@@ -111,6 +112,15 @@ async function main() {
     console.log(
       `  Holes falling back to hole-way endpoint for pin: ${summary.missingGreenRefs.join(', ')}`,
     )
+  }
+  console.log(`✓ Green outlines written: ${summary.greenOutlinesWritten}`)
+  if (summary.greenOutlineFlaggedRefs.length) {
+    console.log(
+      `  Holes whose end is in no green (nearest within 30 m taken, flagged): ${summary.greenOutlineFlaggedRefs.join(', ')}`,
+    )
+  }
+  if (summary.greenOutlineMissingRefs.length) {
+    console.log(`  Holes with no OSM green outline: ${summary.greenOutlineMissingRefs.join(', ')}`)
   }
   if (summary.missingTeeRefs.length) {
     console.log(

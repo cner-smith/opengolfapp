@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { matchHoles, parseElements } from './osm-import'
+import { matchHoles, parseElements, upsertOsmGreenMaps, type OsmGreenMapFn } from './osm-import'
+import type { OgaSupabaseClient } from './client'
 
 const QUERY_CENTER = { lat: 55.9533, lon: -3.1883 }
 
@@ -86,5 +87,96 @@ describe('parseElements', () => {
     }
     const { holes } = parseElements(resp)
     expect(holes.map((h) => h.ref)).toEqual([9])
+  })
+
+  it('keeps every green as its outer ways, multipolygon relations included, without snapping pins to relations', () => {
+    const resp: Parameters<typeof parseElements>[0] = {
+      elements: [
+        { type: 'node' as const, id: 1, lat: 0, lon: 0 },
+        { type: 'node' as const, id: 2, lat: 0, lon: 1 },
+        { type: 'node' as const, id: 3, lat: 1, lon: 1 },
+        { type: 'node' as const, id: 4, lat: 1, lon: 0 },
+        // A closed golf=green way.
+        { type: 'way' as const, id: 20, nodes: [1, 2, 3, 1], tags: { golf: 'green' } },
+        // A multipolygon green whose outer ring is split into two untagged ways, plus an inner.
+        {
+          type: 'relation' as const,
+          id: 30,
+          members: [
+            { type: 'way', ref: 21, role: 'outer' },
+            { type: 'way', ref: 22, role: 'outer' },
+            { type: 'way', ref: 23, role: 'inner' },
+          ],
+          tags: { golf: 'green', type: 'multipolygon' },
+        },
+        { type: 'way' as const, id: 21, nodes: [1, 2, 3] },
+        { type: 'way' as const, id: 22, nodes: [3, 4, 1] },
+        { type: 'way' as const, id: 23, nodes: [2, 3, 4] },
+      ],
+    }
+    const { greens, greenOutlines } = parseElements(resp)
+    const pt = (lat: number, lng: number) => ({ lat, lng })
+    expect(greenOutlines).toEqual([
+      [[pt(0, 0), pt(0, 1), pt(1, 1)], [pt(1, 1), pt(1, 0), pt(0, 0)]],
+      [[pt(0, 0), pt(0, 1), pt(1, 1), pt(0, 0)]],
+    ])
+    // The pin still snaps only to way greens, as before.
+    expect(greens).toHaveLength(1)
+  })
+})
+
+describe('upsertOsmGreenMaps', () => {
+  // Stub: green_maps already holds a manual outline on h1 and an OSM outline 'same' on h2.
+  function stubClient(existing: { hole_id: string; outline: string; outline_source: string }[]) {
+    const upserts: unknown[][] = []
+    const client = {
+      from: () => ({
+        select: () => ({ in: async () => ({ data: existing, error: null }) }),
+        upsert: async (rows: unknown[]) => {
+          upserts.push(rows)
+          return { error: null }
+        },
+      }),
+    } as unknown as OgaSupabaseClient
+    return { client, upserts }
+  }
+  const pt = { lat: 0, lon: 0 }
+  const matched = (ref: number) => ({
+    ref, par: 4, yards: null, tee: pt, pin: pt, greenEnd: pt, hasGreenMatch: true, hasTeeMatch: true,
+  })
+  const greenMap: OsmGreenMapFn = () => ({ outline: 'same', areaM2: 500.04, flagged: true, flagReason: 'nearest green, 3 m from the hole\'s end' })
+
+  it('never replaces a manual outline, skips an unchanged OSM one, and writes the rest', async () => {
+    const { client, upserts } = stubClient([
+      { hole_id: 'h1', outline: 'traced', outline_source: 'manual' },
+      { hole_id: 'h2', outline: 'same', outline_source: 'osm' },
+    ])
+    const got = await upsertOsmGreenMaps(
+      client,
+      [{ id: 'h1', hole: matched(1) }, { id: 'h2', hole: matched(2) }, { id: 'h3', hole: matched(3) }],
+      [],
+      greenMap,
+    )
+    expect(got).toEqual({ written: 1, flaggedRefs: [1, 2, 3], missingRefs: [] })
+    expect(upserts).toEqual([
+      [
+        {
+          hole_id: 'h3',
+          outline: 'same',
+          area_m2: 500,
+          outline_source: 'osm',
+          outline_score: null,
+          outline_flagged: true,
+          outline_flag_reason: "nearest green, 3 m from the hole's end",
+        },
+      ],
+    ])
+  })
+
+  it('reports holes with no green and writes nothing for them', async () => {
+    const { client, upserts } = stubClient([])
+    const got = await upsertOsmGreenMaps(client, [{ id: 'h1', hole: matched(7) }], [], () => null)
+    expect(got).toEqual({ written: 0, flaggedRefs: [], missingRefs: [7] })
+    expect(upserts).toEqual([])
   })
 })
