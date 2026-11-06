@@ -7,7 +7,9 @@ import { SLOPE_NOISE_FLOOR_PCT, type SlopeField } from './slope'
 export type SteepnessTerm = 'Flat' | 'Gentle' | 'Moderate' | 'Steep' | 'Severe'
 
 /** Flat < 1 · Gentle 1–2 · Moderate 2–3 · Steep 3–4 · Severe ≥ 4 (%). */
-export function steepnessTerm(pct: number): SteepnessTerm {
+export function steepnessTerm(slopePct: number): SteepnessTerm {
+  // A fitted 2% comes out as 1.9999999…; it should still read Moderate.
+  const pct = slopePct + 1e-9
   if (pct < 1) return 'Flat'
   if (pct < 2) return 'Gentle'
   if (pct < 3) return 'Moderate'
