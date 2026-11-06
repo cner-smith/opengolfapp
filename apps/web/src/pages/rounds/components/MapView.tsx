@@ -254,7 +254,7 @@ export function MapView({
   // "Set pin" is available while logging or editing a PAST round on a
   // geo-anchored hole — shown even when a pin coord already exists so the
   // player can override a wrong crawled pin. Hidden during live-aim, and on a
-  // course with greens: there the pin is set in the green view (#1385).
+  // course with green outlines: the green view sets the pin there (#1385).
   const showPinButton = !isLiveEntry && activeHoleGeo != null && !courseHasGreens
   const remainingToPin =
     lastPoint && effectivePin
