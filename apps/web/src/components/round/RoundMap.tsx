@@ -1,5 +1,7 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
-import { DEFAULT_HANDICAP, type ShotMarkerCategory } from '@oga/core'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { DEFAULT_HANDICAP, wayfinder, type ShotMarkerCategory, type Wayfinder } from '@oga/core'
+import type mapboxgl from 'mapbox-gl'
+import { useUnits } from '../../hooks/useUnits'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers, type ClubPick } from './map/useMapLayers'
@@ -134,6 +136,8 @@ interface RoundMapProps {
   }
   /** Bumped when the green view moves the pin, so the camera stays put as it does for a map drag. */
   pinMovedInView?: number
+  /** The player's ball (the hero's start): the wayfinder points at it from the green (#1386). */
+  ball?: PlacedPoint | null
 }
 
 const NO_GREEN: NonNullable<RoundMapProps['green']> = { data: null, mode: 'plain', show: false, paceLines: [], approachDeg: 0 }
@@ -169,6 +173,7 @@ export function RoundMap({
   onSelectShot,
   green = NO_GREEN,
   pinMovedInView = 0,
+  ball = null,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -296,6 +301,7 @@ export function RoundMap({
           background: '#1C211C',
         }}
       />
+      {mapLoaded && <WayfinderKey mapRef={mapRef} ball={ball} pin={effectivePin} />}
       {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
         // One message for a missing token and a runtime failure (owner,
         // 2026-11-02). lib/mapbox logs both.
@@ -309,6 +315,121 @@ export function RoundMap({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// The wayfinder (#1386): at green zoom with the ball off screen, a key at the
+// map's edge pointing at the ball, with its distance to the pin. Not a
+// control: taps go through to the map. Re-measured on map moves at most once
+// a frame, in its own component so a pan re-renders only the key.
+const WAYFINDER_KEY = { width: 96, height: 43 } // 40 + the 3 px ledge
+const CHROME_GAP = 6
+
+function WayfinderKey({
+  mapRef,
+  ball,
+  pin,
+}: {
+  mapRef: MutableRefObject<mapboxgl.Map | null>
+  ball: PlacedPoint | null
+  pin: PlacedPoint | null
+}) {
+  const { unit } = useUnits()
+  const [wf, setWf] = useState<Wayfinder | null>(null)
+  const ballLat = ball?.lat
+  const ballLng = ball?.lng
+  const pinLat = pin?.lat
+  const pinLng = pin?.lng
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const el = map.getContainer()
+      const box = el.getBoundingClientRect()
+      // The keys and chrome over the map (MapView marks them), and Mapbox's
+      // own logo and attribution corners.
+      const chrome = [
+        ...(el.parentElement?.parentElement?.querySelectorAll(':scope > [data-map-chrome]') ?? []),
+        ...el.querySelectorAll('.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right'),
+      ]
+      const avoid = chrome.map((c) => {
+        const r = c.getBoundingClientRect()
+        return {
+          left: r.left - box.left - CHROME_GAP,
+          top: r.top - box.top - CHROME_GAP,
+          right: r.right - box.left + CHROME_GAP,
+          bottom: r.bottom - box.top + CHROME_GAP,
+        }
+      })
+      const next = wayfinder({
+        ball: ballLat != null && ballLng != null ? { lat: ballLat, lng: ballLng } : null,
+        pin: pinLat != null && pinLng != null ? { lat: pinLat, lng: pinLng } : null,
+        zoom: map.getZoom(),
+        project: (p) => {
+          const q = map.project([p.lng, p.lat])
+          return [q.x, q.y]
+        },
+        area: { left: 8, top: 8, right: box.width - 8, bottom: box.height - 8 },
+        key: WAYFINDER_KEY,
+        avoid,
+        unit,
+      })
+      setWf((cur) =>
+        next && cur && Math.abs(next.x - cur.x) < 0.5 && Math.abs(next.y - cur.y) < 0.5 &&
+        Math.abs(next.rotate - cur.rotate) < 0.5 && next.distance === cur.distance
+          ? cur
+          : next,
+      )
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    schedule()
+    map.on('move', schedule)
+    map.on('resize', schedule)
+    return () => {
+      map.off('move', schedule)
+      map.off('resize', schedule)
+      cancelAnimationFrame(frame)
+    }
+  }, [mapRef, ballLat, ballLng, pinLat, pinLng, unit])
+
+  if (!wf) return null
+  const cut = wf.distance.lastIndexOf(' ')
+  return (
+    <div
+      className="key"
+      role="img"
+      aria-label={`Your ball, ${wf.distance} from the pin`}
+      data-testid="wayfinder"
+      style={{
+        position: 'absolute',
+        left: wf.x,
+        top: wf.y,
+        transform: 'translate(-50%, -50%)',
+        width: WAYFINDER_KEY.width,
+        height: 40,
+        minHeight: 40,
+        padding: 0,
+        gap: 6,
+        zIndex: 4,
+        pointerEvents: 'none',
+        fontWeight: 400,
+        fontSize: 13,
+      }}
+    >
+      <svg width="22" height="22" viewBox="-11 -11 22 22" aria-hidden>
+        <path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" transform={`rotate(${wf.rotate.toFixed(1)})`} fill="#1C211C" />
+      </svg>
+      <span>
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 17 }}>
+          {wf.distance.slice(0, cut)}
+        </span>{' '}
+        {wf.distance.slice(cut + 1)}
+      </span>
     </div>
   )
 }

@@ -471,6 +471,7 @@ export function MapView({
               onSelectShot={setSelectedId}
               green={greenMap}
               pinMovedInView={pinMovedInView}
+              ball={heroStart}
             />
           </Suspense>
           {reviewSheet}

@@ -385,6 +385,7 @@ export function PatternKey({ active, onToggle, bottom }: { active: boolean; onTo
     <button
       type="button"
       className="key"
+      data-map-chrome
       aria-pressed={active}
       onClick={onToggle}
       title="Show your shot pattern"
@@ -415,6 +416,7 @@ export function GreenKey({ active, onToggle, bottom }: { active: boolean; onTogg
     <button
       type="button"
       className="key"
+      data-map-chrome
       aria-pressed={active}
       onClick={onToggle}
       title="Show the green"
@@ -465,6 +467,7 @@ export function OverlayRail({
 }) {
   return (
     <div
+      data-map-chrome
       style={{
         position: 'absolute',
         right: 12,
