@@ -11,7 +11,7 @@
 // courses, imperfect for adjacent multi-course facilities (see #267). Runs are
 // idempotent: courses that already have hole geometry are skipped, so it never
 // clobbers hand-curated data and is safe to re-run / resume.
-import { inferParFromYards } from '@oga/core'
+import { inferParFromYards, osmGreenMap } from '@oga/core'
 import {
   OSM_DELAY_MS,
   OVERPASS_ENDPOINTS,
@@ -24,9 +24,13 @@ import {
 import {
   fetchCoursesWithHoleGeometry,
   fetchCourseGeoForState,
+  fetchGreenMaps,
+  fetchHolesForGreens,
   getCrawlState,
   setCrawlState,
+  upsertGreenMaps,
   upsertHoleGeometry,
+  type GreenMapRow,
 } from './db-writer'
 import type { CourseGeo, OgaHoleGeo, OverpassGeomElement, OverpassGeomResponse } from './types'
 
@@ -43,8 +47,11 @@ export interface HoleWay {
 }
 export interface HoleFeatures {
   holeWays: HoleWay[]
+  /** Centroids of golf=green ways: what the pin snaps to. */
   greens: Pt[]
   tees: Pt[]
+  /** Every OSM green as its outer ways (one for a closed way), relations included (#1374). */
+  greenOutlines: { centroid: Pt; ways: Pt[][] }[]
 }
 
 const HOLE_TO_COURSE_MAX_M = 1500 // a hole must be within this of a course centroid to attach
@@ -78,6 +85,8 @@ export function parseHoleFeatures(elements: OverpassGeomElement[]): HoleFeatures
   const holeWays: HoleWay[] = []
   const greens: Pt[] = []
   const tees: Pt[] = []
+  const greenOutlines: HoleFeatures['greenOutlines'] = []
+  const toPts = (g: { lat: number; lon: number }[]) => g.map((n) => ({ lat: n.lat, lng: n.lon }))
   for (const el of elements) {
     const tags = el.tags ?? {}
     const golf = tags['golf']
@@ -94,14 +103,21 @@ export function parseHoleFeatures(elements: OverpassGeomElement[]): HoleFeatures
         last: { lat: g[g.length - 1].lat, lng: g[g.length - 1].lon },
         centroid: geomCentroid(g),
       })
-    } else if (golf === 'green' && el.geometry && el.geometry.length > 0) {
+    } else if (golf === 'green' && el.type === 'way' && el.geometry && el.geometry.length > 0) {
       greens.push(geomCentroid(el.geometry))
+      greenOutlines.push({ centroid: geomCentroid(el.geometry), ways: [toPts(el.geometry)] })
+    } else if (golf === 'green' && el.type === 'relation' && tags['type'] === 'multipolygon') {
+      // Not a snap target: the pin keeps snapping to way greens only, as before.
+      const outer = (el.members ?? []).filter((m) => m.role === 'outer' && m.geometry && m.geometry.length > 0)
+      if (outer.length > 0) {
+        greenOutlines.push({ centroid: geomCentroid(outer.flatMap((m) => m.geometry!)), ways: outer.map((m) => toPts(m.geometry!)) })
+      }
     } else if (golf === 'tee') {
       if (el.geometry && el.geometry.length > 0) tees.push(geomCentroid(el.geometry))
       else if (el.lat != null && el.lon != null) tees.push({ lat: el.lat, lng: el.lon })
     }
   }
-  return { holeWays, greens, tees }
+  return { holeWays, greens, tees, greenOutlines }
 }
 
 // One Overpass query per state for all golf hole/green/tee geometry, with the
@@ -115,10 +131,11 @@ export async function fetchHoleFeaturesInState(state: string): Promise<HoleFeatu
 (
   way["golf"="hole"](${s},${w},${n},${e});
   way["golf"="green"](${s},${w},${n},${e});
+  relation["golf"="green"]["type"="multipolygon"](${s},${w},${n},${e});
   node["golf"="tee"](${s},${w},${n},${e});
   way["golf"="tee"](${s},${w},${n},${e});
 );
-out geom tags;
+out geom;
 `.trim()
 
   const BACKOFFS_MS = [5_000, 15_000, 45_000]
@@ -225,29 +242,125 @@ export function buildOrientedHole(hw: HoleWay, f: HoleFeatures): OgaHoleGeo {
     teeLng: +tee.lng.toFixed(6),
     pinLat: +pin.lat.toFixed(6),
     pinLng: +pin.lng.toFixed(6),
+    greenEnd,
   }
+}
+
+// A green is < 100 m across, so one whose centroid is over 300 m from the hole's end
+// can't contain it or be within 30 m of it. Cuts a state's thousands of greens to a few.
+const GREEN_SEARCH_M = 300
+
+interface GreenCounts {
+  holes: number
+  matched: number
+  flagged: number
+  noGreen: number
+  keptOtherSource: number
+  unchanged: number
+}
+
+// Write each hole's OSM green outline to green_maps (#1374), on every course this pass
+// matched, including the ones whose holes it skips: green_maps is a separate table, so
+// a curated course's holes stay untouched. Matched on the hole way's green end; holes
+// with no OSM way use their stored pin. Never replaces a 'model' or 'manual' outline,
+// and leaves an unchanged OSM outline (and any offline flag on it) alone.
+// dryRun reads only and returns the counts.
+async function writeGreenMaps(
+  map: Map<string, OgaHoleGeo[]>,
+  written: Set<string>,
+  f: HoleFeatures,
+  dryRun: boolean,
+): Promise<GreenCounts> {
+  const counts: GreenCounts = { holes: 0, matched: 0, flagged: 0, noGreen: 0, keptOtherSource: 0, unchanged: 0 }
+  const courseIds = [...map.keys()]
+  // Dry run: courses the pass would write have no hole rows yet, so read their holes from OSM.
+  const dbHoles = await fetchHolesForGreens(dryRun ? courseIds.filter((id) => !written.has(id)) : courseIds)
+  const targets: { holeId: string | null; courseId: string; number: number; pin: Pt | null }[] = dbHoles.map((h) => ({
+    holeId: h.id,
+    courseId: h.course_id,
+    number: h.number,
+    pin: h.pin_lat != null && h.pin_lng != null ? { lat: h.pin_lat, lng: h.pin_lng } : null,
+  }))
+  if (dryRun) {
+    for (const id of written) {
+      for (const h of map.get(id) ?? []) {
+        targets.push({ holeId: null, courseId: id, number: h.number, pin: h.pinLat != null && h.pinLng != null ? { lat: h.pinLat, lng: h.pinLng } : null })
+      }
+    }
+  }
+
+  let existing = new Map<string, { outline: string; outline_source: string }>()
+  const ids = targets.flatMap((t) => (t.holeId ? [t.holeId] : []))
+  try {
+    existing = await fetchGreenMaps(ids)
+  } catch (err) {
+    if (!dryRun) throw err
+    console.warn(`  [dry-run] ${(err as Error).message}; counting as no existing rows`)
+  }
+
+  const rows: GreenMapRow[] = []
+  for (const t of targets) {
+    counts.holes++
+    const greenEnd = map.get(t.courseId)?.find((h) => h.number === t.number)?.greenEnd ?? null
+    const anchor = greenEnd ?? t.pin
+    const near = anchor
+      ? f.greenOutlines
+          .filter((g) => haversineMeters(anchor.lat, anchor.lng, g.centroid.lat, g.centroid.lng) < GREEN_SEARCH_M)
+          .map((g) => g.ways)
+      : []
+    const got = osmGreenMap(near, greenEnd, t.pin)
+    if (!got) {
+      counts.noGreen++
+      continue
+    }
+    counts.matched++
+    if (got.flagged) counts.flagged++
+    const prev = t.holeId ? existing.get(t.holeId) : undefined
+    if (prev && prev.outline_source !== 'osm') {
+      counts.keptOtherSource++
+      continue
+    }
+    if (prev && prev.outline === got.outline) {
+      counts.unchanged++
+      continue
+    }
+    if (t.holeId) {
+      rows.push({
+        hole_id: t.holeId,
+        outline: got.outline,
+        area_m2: Math.round(got.areaM2 * 10) / 10,
+        outline_source: 'osm',
+        outline_score: null,
+        outline_flagged: got.flagged,
+        outline_flag_reason: got.flagReason,
+      })
+    }
+  }
+  if (!dryRun) await upsertGreenMaps(rows)
+  return counts
 }
 
 export async function crawlOsmHoles(
   states: string[],
   force: boolean,
   limit: number | null,
+  dryRun: boolean,
 ): Promise<void> {
   let totalCourses = 0
   let totalHoles = 0
   for (const state of states) {
     const crawlId = `osm-holes:state:${state}`
     const prev = await getCrawlState(crawlId)
-    if (prev?.status === 'done' && !force) {
+    if (prev?.status === 'done' && !force && !dryRun) {
       console.log(`[osm-holes:${state}] skip — already done (${prev.items_processed} courses)`)
       continue
     }
-    await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
+    if (!dryRun) await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
     try {
       const courses = await fetchCourseGeoForState(state)
       if (courses.length === 0) {
         console.log(`[osm-holes:${state}] no courses with coords — skip`)
-        await setCrawlState(crawlId, { status: 'done', itemsProcessed: 0, errorMessage: null })
+        if (!dryRun) await setCrawlState(crawlId, { status: 'done', itemsProcessed: 0, errorMessage: null })
         await sleep(OSM_DELAY_MS)
         continue
       }
@@ -256,13 +369,23 @@ export async function crawlOsmHoles(
       )
       const features = await fetchHoleFeaturesInState(state)
       console.log(
-        `[osm-holes:${state}] OSM features: ${features.holeWays.length} holes, ${features.greens.length} greens, ${features.tees.length} tees`,
+        `[osm-holes:${state}] OSM features: ${features.holeWays.length} holes, ${features.greenOutlines.length} greens (${features.greenOutlines.length - features.greens.length} multipolygon), ${features.tees.length} tees`,
       )
       const map = buildHolesForCourses(courses, features)
       // Never clobber courses that already carry hole geometry.
       const skip = await fetchCoursesWithHoleGeometry([...map.keys()], `osm-holes:${state}`)
       let entries = [...map.entries()].filter(([id]) => !skip.has(id))
       if (limit != null) entries = entries.slice(0, limit)
+      if (dryRun) {
+        const g = await writeGreenMaps(map, new Set(entries.map(([id]) => id)), features, true)
+        console.log(
+          `[osm-holes:${state}] [dry-run] would write ${entries.length} courses' holes (${skip.size} skipped: already had geometry)\n` +
+            `  green_maps: ${g.holes} holes on ${map.size} courses — ${g.matched} with an outline (${g.flagged} flagged: nearest within 30 m), ` +
+            `${g.noGreen} with none; ${g.keptOtherSource} keep a model/manual outline, ${g.unchanged} unchanged`,
+        )
+        await sleep(OSM_DELAY_MS)
+        continue
+      }
       let stateCourses = 0
       let stateHoles = 0
       for (const [courseId, holes] of entries) {
@@ -274,6 +397,11 @@ export async function crawlOsmHoles(
           await setCrawlState(crawlId, { itemsProcessed: stateCourses })
         }
       }
+      const g = await writeGreenMaps(map, new Set(entries.map(([id]) => id)), features, false)
+      console.log(
+        `[osm-holes:${state}] green_maps: ${g.matched - g.keptOtherSource - g.unchanged} written (${g.flagged} flagged), ` +
+          `${g.noGreen} holes with no green, ${g.keptOtherSource} kept a model/manual outline, ${g.unchanged} unchanged`,
+      )
       await setCrawlState(crawlId, {
         status: 'done',
         itemsProcessed: stateCourses,
@@ -286,7 +414,7 @@ export async function crawlOsmHoles(
       totalHoles += stateHoles
     } catch (err) {
       console.error(`[osm-holes:${state}] fatal: ${(err as Error).message}`)
-      await setCrawlState(crawlId, { status: 'error', errorMessage: (err as Error).message })
+      if (!dryRun) await setCrawlState(crawlId, { status: 'error', errorMessage: (err as Error).message })
     }
     // Always pause between states — Overpass is shared, rate-limit-sensitive.
     await sleep(OSM_DELAY_MS)
