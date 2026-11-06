@@ -10,7 +10,7 @@ Estimated time: 30–45 minutes the first time.
 - A [Supabase](https://supabase.com) account — the free tier is plenty. (Or Docker + the Supabase CLI, if you'd rather run Supabase locally — see "Alternative: run Supabase locally" below.)
 - A [Vercel](https://vercel.com) account — also free tier.
 - A [Mapbox](https://mapbox.com) account if you want the live round map (web is fine without it; mobile needs it).
-- Node 20.19.4+ and `pnpm` 10+ locally.
+- Node 24 (Node 22 also works) and `pnpm` 10+ locally.
 
 Course search is powered by [OpenGolfAPI](https://opengolfapi.org) — no API key needed, 1,000 calls/day free, ODbL licensed. Course data fetched through the search box is attributed in the app footer.
 
