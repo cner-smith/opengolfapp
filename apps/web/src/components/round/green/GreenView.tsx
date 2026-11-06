@@ -5,7 +5,10 @@ import {
   falseFrontWords,
   greenFrame,
   greenHeightWords,
+  greenMiddle,
+  gridCorners,
   gridPointGeo,
+  hachureTriangle,
   pinSheet,
   shapePhrase,
   steepnessTerm,
@@ -17,8 +20,6 @@ import { Rocker } from '../../ui/Rocker'
 import { P } from '../map/PaperChrome'
 import { FLAG_OFFSET, makeFlagMarker } from '../map/markerFactories'
 import {
-  gridCorners,
-  hachureTriangle,
   HEIGHT_STOPS,
   paintGreen,
   SLOPE_FULL_PCT,
@@ -101,6 +102,7 @@ export function GreenView(p: GreenViewProps) {
           approachDeg={p.approachDeg}
           size={p.size}
           onDrag={setDragPin}
+          onCancel={() => setDragPin(null)}
           onDrop={(q) => {
             setDragPin(null)
             p.onMovePin(q)
@@ -142,19 +144,22 @@ function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg:
   const [pct, setPct] = useState(false)
   const s = green.survey
   if (green.lidar !== 'ready' || !s || !s.tilt) {
-    const loading = green.lidar === 'loading'
+    const [head, sub] =
+      green.lidar === 'loading'
+        ? ['Loading the slope survey…', 'The outline is ready; slope follows.']
+        : green.lidar === 'error'
+          ? ['Outline only', 'The slope survey didn’t load. Check your connection and reopen the hole.']
+          : ['Outline only', 'No slope survey covers this green yet.']
     return (
       <div>
-        <div style={{ ...serif, fontSize: 18, lineHeight: 1.25 }}>{loading ? 'Loading the slope survey…' : 'Outline only'}</div>
-        <div style={{ ...sans, fontSize: 13, color: P.inkDim }}>
-          {loading ? 'The outline is ready; slope follows.' : 'No slope survey covers this green yet.'}
-        </div>
+        <div style={{ ...serif, fontSize: 18, lineHeight: 1.25 }}>{head}</div>
+        <div style={{ ...sans, fontSize: 13, color: P.inkDim }}>{sub}</div>
       </div>
     )
   }
   const ff = falseFront(s.g, s.field, approachDeg)
   const second = ff
-    ? `False front: ${falseFrontWords(ff, unit).replace(/^F/, 'f')}`
+    ? `False front · ${falseFrontWords(ff, unit)}`
     : s.shape && s.shape.kind !== 'planar'
       ? shapePhrase(s.shape, approachDeg, unit)
       : 'No false front'
@@ -213,6 +218,7 @@ function GreenDrawing({
   size,
   onDrag,
   onDrop,
+  onCancel,
 }: {
   green: GreenData
   mode: GreenViewMode
@@ -222,18 +228,13 @@ function GreenDrawing({
   size: number
   onDrag: (p: GeoPoint) => void
   onDrop: (p: GeoPoint) => void
+  onCancel: () => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const dragging = useRef(false)
   const { outline, survey } = green
   // The frame turns on the green's middle, so dragging the pin never turns the drawing.
-  const frame = useMemo(() => {
-    const c = outline.reduce((a, q) => ({ lat: a.lat + q.lat / outline.length, lng: a.lng + q.lng / outline.length }), {
-      lat: 0,
-      lng: 0,
-    })
-    return greenFrame(c, approachDeg)
-  }, [outline, approachDeg])
+  const frame = useMemo(() => greenFrame(greenMiddle(outline), approachDeg), [outline, approachDeg])
   // SVG units are metres: x right, y down the page (toward the player).
   const svg = (q: GeoPoint): [number, number] => {
     const l = frame.toLocal(q)
@@ -258,7 +259,7 @@ function GreenDrawing({
   }, [survey, mode])
   const origin = survey ? svg({ lat: survey.lat0, lng: survey.lng0 }) : [0, 0]
   const gridGroup = `translate(${origin[0]} ${origin[1]}) rotate(${-approachDeg})`
-  const [c0, , c2] = survey ? gridCorners(survey.g) : [[0, 0], [0, 0], [0, 0]]
+  const [c0, , c2] = survey ? gridCorners(survey.g.width, survey.g.height) : [[0, 0], [0, 0], [0, 0]]
 
   const pinXY = pin ? svg(pin) : null
   const sheet = pin ? pinSheet(outline, pin, approachDeg, PACE_M) : null
@@ -287,6 +288,17 @@ function GreenDrawing({
           if (!dragging.current) return
           const q = toGeo(e)
           if (q) onDrag(q)
+        }}
+        onPointerCancel={() => {
+          // A cancelled drag (touch interrupted, capture lost) saves nothing.
+          if (!dragging.current) return
+          dragging.current = false
+          onCancel()
+        }}
+        onLostPointerCapture={() => {
+          if (!dragging.current) return
+          dragging.current = false
+          onCancel()
         }}
         onPointerUp={(e) => {
           if (!dragging.current) return

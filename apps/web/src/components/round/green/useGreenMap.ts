@@ -8,7 +8,6 @@ import {
   greenPlaneTilt,
   greenShape,
   greenSlopeField,
-  GREEN_CELL_M,
   type GeoPoint,
   type GreenContours,
   type GreenGrid,
@@ -39,8 +38,8 @@ export interface GreenData {
   outline: GeoPoint[]
   /** Where the outline came from, for the source line. */
   outlineSource: string
-  /** 'none' = no height grid for this green (or one flagged as suspect): Plain only. */
-  lidar: 'loading' | 'none' | 'ready'
+  /** 'none' = no height grid for this green (or one flagged as suspect); 'error' = it didn't load. Both: Plain only. */
+  lidar: 'loading' | 'none' | 'error' | 'ready'
   gridSource: string | null
   survey: GreenSurvey | null
 }
@@ -114,7 +113,7 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
     }
   }, [wantGrid, grid.data])
 
-  const lidar = !wantGrid ? 'none' : survey ? 'ready' : grid.isPending ? 'loading' : 'none'
+  const lidar: GreenData['lidar'] = !wantGrid ? 'none' : survey ? 'ready' : grid.isPending ? 'loading' : grid.isError ? 'error' : 'none'
   // Stable while nothing changes: the map overlay repaints on a new object.
   const green = useMemo<GreenData | null>(
     () =>
@@ -177,27 +176,4 @@ export function paintGreen(canvas: HTMLCanvasElement, s: GreenSurvey, mode: 'hei
     img.data[4 * j + 3] = 255 * (s.field.collar[j] ? COLLAR_ALPHA : 1)
   }
   ctx.putImageData(img, 0, 0)
-}
-
-/** The image's corners in grid metres (east, south): cell edges, half a cell out from the centres. */
-export function gridCorners(g: GreenGrid): [number, number][] {
-  const h = GREEN_CELL_M / 2
-  const e = g.width * GREEN_CELL_M - h
-  const s = g.height * GREEN_CELL_M - h
-  return [[-h, -h], [e, -h], [e, s], [-h, s]]
-}
-
-/** H2 tapered hachure: wide at the uphill end, sharp downhill; grid metres (east, south). */
-export function hachureTriangle(h: Hachure): [number, number][] {
-  const d = (h.downhillDeg * Math.PI) / 180
-  const ux = Math.sin(d)
-  const uy = -Math.cos(d)
-  const w = 0.22
-  const bx = h.eastM - (ux * h.lengthM) / 2
-  const by = h.southM - (uy * h.lengthM) / 2
-  return [
-    [bx - uy * w, by + ux * w],
-    [bx + uy * w, by - ux * w],
-    [h.eastM + (ux * h.lengthM) / 2, h.southM + (uy * h.lengthM) / 2],
-  ]
 }

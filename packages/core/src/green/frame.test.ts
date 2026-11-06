@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { greenFrame, gridPointGeo } from './frame'
+import { greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo } from './frame'
 
 const LAT0 = 35.6
 const LNG0 = -97.6
@@ -40,5 +40,38 @@ describe('gridPointGeo', () => {
     const p = gridPointGeo(LNG0, LAT0, 10, 5)
     expect(p.lng).toBeCloseTo(LNG0 + 10 / KX, 10)
     expect(p.lat).toBeCloseTo(LAT0 - 5 / M_PER_DEG, 10)
+  })
+})
+
+describe('greenMiddle', () => {
+  it('averages the ring’s corners, counting a closing point once', () => {
+    const m = greenMiddle([geo(0, 0), geo(10, 0), geo(10, 20), geo(0, 20), geo(0, 0)])
+    expect(m.lat).toBeCloseTo(geo(5, 10).lat, 10)
+    expect(m.lng).toBeCloseTo(geo(5, 10).lng, 10)
+  })
+})
+
+describe('greenApproach', () => {
+  const RING = [geo(0, 0), geo(10, 0), geo(10, 20), geo(0, 20), geo(0, 0)]
+  it('bears from the newest start off the green to the green’s middle', () => {
+    // The newest start, (5, -40), is due south of the middle (5, 10): travelling north.
+    expect(greenApproach(RING, [geo(5, -200), geo(5, -40)])).toBeCloseTo(0, 3)
+    // From due west of the middle: travelling east.
+    expect(greenApproach(RING, [geo(5, -200), geo(-40, 10)])).toBeCloseTo(90, 3)
+  })
+
+  it('skips starts on the green', () => {
+    expect(greenApproach(RING, [geo(-40, 10), geo(5, 15)])).toBeCloseTo(90, 3)
+  })
+
+  it('is null with no start off the green', () => {
+    expect(greenApproach(RING, [geo(5, 15)])).toBeNull()
+    expect(greenApproach(RING, [])).toBeNull()
+  })
+})
+
+describe('gridCorners', () => {
+  it('puts the image edges half a cell outside the cell centres', () => {
+    expect(gridCorners(4, 2)).toEqual([[-0.25, -0.25], [1.75, -0.25], [1.75, 0.75], [-0.25, 0.75]])
   })
 })

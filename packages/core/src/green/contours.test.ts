@@ -56,3 +56,26 @@ describe('greenContours', () => {
     expect(greenContours(g).levels[0]!.segments).toHaveLength(8)
   })
 })
+
+describe('greenContours saddle', () => {
+  it('cuts off the two low corners when the square’s middle is high', () => {
+    // 2 × 2 cells: north-west 0, north-east 100, south-east 0, south-west 100 mm.
+    // The 50 mm level crosses every edge at its midpoint; the mean (50) counts
+    // as high, so the line isolates the north-west and south-east corners.
+    const g: GreenGrid = {
+      width: 2,
+      height: 2,
+      stepMm: 2,
+      zMinMm: 0,
+      mask: new Uint8Array([1, 1, 1, 1]),
+      heightsMm: new Float64Array([0, 100, 100, 0]),
+    }
+    expect(greenContours(g).levels[0]).toEqual({
+      mm: 50,
+      segments: [
+        [0, 0.25, 0.25, 0],
+        [0.5, 0.25, 0.25, 0.5],
+      ],
+    })
+  })
+})

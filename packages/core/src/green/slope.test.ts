@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { gridOf } from './__fixtures__/grids'
-import { greenCollar, greenHachures, greenPlaneTilt, greenSlopeField } from './slope'
+import { greenCollar, greenHachures, greenPlaneTilt, greenSlopeField, hachureTriangle } from './slope'
 
 describe('greenCollar', () => {
   it('marks the outer 1 m: two cells in from every edge of a 10×10 green', () => {
@@ -101,5 +101,23 @@ describe('greenHachures', () => {
     expect(greenHachures(flat, greenSlopeField(flat))).toHaveLength(0)
     const gentle = gridOf(20, 20, (x) => 9 * x)
     expect(greenHachures(gentle, greenSlopeField(gentle))).toHaveLength(20)
+  })
+})
+
+describe('hachureTriangle', () => {
+  it('points its sharp end downhill, wide end uphill', () => {
+    // Falling due east (90°), 2 m long at (10, 4): base at east 9, tip at east 11, 0.44 m wide.
+    const [a, b, tip] = hachureTriangle({ eastM: 10, southM: 4, downhillDeg: 90, slopePct: 3, lengthM: 2 })
+    expect(tip![0]).toBeCloseTo(11, 9)
+    expect(tip![1]).toBeCloseTo(4, 9)
+    expect(a![0]).toBeCloseTo(9, 9)
+    expect(b![0]).toBeCloseTo(9, 9)
+    expect(Math.abs(a![1] - b![1])).toBeCloseTo(0.44, 9)
+  })
+
+  it('falls south down the page', () => {
+    const tip = hachureTriangle({ eastM: 0, southM: 0, downhillDeg: 180, slopePct: 3, lengthM: 2 })[2]!
+    expect(tip[0]).toBeCloseTo(0, 9)
+    expect(tip[1]).toBeCloseTo(1, 9)
   })
 })

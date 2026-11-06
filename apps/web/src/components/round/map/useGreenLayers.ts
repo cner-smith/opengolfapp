@@ -1,7 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import { gridPointGeo, type GeoPoint } from '@oga/core'
+import { gridCorners, gridPointGeo, hachureTriangle, type GeoPoint } from '@oga/core'
 import { mapboxgl, fitHoleUpward } from '../../../lib/mapbox'
-import { gridCorners, hachureTriangle, paintGreen, type GreenData, type GreenViewMode } from '../green/useGreenMap'
+import { paintGreen, type GreenData, type GreenViewMode } from '../green/useGreenMap'
 
 // The green at green zoom on the web map (#1380). Slope and Height paint
 // through a canvas source (style spec: "a canvas source … provides an HTML5
@@ -62,7 +62,7 @@ export function useGreenLayers({
     if (s && shown !== 'plain') {
       const canvas = document.createElement('canvas')
       paintGreen(canvas, s, shown)
-      const corners = gridCorners(s.g).map(([e, so]) => {
+      const corners = gridCorners(s.g.width, s.g.height).map(([e, so]) => {
         const q = gridPointGeo(s.lng0, s.lat0, e, so)
         return [q.lng, q.lat] as [number, number]
       })

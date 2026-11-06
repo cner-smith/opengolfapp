@@ -1,9 +1,8 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  bearingDegrees,
   getExpectedStrokes,
+  greenApproach,
   paceLines,
-  pinSheet,
   startCategory,
   haversineYards,
   type ShotMarkerCategory,
@@ -212,6 +211,12 @@ export function MapView({
   const [pinMovedInView, setPinMovedInView] = useState(0)
   const wide = useWide()
   useEffect(() => {
+    if (!sheetOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheetOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sheetOpen])
+  useEffect(() => {
     setSelectedId(null)
     setAdding(false)
     setGreenOn(false)
@@ -299,21 +304,17 @@ export function MapView({
     return s.category === 'putt' ? toDisplayFt(yd * 3) : toDisplay(yd, 1)
   }
 
-  // Front and back are set by the approach: the last shot up to the selected
-  // one played from off the green, else the newest placed ball off it, else
-  // the tee. (pinSheet is null for a point that isn't on the green.)
-  const offGreen = (q: { lat: number; lng: number }) => !green || pinSheet(green.outline, q, 0) == null
-  const approachShot = [...(selected ? steps.slice(0, stepPos + 1) : steps)]
-    .reverse()
-    .find((s) => s.category !== 'putt' && offGreen({ lat: s.startLat!, lng: s.startLng! }))
-  const approachFrom = approachShot
-    ? { lat: approachShot.startLat!, lng: approachShot.startLng! }
-    : [...placedPoints].reverse().find(offGreen) ?? effectiveTee
-  const greenMid = green
-    ? green.outline.reduce((a, q) => ({ lat: a.lat + q.lat / green.outline.length, lng: a.lng + q.lng / green.outline.length }), { lat: 0, lng: 0 })
-    : null
-  const approachDeg =
-    approachFrom && greenMid ? Math.round(bearingDegrees(approachFrom.lat, approachFrom.lng, greenMid.lat, greenMid.lng)) : 0
+  // Front and back are set by the approach (core greenApproach): the newest
+  // start off the green among the tee, the saved shots up to the selected one
+  // (never a putt; steps all have a start) and the balls being placed.
+  const approachStarts = [
+    ...(effectiveTee ? [effectiveTee] : []),
+    ...(selected ? steps.slice(0, stepPos + 1) : steps)
+      .filter((s) => s.category !== 'putt')
+      .map((s) => ({ lat: s.startLat!, lng: s.startLng! })),
+    ...placedPoints,
+  ]
+  const approachDeg = Math.round((green && greenApproach(green.outline, approachStarts)) ?? 0)
   const pinLat = effectivePin?.lat
   const pinLng = effectivePin?.lng
   const greenPaceLines = useMemo(
