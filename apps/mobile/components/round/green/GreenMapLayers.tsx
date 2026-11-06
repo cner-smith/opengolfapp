@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Platform } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import { greenFrame, gridCorners, gridPointGeo, hachureTriangle, paceLines, pinSheet, type GeoPoint } from '@oga/core'
+import { greenFrame, greenLayersVisible, gridCorners, gridPointGeo, hachureTriangle, paceLines, pinSheet, type GeoPoint } from '@oga/core'
 import { P } from '../../paper/tokens'
 import type { GreenMode } from './GreenDrawing'
 import type { PreparedGreen } from './greenData'
@@ -37,7 +37,8 @@ export function GreenMapLayers({
 }) {
   const lidar = typeof green.lidar === 'object' ? green.lidar : null
   const shown = lidar ? mode : 'plain'
-  const visibility = held ? ('none' as const) : ('visible' as const)
+  const show = greenLayersVisible({ held, view: shown, lidar: lidar != null, paceLines: withPaces })
+  const vis = (on: boolean) => (on ? ('visible' as const) : ('none' as const))
 
   const corners = useMemo(() => {
     if (!lidar) return null
@@ -98,22 +99,22 @@ export function GreenMapLayers({
             // still sits under the marks and lines.
             belowLayerID="green-contours-layer"
             minZoomLevel={MIN_ZOOM}
-            style={{ rasterOpacity: 0.9, rasterResampling: 'linear', rasterFadeDuration: 0, visibility }}
+            style={{ rasterOpacity: 0.9, rasterResampling: 'linear', rasterFadeDuration: 0, visibility: vis(show.colour) }}
           />
         </Mapbox.ImageSource>
       )}
       <Mapbox.ShapeSource id="green-contours" shape={contours}>
-        <Mapbox.LineLayer id="green-contours-layer" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: P.ink, lineOpacity: 0.4, lineWidth: 1, visibility }} />
+        <Mapbox.LineLayer id="green-contours-layer" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: P.ink, lineOpacity: 0.4, lineWidth: 1, visibility: vis(show.contours) }} />
       </Mapbox.ShapeSource>
       <Mapbox.ShapeSource id="green-marks" shape={marks}>
-        <Mapbox.FillLayer id="green-marks-fill" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ fillColor: P.raised, visibility }} />
-        <Mapbox.LineLayer id="green-marks-edge" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: 'rgba(28,33,28,.65)', lineWidth: 0.8, visibility }} />
+        <Mapbox.FillLayer id="green-marks-fill" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ fillColor: P.raised, visibility: vis(show.hachures) }} />
+        <Mapbox.LineLayer id="green-marks-edge" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: 'rgba(28,33,28,.65)', lineWidth: 0.8, visibility: vis(show.hachures) }} />
       </Mapbox.ShapeSource>
       <Mapbox.ShapeSource id="green-outline" shape={outline}>
         <Mapbox.LineLayer id="green-outline-layer" belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: P.raised, lineWidth: 2, lineJoin: 'round' }} />
       </Mapbox.ShapeSource>
       <Mapbox.ShapeSource id="green-paces" shape={paces}>
-        <Mapbox.LineLayer id="green-paces-layer" filter={['==', ['geometry-type'], 'LineString']} belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: P.raised, lineWidth: 1.2, visibility }} />
+        <Mapbox.LineLayer id="green-paces-layer" filter={['==', ['geometry-type'], 'LineString']} belowLayerID={BELOW} minZoomLevel={MIN_ZOOM} style={{ lineColor: P.raised, lineWidth: 1.2, visibility: vis(show.paceLines) }} />
         <Mapbox.SymbolLayer
           id="green-paces-label"
           belowLayerID={BELOW}
@@ -129,7 +130,7 @@ export function GreenMapLayers({
             textOffset: [-0.4, 0],
             textAllowOverlap: true,
             textIgnorePlacement: true,
-            visibility,
+            visibility: vis(show.paceLines),
           }}
         />
       </Mapbox.ShapeSource>

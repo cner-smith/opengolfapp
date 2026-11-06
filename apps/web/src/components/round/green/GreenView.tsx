@@ -7,6 +7,7 @@ import {
   greenHeightWords,
   greenMiddle,
   gridCorners,
+  greenLayersVisible,
   gridPointGeo,
   hachureTriangle,
   pinSheet,
@@ -292,73 +293,63 @@ function GreenDrawing({
     const [c0, , c2] = gridCorners(survey.g.width, survey.g.height)
     const [x0, y0] = c0!
     const [x2, y2] = c2!
-    return (
-      <>
-        {survey && mode !== 'plain' && (
-          <g clipPath={`url(#${clipId})`}>
-            <g transform={gridGroup}>
-              {image && (
-                <image
-                  href={image}
-                  x={x0}
-                  y={y0}
-                  width={x2 - x0}
-                  height={y2 - y0}
-                  preserveAspectRatio="none"
-                />
-              )}
-              {mode === 'height' &&
-                survey.contours.levels.map((l) => (
-                  <path
-                    key={l.mm}
-                    d={l.segments.map(([a, b, c, d]) => `M${a},${b}L${c},${d}`).join('')}
-                    fill="none"
-                    stroke={P.ink}
-                    strokeOpacity={0.35}
-                    strokeWidth={0.2 * u}
-                    strokeLinecap="round"
-                  />
-                ))}
-              {mode === 'slope' &&
-                survey.hachures.map((h, i) => (
-                  <polygon
-                    key={i}
-                    points={hachureTriangle(h).map((q) => q.join(',')).join(' ')}
-                    fill={P.raised}
-                    stroke="rgba(28,33,28,.65)"
-                    strokeWidth={0.18 * u}
-                    strokeLinejoin="round"
-                  />
-                ))}
-            </g>
-          </g>
-        )}
-        {survey &&
-          mode === 'height' &&
-          (['low', 'high'] as const).map((k) => {
-            const at = survey.contours[k]
-            if (!at) return null
-            const [x, y] = svg(gridPointGeo(survey.lng0, survey.lat0, at.eastM, at.southM))
-            return (
-              <text
-                key={k}
-                x={x}
-                y={y + 1.2 * u}
-                textAnchor="middle"
-                style={{ ...serif, fontSize: 3.6 * u }}
-                fill={P.ink}
-                stroke={P.raised}
-                strokeWidth={0.6 * u}
-                paintOrder="stroke"
-              >
-                {k}
-              </text>
-            )
-          })}
-      </>
-    )
+    return {
+      image: image && (
+        <image href={image} x={x0} y={y0} width={x2 - x0} height={y2 - y0} preserveAspectRatio="none" />
+      ),
+      contours:
+        mode === 'height' &&
+        survey.contours.levels.map((l) => (
+          <path
+            key={l.mm}
+            d={l.segments.map(([a, b, c, d]) => `M${a},${b}L${c},${d}`).join('')}
+            fill="none"
+            stroke={P.ink}
+            strokeOpacity={0.35}
+            strokeWidth={0.2 * u}
+            strokeLinecap="round"
+          />
+        )),
+      hachures:
+        mode === 'slope' &&
+        survey.hachures.map((h, i) => (
+          <polygon
+            key={i}
+            points={hachureTriangle(h).map((q) => q.join(',')).join(' ')}
+            fill={P.raised}
+            stroke="rgba(28,33,28,.65)"
+            strokeWidth={0.18 * u}
+            strokeLinejoin="round"
+          />
+        )),
+      tags:
+        mode === 'height' &&
+        (['low', 'high'] as const).map((k) => {
+          const at = survey.contours[k]
+          if (!at) return null
+          const [x, y] = svg(gridPointGeo(survey.lng0, survey.lat0, at.eastM, at.southM))
+          return (
+            <text
+              key={k}
+              x={x}
+              y={y + 1.2 * u}
+              textAnchor="middle"
+              style={{ ...serif, fontSize: 3.6 * u }}
+              fill={P.ink}
+              stroke={P.raised}
+              strokeWidth={0.6 * u}
+              paintOrder="stroke"
+            >
+              {k}
+            </text>
+          )
+        }),
+    }
     // svg() reads only frame.
-  }, [survey, mode, image, clipId, gridGroup, u, frame])
+  }, [survey, mode, image, u, frame])
+  // Hidden, not unmounted, while the flag is held: release brings them back with no repaint.
+  const layers = greenLayersVisible({ held, view: mode, lidar: survey != null, paceLines: false })
+  const shownIf = (on: boolean) => (on ? undefined : 'none')
 
   const pinXY = pin ? svg(pin) : null
   const barX = minX - 7 * u
@@ -416,8 +407,16 @@ function GreenDrawing({
           </clipPath>
         </defs>
         <polygon points={pts} fill={PLAIN} />
-        {/* Hidden, not unmounted, while the flag is held: release brings it back with no repaint. */}
-        <g display={held ? 'none' : undefined}>{effects}</g>
+        {effects && mode !== 'plain' && (
+          <g clipPath={`url(#${clipId})`}>
+            <g transform={gridGroup}>
+              <g display={shownIf(layers.colour)}>{effects.image}</g>
+              <g display={shownIf(layers.contours)}>{effects.contours}</g>
+              <g display={shownIf(layers.hachures)}>{effects.hachures}</g>
+            </g>
+          </g>
+        )}
+        <g display={shownIf(layers.tags)}>{effects?.tags}</g>
         <polygon
           points={pts}
           fill="none"
@@ -429,7 +428,7 @@ function GreenDrawing({
         {sheet && pinXY && (
           <PinSheetBars sheet={sheet} pin={pinXY} barX={barX} barY={barY} u={u} />
         )}
-        {held && sheet && pinXY && <Rails sheet={sheet} pin={pinXY} u={u} />}
+        {layers.rails && sheet && pinXY && <Rails sheet={sheet} pin={pinXY} u={u} />}
         {/* You play from the bottom. */}
         <path
           d={`M${(minX + maxX) / 2},${maxY + 6 * u} l${-1.8 * u},${2.8 * u} M${(minX + maxX) / 2},${maxY + 6 * u} l${1.8 * u},${2.8 * u} M${(minX + maxX) / 2},${maxY + 6 * u} v${6 * u}`}

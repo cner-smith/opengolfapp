@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import { gridCorners, gridPointGeo, hachureTriangle, type GeoPoint } from '@oga/core'
+import { greenLayersVisible, gridCorners, gridPointGeo, hachureTriangle, type GeoPoint, type GreenLayers } from '@oga/core'
 import { mapboxgl, fitHoleUpward } from '../../../lib/mapbox'
 import { paintGreen, type GreenData, type GreenViewMode } from '../green/useGreenMap'
 
@@ -15,7 +15,13 @@ import { paintGreen, type GreenData, type GreenViewMode } from '../green/useGree
 
 const OVERLAY_LAYERS = ['green-heat', 'green-marks', 'green-marks-edge', 'green-contours', 'green-outline']
 const OVERLAY_SOURCES = ['green-heat', 'green-marks', 'green-contours', 'green-outline']
-const EFFECT_LAYERS = ['green-heat', 'green-marks', 'green-marks-edge', 'green-contours', 'green-pace']
+const EFFECT_LAYERS: [string, keyof GreenLayers][] = [
+  ['green-heat', 'colour'],
+  ['green-marks', 'hachures'],
+  ['green-marks-edge', 'hachures'],
+  ['green-contours', 'contours'],
+  ['green-pace', 'paceLines'],
+]
 const INK = '#1C211C'
 const CREAM = '#FBF8F1'
 
@@ -152,8 +158,14 @@ export function useGreenLayers({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapLoaded) return
-    for (const id of EFFECT_LAYERS) {
-      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', held ? 'none' : 'visible')
+    const v = greenLayersVisible({
+      held,
+      view: mode,
+      lidar: green?.lidar === 'ready' && green.survey != null,
+      paceLines: paceLines.length > 0,
+    })
+    for (const [id, layer] of EFFECT_LAYERS) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v[layer] ? 'visible' : 'none')
     }
   }, [mapRef, mapLoaded, held, green, mode, show, paceLines])
 

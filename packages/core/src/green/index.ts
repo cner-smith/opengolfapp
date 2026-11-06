@@ -26,3 +26,4 @@ export { greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo, type
 export { greenContours, type GreenContours, type GreenPoint } from './contours'
 export { paceLines } from './pace-lines'
 export { viewPoint, wayfinder, WAYFINDER_MIN_ZOOM, type MapCamera, type ScreenBox, type Wayfinder } from './wayfinder'
+export { greenLayersVisible, type GreenLayers } from './layers'

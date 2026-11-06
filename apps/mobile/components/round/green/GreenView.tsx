@@ -19,6 +19,7 @@ import {
   falseFront,
   falseFrontWords,
   greenApproach,
+  greenLayersVisible,
   greenMiddle,
   pinSheet,
   shapePhrase,
@@ -488,7 +489,9 @@ function Detail(
     })
 
   const depth = Math.round((frame.box.y1 - frame.box.y0) / PACE_M)
-  const shown: GreenMode = lidar ? (dragging ? 'plain' : p.mode) : 'plain'
+  // The flag is held while dragging: the picture drops to Plain and the rails show (#1385).
+  const layers = greenLayersVisible({ held: dragging, view: p.mode, lidar: lidar != null, paceLines: false })
+  const shown: GreenMode = layers.colour ? p.mode : 'plain'
   const tilt = lidar?.tilt ?? null
   const ends = tilt ? bothEndsWords(tilt.downhillDeg, tilt.tiltPct, p.approach) : null
   const second = lidar
@@ -535,7 +538,7 @@ function Detail(
           holeNumber={p.holeNumber}
           flagHeight={30}
           dashed={green.lidar === 'pending'}
-          rails={dragging}
+          rails={layers.rails}
         />
         <GestureDetector gesture={pan}>
           <View
