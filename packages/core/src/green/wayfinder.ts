@@ -9,6 +9,8 @@ import { formatDistance, haversineYards, toRadians } from '../units'
 export const WAYFINDER_MIN_ZOOM = 18
 // A ball within this many px of an edge still counts as off screen.
 const MARGIN = 12
+// The flag over the cup, px from it: the pole up 38 and the cloth to its right.
+const FLAG = { left: -12, top: -38, right: 32, bottom: 8 }
 
 export interface ScreenBox {
   left: number
@@ -26,7 +28,8 @@ export interface WayfinderInput {
   /** The open map, px: chrome along the edges already taken off. */
   area: ScreenBox
   key: { width: number; height: number }
-  /** Chrome inside the area that the key steps out of (key columns, bands). */
+  /** Chrome inside the area that the key steps out of (key columns, bands);
+   *  it steps off the pin's flag too. */
   avoid?: ScreenBox[]
   unit: DistanceUnit
 }
@@ -69,8 +72,9 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
   let x = cx + dx * t
   let y = cy + dy * t
 
-  // Out of any chrome it lands on, by the shortest step that stays in room.
-  for (const b of i.avoid ?? []) {
+  // Off the flag, then out of any chrome, by the shortest step that stays in room.
+  const flag = { left: px + FLAG.left, top: py + FLAG.top, right: px + FLAG.right, bottom: py + FLAG.bottom }
+  for (const b of [flag, ...(i.avoid ?? [])]) {
     if (!(x > b.left - hw && x < b.right + hw && y > b.top - hh && y < b.bottom + hh)) continue
     const steps: [number, number][] = [
       [b.right + hw, y],

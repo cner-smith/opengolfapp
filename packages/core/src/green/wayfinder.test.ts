@@ -103,6 +103,21 @@ describe('wayfinder', () => {
     expect(w.rotate).toBeCloseTo(203.629, 2)
   })
 
+  it('never covers the flag: steps off it by the shortest way', () => {
+    // The pin at (300, 300), the ball 548.64 px right: the edge point
+    // (360, 300) is on the flag (x 288–332, y 262–308, grown by half the
+    // key). Down to y = 328 is the shortest step; right is off the map.
+    const shifted = (p: GeoPoint): [number, number] => {
+      const [x, y] = flat(p)
+      return [x + 100, y]
+    }
+    const w = wayfinder(base(geo(YD150, 0), { project: shifted }))!
+    expect(w.x).toBeCloseTo(360, 6)
+    expect(w.y).toBeCloseTo(328, 6)
+    // From (360, 328) to (848.64, 300): 90 − atan(28 / 488.64)
+    expect(w.rotate).toBeCloseTo(86.72, 2)
+  })
+
   it('steps up out of a band along the bottom', () => {
     const w = wayfinder(base(geo(0, -YD150), { avoid: [{ left: 0, top: 560, right: 400, bottom: 600 }] }))!
     expect(w.x).toBeCloseTo(200, 6)
