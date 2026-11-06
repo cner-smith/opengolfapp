@@ -7,6 +7,7 @@ import {
   decodeGreenGrid,
   encodeGreenGrid,
   falseFront,
+  falseFrontWords,
   greenHachures,
   greenPlaneTilt,
   greenShape,
@@ -34,9 +35,10 @@ function once(): number {
   const tilt = greenPlaneTilt(g)
   greenHachures(g, field)
   const shape = greenShape(g)
-  falseFront(g, field, 30)
+  const ff = falseFront(g, field, 30)
+  if (ff) falseFrontWords(ff, 'yards')
   if (tilt) bothEndsWords(tilt.downhillDeg, tilt.tiltPct, 30)
-  if (shape) shapePhrase(shape, 30)
+  if (shape) shapePhrase(shape, 30, 'yards')
   return performance.now() - t0
 }
 

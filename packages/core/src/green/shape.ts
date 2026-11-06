@@ -11,9 +11,10 @@
 // The two-tier rule flagged 14% of Oklahoma greens; it needs tuning against
 // hand-labelled greens before it ships.
 import { median } from '../shot-patterns'
+import type { DistanceUnit } from '../types'
 import { GREEN_CELL_M, type GreenGrid } from './codec'
 import { downhillBearing, greenCollar } from './slope'
-import { bothEndsWords, steepnessTerm } from './words'
+import { bothEndsWords, greenHeightWords, steepnessTerm } from './words'
 
 const MIN_CELLS = 200
 const PLANAR_R2 = 0.85
@@ -201,22 +202,20 @@ export function greenShape(g: GreenGrid): GreenShape | null {
 
 const RIDGE_LINES = ['front to back', 'front left to back right', 'left to right', 'front right to back left']
 
-const inches = (cm: number) => Math.round(cm / 2.54)
-
-/** "Shape · one measurement", relative to the player's approach bearing. */
-export function shapePhrase(s: GreenShape, approachDeg: number): string {
+/** "Shape · one measurement", relative to the player's approach bearing, in the player's units. */
+export function shapePhrase(s: GreenShape, approachDeg: number, unit: DistanceUnit): string {
   switch (s.kind) {
     case 'planar':
       return `${bothEndsWords(s.downhillDeg, s.tiltPct, approachDeg)} · ${steepnessTerm(s.tiltPct)}`
     case 'two-tiers':
-      return `Two tiers · the upper tier is ${inches(s.stepCm)} in higher`
+      return `Two tiers · the upper tier is ${greenHeightWords(s.stepCm, unit)} higher`
     case 'crown':
-      return `Crown · high in the middle, falls ${inches(s.fallCm)} in to the edges`
+      return `Crown · high in the middle, falls ${greenHeightWords(s.fallCm, unit)} to the edges`
     case 'ridge': {
       const rel = ((((s.axisDeg - approachDeg) % 180) + 180 + 22.5) % 180) / 45
       return `Ridge · runs ${RIDGE_LINES[Math.floor(rel)]}, falls off both sides`
     }
     case 'no-single-slope':
-      return `No single slope · ${inches(s.riseCm)} in from the lowest to the highest point`
+      return `No single slope · ${greenHeightWords(s.riseCm, unit)} from the lowest to the highest point`
   }
 }

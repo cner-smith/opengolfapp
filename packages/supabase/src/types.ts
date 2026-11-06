@@ -328,6 +328,7 @@ export type Database = {
         Row: {
           area_m2: number
           grid: string | null
+          grid_flag_reason: string | null
           grid_flagged: boolean
           grid_flown_on: string | null
           grid_lat0: number | null
@@ -344,6 +345,7 @@ export type Database = {
         Insert: {
           area_m2: number
           grid?: string | null
+          grid_flag_reason?: string | null
           grid_flagged?: boolean
           grid_flown_on?: string | null
           grid_lat0?: number | null
@@ -360,6 +362,7 @@ export type Database = {
         Update: {
           area_m2?: number
           grid?: string | null
+          grid_flag_reason?: string | null
           grid_flagged?: boolean
           grid_flown_on?: string | null
           grid_lat0?: number | null

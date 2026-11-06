@@ -1,8 +1,10 @@
 // Words and approach-relative measures for a green (#1378). Measurements
 // only, never advice.
 import { median } from '../shot-patterns'
+import type { DistanceUnit } from '../types'
+import { FEET_TO_CM, FEET_TO_METERS } from '../units'
 import { checkGreenGrid, GREEN_CELL_M, type GreenGrid } from './codec'
-import { SLOPE_NOISE_FLOOR_PCT, type SlopeField } from './slope'
+import type { SlopeField } from './slope'
 
 export type SteepnessTerm = 'Flat' | 'Gentle' | 'Moderate' | 'Steep' | 'Severe'
 
@@ -27,22 +29,33 @@ function endAt(relDeg: number): string {
 
 /**
  * "Back to front", "Back left to front right": the high end, then the low end,
- * relative to the player's approach bearing. "Level" under the noise floor.
+ * relative to the player's approach bearing. "Level" wherever the steepness
+ * reads Flat (under 1%); the hachures keep the lower 0.8% noise floor.
  */
 export function bothEndsWords(downhillDeg: number, tiltPct: number, approachDeg: number): string {
-  if (tiltPct < SLOPE_NOISE_FLOOR_PCT) return 'Level'
+  if (steepnessTerm(tiltPct) === 'Flat') return 'Level'
   const rel = downhillDeg - approachDeg
   const s = `${endAt(rel + 180)} to ${endAt(rel)}`
   return s[0]!.toUpperCase() + s.slice(1)
 }
 
 export interface FalseFront {
-  depthFt: number
+  /** Whole metres in from the front edge. */
+  depthM: number
   /** Median fall back toward the player, 1–4 m in from the front edge. */
   pct: number
 }
 
-const FT_PER_M = 1 / 0.3048
+/** A height on the green (a tier step, a crown's fall): whole inches or whole centimetres. */
+export function greenHeightWords(cm: number, unit: DistanceUnit): string {
+  return unit === 'meters' ? `${Math.round(cm)} cm` : `${Math.round((cm / FEET_TO_CM) * 12)} in`
+}
+
+/** "First 13 ft fall back at 6.7%" (imperial), "First 4 m fall back at 6.7%" (metric). */
+export function falseFrontWords(ff: FalseFront, unit: DistanceUnit): string {
+  const depth = unit === 'meters' ? `${ff.depthM} m` : `${Math.round(ff.depthM / FEET_TO_METERS)} ft`
+  return `First ${depth} fall back at ${ff.pct.toFixed(1)}%`
+}
 const FALSE_FRONT_PCT = 3.5
 const FALSE_FRONT_OVER_REST = 1.5
 
@@ -106,5 +119,5 @@ export function falseFront(g: GreenGrid, field: SlopeField, approachDeg: number)
   const floor = Math.max(3, r + 1)
   let k = 1
   while ((median(bands[k] ?? []) ?? -Infinity) >= floor) k++
-  return { depthFt: Math.round(k * FT_PER_M), pct: f }
+  return { depthM: k, pct: f }
 }

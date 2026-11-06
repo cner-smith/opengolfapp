@@ -9,6 +9,29 @@ import fixture from './__fixtures__/green-way-289147011.json'
 const N = 41
 const circle = (x: number, y: number) => (x - 10) ** 2 + (y + 10) ** 2 <= 100
 
+describe('shapePhrase units', () => {
+  // Heights stay in whole inches or whole centimetres: 84 / 2.54 = 33.07 in; 45.4 / 2.54 = 17.87 in.
+  it.each([
+    ['yards', 'Two tiers · the upper tier is 33 in higher'],
+    ['meters', 'Two tiers · the upper tier is 84 cm higher'],
+  ] as const)('words a tier step in %s', (unit, words) => {
+    expect(shapePhrase({ kind: 'two-tiers', stepCm: 84, atM: 9 }, 0, unit)).toBe(words)
+  })
+
+  it.each([
+    ['yards', 'Crown · high in the middle, falls 18 in to the edges'],
+    ['meters', 'Crown · high in the middle, falls 45 cm to the edges'],
+  ] as const)('words a crown in %s', (unit, words) => {
+    expect(shapePhrase({ kind: 'crown', fallCm: 45.4 }, 0, unit)).toBe(words)
+  })
+
+  it('has no unit in the planar or ridge phrases', () => {
+    const planar = { kind: 'planar', tiltPct: 2, downhillDeg: 180 } as const
+    expect(shapePhrase(planar, 0, 'meters')).toBe(shapePhrase(planar, 0, 'yards'))
+    expect(shapePhrase(planar, 0, 'meters')).toBe('Back to front · Moderate')
+  })
+})
+
 describe('greenShape', () => {
   it('calls a 2% plane planar and words it from the approach', () => {
     const s = greenShape(gridOf(N, N, (x) => 20 * x))!
@@ -16,7 +39,7 @@ describe('greenShape', () => {
     if (s.kind !== 'planar') return
     expect(s.tiltPct).toBeCloseTo(2, 9)
     expect(s.downhillDeg).toBeCloseTo(270, 9)
-    expect(shapePhrase(s, 90)).toBe('Back to front · Moderate')
+    expect(shapePhrase(s, 90, 'yards')).toBe('Back to front · Moderate')
   })
 
   it('finds two tiers: a 2 m band at 8% between flat tiers, 16 cm apart', () => {
@@ -28,7 +51,9 @@ describe('greenShape', () => {
     }
     const shape = greenShape(gridOf(N, N, tiered))!
     expect(shape).toEqual({ kind: 'two-tiers', stepCm: 16, atM: 9 })
-    expect(shapePhrase(shape, 0)).toBe('Two tiers · the upper tier is 6 in higher')
+    // 16 / 2.54 = 6.3 in.
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Two tiers · the upper tier is 6 in higher')
+    expect(shapePhrase(shape, 0, 'meters')).toBe('Two tiers · the upper tier is 16 cm higher')
   })
 
   it('finds a crown and measures its fall from the top to the collar', () => {
@@ -38,7 +63,7 @@ describe('greenShape', () => {
     if (shape.kind !== 'crown') return
     expect(shape.fallCm).toBeGreaterThan(44)
     expect(shape.fallCm).toBeLessThan(47)
-    expect(shapePhrase(shape, 0)).toBe('Crown · high in the middle, falls 18 in to the edges')
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Crown · high in the middle, falls 18 in to the edges')
   })
 
   it('finds a ridge and turns its line with the approach', () => {
@@ -46,9 +71,9 @@ describe('greenShape', () => {
     expect(shape.kind).toBe('ridge')
     if (shape.kind !== 'ridge') return
     expect(shape.axisDeg).toBeCloseTo(0, 9)
-    expect(shapePhrase(shape, 0)).toBe('Ridge · runs front to back, falls off both sides')
-    expect(shapePhrase(shape, 90)).toBe('Ridge · runs left to right, falls off both sides')
-    expect(shapePhrase(shape, 45)).toBe('Ridge · runs front right to back left, falls off both sides')
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Ridge · runs front to back, falls off both sides')
+    expect(shapePhrase(shape, 90, 'yards')).toBe('Ridge · runs left to right, falls off both sides')
+    expect(shapePhrase(shape, 45, 'yards')).toBe('Ridge · runs front right to back left, falls off both sides')
   })
 
   it('finds a slanted ridge along its spine', () => {
@@ -59,14 +84,16 @@ describe('greenShape', () => {
     expect(shape.kind).toBe('ridge')
     if (shape.kind !== 'ridge') return
     expect(shape.axisDeg).toBeCloseTo(30, 9)
-    expect(shapePhrase(shape, 0)).toBe('Ridge · runs front left to back right, falls off both sides')
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Ridge · runs front left to back right, falls off both sides')
   })
 
   it('says no single slope for a saddle (not in v1) and gives the rise', () => {
     // ±0.005·9² m at the interior's edges: 81 cm from lowest to highest.
     const shape = greenShape(gridOf(N, N, (x, y) => 5 * ((x - 10) ** 2 - (y + 10) ** 2)))!
     expect(shape).toEqual({ kind: 'no-single-slope', riseCm: expect.closeTo(81, 9) })
-    expect(shapePhrase(shape, 0)).toBe('No single slope · 32 in from the lowest to the highest point')
+    // 81 / 2.54 = 31.9 in.
+    expect(shapePhrase(shape, 0, 'yards')).toBe('No single slope · 32 in from the lowest to the highest point')
+    expect(shapePhrase(shape, 0, 'meters')).toBe('No single slope · 81 cm from the lowest to the highest point')
   })
 
   it('says no single slope for a bowl (not in v1)', () => {
