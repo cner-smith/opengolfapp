@@ -324,6 +324,65 @@ export type Database = {
         }
         Relationships: []
       }
+      green_maps: {
+        Row: {
+          area_m2: number
+          grid: string | null
+          grid_flagged: boolean
+          grid_flown_on: string | null
+          grid_lat0: number | null
+          grid_lng0: number | null
+          grid_source: string | null
+          hole_id: string
+          outline: string
+          outline_flag_reason: string | null
+          outline_flagged: boolean
+          outline_score: number | null
+          outline_source: string
+          updated_at: string
+        }
+        Insert: {
+          area_m2: number
+          grid?: string | null
+          grid_flagged?: boolean
+          grid_flown_on?: string | null
+          grid_lat0?: number | null
+          grid_lng0?: number | null
+          grid_source?: string | null
+          hole_id: string
+          outline: string
+          outline_flag_reason?: string | null
+          outline_flagged?: boolean
+          outline_score?: number | null
+          outline_source: string
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number
+          grid?: string | null
+          grid_flagged?: boolean
+          grid_flown_on?: string | null
+          grid_lat0?: number | null
+          grid_lng0?: number | null
+          grid_source?: string | null
+          hole_id?: string
+          outline?: string
+          outline_flag_reason?: string | null
+          outline_flagged?: boolean
+          outline_score?: number | null
+          outline_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "green_maps_hole_id_fkey"
+            columns: ["hole_id"]
+            isOneToOne: true
+            referencedRelation: "holes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hole_scores: {
         Row: {
           fairway_hit: boolean | null
