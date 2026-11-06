@@ -75,12 +75,15 @@ async function loadCourse(courseId: string, holeIds: string[], key: string | nul
   return out
 }
 
-async function loadGrid(holeId: string, c: Cached, key: string | null): Promise<GridRow | null> {
-  if (c.grids[holeId]) return c.grids[holeId]
+// Online, the server's grid wins (it may have been re-surveyed); the cached
+// one covers a failed read and an offline start.
+async function loadGrid(holeId: string, c: Cached, key: string | null, offline: boolean): Promise<GridRow | null> {
+  const saved = c.grids[holeId] ?? null
+  if (offline && saved) return saved
   const { data, error } = await getGreenGrid(supabase, holeId)
   if (error || !data) {
     if (error) logDiag('green_grid_read_failed', { hole: holeId, msg: error.message.slice(0, 120) })
-    return null
+    return saved
   }
   c.grids[holeId] = data
   if (key) void writeCache(key, c)
@@ -178,13 +181,21 @@ export function useGreenMaps(
           m.set(id, { ...g, lidar, gridNote: note ?? g.gridNote })
           return m
         })
+      const retried = new Set<string>()
       const next = async () => {
         const id = queue.shift()
         if (!id || cancelled) return
-        const row = await loadGrid(id, c, key)
+        const row = await loadGrid(id, c, key, off).catch((err: Error) => {
+          logDiag('green_grid_read_failed', { hole: id, msg: err.message.slice(0, 120) })
+          return null
+        })
         if (cancelled) return
         if (!row) {
-          settle(id, 'none', 'Height and slope load with signal')
+          // One more try at the end of the pass, for a blip at round start.
+          if (!retried.has(id)) {
+            retried.add(id)
+            queue.push(id)
+          } else settle(id, 'none', 'Height and slope load with signal')
           return void setTimeout(next, 16)
         }
         InteractionManager.runAfterInteractions(() => {
@@ -298,6 +309,7 @@ function prunePngs(keepHoleIds: Set<string>) {
   try {
     const dir = pngDir()
     if (!dir.exists) return
+    // Every file here is `<hole uuid>-<kind>.png` (writePng); the uuid is 36 characters.
     for (const f of dir.list()) if (!keepHoleIds.has(f.name.slice(0, 36))) f.delete()
   } catch {
     /* a stale picture only costs disk */
