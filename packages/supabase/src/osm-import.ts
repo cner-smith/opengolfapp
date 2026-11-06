@@ -12,6 +12,7 @@
  * of its own.
  */
 import type { OgaSupabaseClient } from './client'
+import type { Database } from './types'
 
 // ---------------------------------------------------------------------------
 // Overpass
@@ -29,7 +30,13 @@ interface OverpassWay {
   nodes: number[]
   tags?: Record<string, string>
 }
-type OverpassElement = OverpassNode | OverpassWay
+interface OverpassRelation {
+  type: 'relation'
+  id: number
+  members: { type: string; ref: number; role: string }[]
+  tags?: Record<string, string>
+}
+type OverpassElement = OverpassNode | OverpassWay | OverpassRelation
 interface OverpassResponse {
   elements: OverpassElement[]
 }
@@ -56,6 +63,7 @@ export async function fetchOverpass(args: OverpassQuery): Promise<OverpassRespon
 (
   way["golf"="hole"](around:${args.radius},${args.lat},${args.lng});
   way["golf"="green"](around:${args.radius},${args.lat},${args.lng});
+  relation["golf"="green"]["type"="multipolygon"](around:${args.radius},${args.lat},${args.lng});
   way["golf"="tee"](around:${args.radius},${args.lat},${args.lng});
 );
 out body;
@@ -137,24 +145,47 @@ interface ParsedHole {
   pathYards: number
 }
 
+type GeoRing = { lat: number; lng: number }[]
+
 export function parseElements(resp: OverpassResponse, courseFilter?: string): {
   holes: ParsedHole[]
   greens: LatLon[]
   tees: LatLon[]
+  /** Every green as its outer ways, multipolygon relations included (#1374). */
+  greenOutlines: GeoRing[][]
 } {
   const nodes = new Map<number, LatLon>()
   const ways: OverpassWay[] = []
+  const relations: OverpassRelation[] = []
   for (const el of resp.elements) {
     if (el.type === 'node') {
       nodes.set(el.id, { lat: el.lat, lon: el.lon })
-    } else {
+    } else if (el.type === 'way') {
       ways.push(el)
+    } else {
+      relations.push(el)
     }
   }
+  const wayPoints = (way: OverpassWay): GeoRing =>
+    way.nodes.flatMap((id) => {
+      const n = nodes.get(id)
+      return n ? [{ lat: n.lat, lng: n.lon }] : []
+    })
 
   const holes: ParsedHole[] = []
   const greens: LatLon[] = []
   const tees: LatLon[] = []
+  const greenOutlines: GeoRing[][] = []
+  // The `>` recurse brings each relation's member ways (untagged, so the loop below skips them).
+  const waysById = new Map(ways.map((w) => [w.id, w]))
+  for (const rel of relations) {
+    if (rel.tags?.golf !== 'green') continue
+    const outer = rel.members.flatMap((m) => {
+      const w = m.type === 'way' && m.role === 'outer' ? waysById.get(m.ref) : undefined
+      return w ? [wayPoints(w)] : []
+    })
+    if (outer.length > 0) greenOutlines.push(outer)
+  }
 
   for (const way of ways) {
     const tags = way.tags ?? {}
@@ -190,13 +221,15 @@ export function parseElements(resp: OverpassResponse, courseFilter?: string): {
         pathYards: metersToYards(pathMeters),
       })
     } else if (golf === 'green') {
+      // Relation greens stay out of `greens`: the pin snaps to way greens only, as before.
       greens.push(centroid(points))
+      greenOutlines.push([wayPoints(way)])
     } else if (golf === 'tee') {
       tees.push(centroid(points))
     }
   }
 
-  return { holes, greens, tees }
+  return { holes, greens, tees, greenOutlines }
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +242,8 @@ interface MatchedHole {
   yards: number | null
   tee: LatLon
   pin: LatLon
+  /** The hole way's last point, before any snap: green_maps matches on it. */
+  greenEnd: LatLon
   hasGreenMatch: boolean
   hasTeeMatch: boolean
 }
@@ -228,7 +263,7 @@ function nearest(
 }
 
 export function matchHoles(
-  parsed: ReturnType<typeof parseElements>,
+  parsed: Pick<ReturnType<typeof parseElements>, 'holes' | 'greens' | 'tees'>,
   queryCenter: LatLon,
 ): { matched: MatchedHole[]; dedupedRefs: number[] } {
   // Dedupe by ref: when the same hole number appears twice (common around
@@ -278,6 +313,7 @@ export function matchHoles(
       yards: hole.yards ?? (Math.round(hole.pathYards) || null),
       tee,
       pin,
+      greenEnd: hole.pinFromHole,
       hasGreenMatch: !!greenHit && greenHit.dist <= MATCH_RADIUS_METERS,
       hasTeeMatch: !!teeHit && teeHit.dist <= MATCH_RADIUS_METERS,
     })
@@ -351,7 +387,7 @@ export async function upsertMatchedHoles(
   client: OgaSupabaseClient,
   courseId: string,
   holes: MatchedHole[],
-): Promise<void> {
+): Promise<{ id: string; number: number }[]> {
   const rows = holes.map((h) => ({
     course_id: courseId,
     number: h.ref,
@@ -364,8 +400,68 @@ export async function upsertMatchedHoles(
     // A mapped hole is the course's own, not a front-nine repeat (#1326).
     loop_of: null,
   }))
-  const { error } = await client.from('holes').upsert(rows, { onConflict: 'course_id,number' })
+  const { data, error } = await client
+    .from('holes')
+    .upsert(rows, { onConflict: 'course_id,number' })
+    .select('id, number')
   if (error) throw error
+  return data ?? []
+}
+
+/** @oga/core's osmGreenMap, passed in by the caller: this package can't import core. */
+export type OsmGreenMapFn = (
+  greens: GeoRing[][],
+  holeEnd: { lat: number; lng: number } | null,
+  pin: { lat: number; lng: number } | null,
+) => { outline: string; areaM2: number; flagged: boolean; flagReason: string | null } | null
+
+// One green_maps row per imported hole whose green OSM has (#1374). Never replaces a
+// 'model' or 'manual' outline; leaves an unchanged OSM outline, and any flag on it, alone.
+// The upsert names only outline columns, so a stored grid survives.
+export async function upsertOsmGreenMaps(
+  client: OgaSupabaseClient,
+  holes: { id: string; hole: MatchedHole }[],
+  greenOutlines: GeoRing[][],
+  greenMap: OsmGreenMapFn,
+): Promise<{ written: number; flaggedRefs: number[]; missingRefs: number[] }> {
+  const { data: existing, error: readErr } = await client
+    .from('green_maps')
+    .select('hole_id, outline, outline_source')
+    .in('hole_id', holes.map((h) => h.id))
+  if (readErr) throw readErr
+  const prev = new Map((existing ?? []).map((r) => [r.hole_id, r]))
+
+  const rows: Database['public']['Tables']['green_maps']['Insert'][] = []
+  const flaggedRefs: number[] = []
+  const missingRefs: number[] = []
+  for (const { id, hole } of holes) {
+    const got = greenMap(
+      greenOutlines,
+      { lat: hole.greenEnd.lat, lng: hole.greenEnd.lon },
+      { lat: hole.pin.lat, lng: hole.pin.lon },
+    )
+    if (!got) {
+      missingRefs.push(hole.ref)
+      continue
+    }
+    if (got.flagged) flaggedRefs.push(hole.ref)
+    const old = prev.get(id)
+    if (old && (old.outline_source !== 'osm' || old.outline === got.outline)) continue
+    rows.push({
+      hole_id: id,
+      outline: got.outline,
+      area_m2: Math.round(got.areaM2 * 10) / 10,
+      outline_source: 'osm',
+      outline_score: null,
+      outline_flagged: got.flagged,
+      outline_flag_reason: got.flagReason,
+    })
+  }
+  if (rows.length > 0) {
+    const { error } = await client.from('green_maps').upsert(rows, { onConflict: 'hole_id' })
+    if (error) throw error
+  }
+  return { written: rows.length, flaggedRefs, missingRefs }
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +475,7 @@ export interface OsmImportArgs {
   radius: number
   updateExisting: boolean
   courseFilter?: string
+  greenMap: OsmGreenMapFn
 }
 
 export interface OsmImportSummary {
@@ -395,6 +492,10 @@ export interface OsmImportSummary {
   missingYardsRefs: number[]
   dedupedRefs: number[]
   wipedHoles: number
+  greenOutlinesWritten: number
+  /** No OSM green contains the hole's end; the nearest within 30 m was taken and flagged. */
+  greenOutlineFlaggedRefs: number[]
+  greenOutlineMissingRefs: number[]
 }
 
 export async function runOsmImport(
@@ -423,7 +524,17 @@ export async function runOsmImport(
   if (args.updateExisting && !created) {
     wipedHoles = await deleteHolesForCourse(client, id)
   }
-  await upsertMatchedHoles(client, id, matched)
+  const holeIds = await upsertMatchedHoles(client, id, matched)
+  const byNumber = new Map(holeIds.map((h) => [h.number, h.id]))
+  const greenResult = await upsertOsmGreenMaps(
+    client,
+    matched.flatMap((hole) => {
+      const holeId = byNumber.get(hole.ref)
+      return holeId ? [{ id: holeId, hole }] : []
+    }),
+    parsed.greenOutlines,
+    args.greenMap,
+  )
 
   const refs = matched.map((h) => h.ref).sort((a, b) => a - b)
   const missingRefs: number[] = []
@@ -445,5 +556,8 @@ export async function runOsmImport(
     missingYardsRefs: matched.filter((h) => !h.yards).map((h) => h.ref),
     dedupedRefs,
     wipedHoles,
+    greenOutlinesWritten: greenResult.written,
+    greenOutlineFlaggedRefs: greenResult.flaggedRefs,
+    greenOutlineMissingRefs: greenResult.missingRefs,
   }
 }

@@ -87,4 +87,39 @@ describe('parseElements', () => {
     const { holes } = parseElements(resp)
     expect(holes.map((h) => h.ref)).toEqual([9])
   })
+
+  it('keeps every green as its outer ways, multipolygon relations included, without snapping pins to relations', () => {
+    const resp: Parameters<typeof parseElements>[0] = {
+      elements: [
+        { type: 'node' as const, id: 1, lat: 0, lon: 0 },
+        { type: 'node' as const, id: 2, lat: 0, lon: 1 },
+        { type: 'node' as const, id: 3, lat: 1, lon: 1 },
+        { type: 'node' as const, id: 4, lat: 1, lon: 0 },
+        // A closed golf=green way.
+        { type: 'way' as const, id: 20, nodes: [1, 2, 3, 1], tags: { golf: 'green' } },
+        // A multipolygon green whose outer ring is split into two untagged ways, plus an inner.
+        {
+          type: 'relation' as const,
+          id: 30,
+          members: [
+            { type: 'way', ref: 21, role: 'outer' },
+            { type: 'way', ref: 22, role: 'outer' },
+            { type: 'way', ref: 23, role: 'inner' },
+          ],
+          tags: { golf: 'green', type: 'multipolygon' },
+        },
+        { type: 'way' as const, id: 21, nodes: [1, 2, 3] },
+        { type: 'way' as const, id: 22, nodes: [3, 4, 1] },
+        { type: 'way' as const, id: 23, nodes: [2, 3, 4] },
+      ],
+    }
+    const { greens, greenOutlines } = parseElements(resp)
+    const pt = (lat: number, lng: number) => ({ lat, lng })
+    expect(greenOutlines).toEqual([
+      [[pt(0, 0), pt(0, 1), pt(1, 1)], [pt(1, 1), pt(1, 0), pt(0, 0)]],
+      [[pt(0, 0), pt(0, 1), pt(1, 1), pt(0, 0)]],
+    ])
+    // The pin still snaps only to way greens, as before.
+    expect(greens).toHaveLength(1)
+  })
 })
