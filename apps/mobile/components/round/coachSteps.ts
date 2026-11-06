@@ -61,7 +61,7 @@ export const LIVE_AIM_STEPS: CoachStep[] = [
   {
     id: 'live.row.aim',
     title: 'Aim, then hit',
-    body: 'Tap or drag on the map to set where you are aiming, then Confirm aim. Skip aim if you don’t want to track it.',
+    body: 'Drag the ring to where you are aiming, then Confirm aim. No ring yet? Long-press the map there. Skip aim if you don’t want to track it.',
   },
   {
     id: 'live.ruler',

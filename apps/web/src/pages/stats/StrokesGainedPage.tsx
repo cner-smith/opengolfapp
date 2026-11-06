@@ -10,6 +10,7 @@ import { BallStrikingSection } from './sections/BallStrikingSection'
 import { ShortGameSection } from './sections/ShortGameSection'
 import { PatternsSection } from './sections/PatternsSection'
 import { ClubDistancesSection } from './sections/ClubDistancesSection'
+import { ClubHistorySection } from './sections/ClubHistorySection'
 import { HelpButton } from '../../components/help/HelpButton'
 import './stats.css'
 
@@ -81,6 +82,7 @@ export function StrokesGainedPage() {
           <ShortGameSection data={stats.data} />
           <PatternsSection data={stats.data} />
           <ClubDistancesSection clubDistances={clubDistances} />
+          <ClubHistorySection clubDistances={clubDistances} />
         </>
       )}
     </div>

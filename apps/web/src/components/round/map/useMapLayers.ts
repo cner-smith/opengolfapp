@@ -11,6 +11,8 @@ import {
   getExpectedStrokes,
   placeCallout,
   plateBox,
+  plateWidth,
+  shortClubLabel,
   type PlateSide,
   startCategory,
   haversineYards,
@@ -146,6 +148,35 @@ export function useMapLayers({
   const calloutRef = useRef<HTMLElement | null>(null)
   // Re-fans the saved shots' plates for the current zoom/rotation (#1215).
   const layoutPlatesRef = useRef<(() => void) | null>(null)
+  const overlaySegRef = useRef<AimSeg | null>(null)
+
+  // The pattern overlay (arc / circle) redraws on its own: a Tee/Appr or
+  // width tap only needs setData, not a rebuild of every marker (#477).
+  const drawOverlay = useCallback(() => {
+    const map = mapRef.current
+    if (!map) return
+    const overlaySeg = overlaySegRef.current
+    const arcCoords: [number, number][] =
+      overlaySeg && overlayMode === 'tee'
+        ? arcGeoJSON(
+            { lat: overlaySeg.start[1], lng: overlaySeg.start[0] },
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
+            arcWidthYards / 2,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
+    const circleRing: [number, number][][] =
+      overlaySeg && overlayMode === 'appr'
+        ? circleGeoJSON(
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
+            circleRadiusYards,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+  }, [mapRef, overlayMode, arcWidthYards, circleRadiusYards])
+  // Read through a ref so renderLayers doesn't depend on (and rebuild with) it.
+  const drawOverlayRef = useRef(drawOverlay)
+  drawOverlayRef.current = drawOverlay
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
@@ -266,7 +297,7 @@ export function useMapLayers({
       coincidentCount.set(k, (coincidentCount.get(k) ?? 0) + 1)
     }
 
-    const plates: { at: [number, number]; offset: [number, number]; setSide: (s: PlateSide) => void }[] = []
+    const plates: { at: [number, number]; offset: [number, number]; w: number; setSide: (s: PlateSide) => void }[] = []
     const selIdx = existingValid.findIndex((s) => s.id === selectedShotId)
     const sel = existingValid[selIdx] ?? null
     // Review (§19.3/19.5): a saved hole with a selected shot. The map then
@@ -276,7 +307,8 @@ export function useMapLayers({
     for (const s of existingValid) {
       // Paper plates (cream, ink ring); the shot that went OB stays brick,
       // as on mobile and the scorecard.
-      const plate = s === sel ? null : makePlateMarker(s.shotNumber, s.ob === true)
+      const club = s.club ? shortClubLabel({ club_type: s.club }) : null
+      const plate = s === sel ? null : makePlateMarker(s.shotNumber, s.ob === true, club)
       const parts = plate ?? makeSelectedMarker(s.shotNumber)
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!
@@ -297,7 +329,7 @@ export function useMapLayers({
       })
         .setLngLat([lng, lat])
         .addTo(map)
-      if (plate) plates.push({ at: [lng, lat], offset, setSide: plate.setSide })
+      if (plate) plates.push({ at: [lng, lat], offset, w: plateWidth(s.shotNumber, club), setSide: plate.setSide })
       if (plate && onSelectShot) {
         // A drag ends in a click too; only a click without one selects.
         let dragged = false
@@ -392,7 +424,7 @@ export function useMapLayers({
       const dots = plates.map((p) => pt(p.at, p.offset))
       const others = [pinAt, selAim, sel ? legEnd : null].filter((p): p is [number, number] => p != null).map((p) => pt(p))
       const a = selAt ? pt(selAt) : undefined
-      const sides = fanPlates(dots, others, a)
+      const sides = fanPlates(dots, others, a, plates.map((p) => p.w))
       plates.forEach((p, i) => p.setSide(sides[i]!))
       if (!callout || !a || !legEnd) return
       const c = map.getContainer()
@@ -406,7 +438,7 @@ export function useMapLayers({
         end,
         prev: legPrev ? pt(legPrev) : null,
         dots: [a, end, ...dots, ...others],
-        plates: dots.map((d, i) => plateBox(d, sides[i]!)),
+        plates: dots.map((d, i) => plateBox(d, sides[i]!, plates[i]!.w)),
         box,
         size: { w: c.clientWidth, h: c.clientHeight },
       })
@@ -536,24 +568,8 @@ export function useMapLayers({
     // underneath; always upserted (empty when no active aim / wrong mode) so
     // it clears on the next render.
     // In review the overlay waits for the Pattern key.
-    const overlaySeg = review && !dotsVisible ? null : activeSeg
-    const arcCoords: [number, number][] =
-      overlaySeg && overlayMode === 'tee'
-        ? arcGeoJSON(
-            { lat: overlaySeg.start[1], lng: overlaySeg.start[0] },
-            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
-            arcWidthYards / 2,
-          )?.geometry.coordinates ?? []
-        : []
-    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
-    const circleRing: [number, number][][] =
-      overlaySeg && overlayMode === 'appr'
-        ? circleGeoJSON(
-            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
-            circleRadiusYards,
-          )?.geometry.coordinates ?? []
-        : []
-    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+    overlaySegRef.current = review && !dotsVisible ? null : activeSeg
+    drawOverlayRef.current()
 
     // Single-color dispersion dots: the club whose median distance best matches
     // the active shot's ball→pin distance (longest club when no pin), scattered
@@ -714,9 +730,6 @@ export function useMapLayers({
     holeNumber,
     par,
     effectiveTee,
-    overlayMode,
-    arcWidthYards,
-    circleRadiusYards,
     dotsVisible,
     selectClub,
     handicap,
@@ -743,6 +756,12 @@ export function useMapLayers({
     }
     renderLayers()
   }, [mapRef, renderLayers])
+
+  // An overlay input changing redraws only the overlay sources.
+  useEffect(() => {
+    const map = mapRef.current
+    if (map?.isStyleLoaded()) drawOverlay()
+  }, [mapRef, drawOverlay])
 
   // Re-fan the plates and re-place the callout every camera frame, so the
   // callout follows a pan as mobile's does. ponytail: a handful of projections.

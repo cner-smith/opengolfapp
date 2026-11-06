@@ -16,6 +16,8 @@ import {
   distanceText as dist,
   findingLine,
   mostlyTeeShots,
+  puttMissHeadline,
+  puttMissTally,
   readQuality,
   recentPoints,
   recentVsAll,
@@ -31,7 +33,7 @@ import {
   type LieSlopeSide,
   type LieType,
 } from '@oga/core'
-import { useClubLadder, useShotPatterns } from '../../hooks/useShotPatterns'
+import { useClubLadder, useMissedPutts, useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
@@ -44,6 +46,7 @@ import { TeePlot, teeGeometry } from './components/TeePlot'
 import { useNarrow, type ChartProps, type Ghost } from './components/chartParts'
 import { ColourByControl, FOCUS_RING, LAYER_INFO, LayerBar, Legend, rovingKey, type LegendEntry } from './components/LayerControls'
 import { PatternNumbers, ShotTable } from './components/PatternNumbers'
+import { PuttPatterns, type PuttView } from './components/PuttPatterns'
 import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from './layers'
 
 // Social share card — 1200×630 is Twitter/Facebook's preferred OG image
@@ -73,11 +76,12 @@ const LIE_PHRASE: Record<LieType, string> = {
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
-  // Only the player's bag (DEFAULT_BAG while it loads / if empty), catalog order.
+  // The player's bag (DEFAULT_BAG while it loads / if empty), catalog order,
+  // and always the Putter at the end for missed putts (#747).
   const { bag } = useUserBag()
   const clubOptions = useMemo(() => {
     const have = new Set<string>((bag.length ? bag : DEFAULT_BAG).map((c) => c.club_type))
-    return CLUBS.filter((c) => c !== 'putter' && have.has(c))
+    return CLUBS.filter((c) => c === 'putter' || have.has(c))
   }, [bag])
   useEffect(() => {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
@@ -106,7 +110,8 @@ export function ShotPatternsPage() {
 
   const ladder = useClubLadder()
   const { data, isLoading, clubShots } = useShotPatterns({
-    club,
+    // The putter reads its missed putts instead; '' keeps this query off.
+    club: club === 'putter' ? '' : club,
     lieType: lieType || undefined,
     lieSlopeForward,
     lieSlopeSide,
@@ -121,6 +126,10 @@ export function ShotPatternsPage() {
     const y = typicalYards(c)
     return y == null ? null : wholeDistance(y, unit)
   }
+
+  const putts = useMissedPutts()
+  const puttTally = useMemo(() => puttMissTally(putts.data ?? []), [putts.data])
+  const [puttView, setPuttView] = useState<PuttView>('length')
 
   const filteredPoints = useMemo(() => data?.points ?? [], [data])
   const extras = data?.extras ?? {}
@@ -213,6 +222,46 @@ export function ShotPatternsPage() {
           {ladder.isLoading ? 'Loading…' : 'No shots with an aim yet. Here’s what one club’s pattern looks like once you have some.'}
         </p>
         {!ladder.isLoading && <PatternsEmpty />}
+      </div>
+    )
+  }
+
+  const ladderRow = (
+    <div style={{ marginTop: 18 }}>
+      <ClubLadder
+        clubs={clubOptions}
+        value={club}
+        onChange={setClub}
+        typical={ladderNumber}
+        aimed={(c) => ladder.data?.get(c)?.aimed ?? 0}
+        unit={unit}
+        missedPutts={putts.data ? puttTally.misses : null}
+      />
+    </div>
+  )
+
+  if (club === 'putter') {
+    const headline = puttMissHeadline(puttTally, puttView)
+    const rounds = new Set((putts.data ?? []).map((p) => p.roundId)).size
+    return (
+      <div>
+        <PageHeader />
+        {headline && (
+          <p className="font-serif text-caddie-ink" style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, margin: '-10px 0 6px', maxWidth: 780, textWrap: 'balance' } as React.CSSProperties}>
+            {headline}
+          </p>
+        )}
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, maxWidth: 640, margin: headline ? 0 : '-10px 0 0' }}>
+          {putts.isLoading
+            ? 'Loading…'
+            : putts.isError
+              ? 'Couldn’t load your putts. Reload the page to try again.'
+              : puttTally.misses > 0
+                ? `${puttTally.misses} missed putt${puttTally.misses === 1 ? '' : 's'}, last ${rounds} round${rounds === 1 ? '' : 's'}. Holed putts aren’t counted.`
+                : 'Where your missed putts finish: short or long, left or right.'}
+        </p>
+        {ladderRow}
+        {putts.data && <PuttPatterns putts={putts.data} tally={puttTally} view={puttView} onView={setPuttView} />}
       </div>
     )
   }
@@ -330,9 +379,7 @@ export function ShotPatternsPage() {
         {recentLine && ` ${recentLine}`}
       </p>
 
-      <div style={{ marginTop: 18 }}>
-        <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} aimed={(c) => ladder.data?.get(c)?.aimed ?? 0} unit={unit} />
-      </div>
+      {ladderRow}
 
       {/* Tabs left; desktop: which shots, lie and slope right; phone: one Filters button. */}
       <div className="flex items-end flex-wrap" style={{ gap: 18, marginTop: 16, borderBottom: '1px solid #D9D2BF' }}>
@@ -551,7 +598,13 @@ function chartCaption(a: {
     if (neither) parts.push(`${neither} dashed ${neither === 1 ? 'line has' : 'lines have'} nothing recorded.`)
     if (a.conflicts) parts.push(`${a.conflicts} shot${a.conflicts === 1 ? ' doesn’t' : 's don’t'} add up: the second half is dashed. Select one to see why.`)
   }
-  if (a.stats && a.shownLayers.rings) parts.push(`Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`)
+  if (a.stats && a.shownLayers.rings) {
+    parts.push(
+      a.view === 'aim'
+        ? `Your next ${a.noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
+        : `Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`,
+    )
+  }
   if (a.ghost && a.shownLayers.rings) parts.push(a.recentOn ? `The dotted ring is all of them, and the pencil dots the older shots.` : 'The dotted ring is your pattern from every lie.')
   if (a.hiddenWords.length) {
     parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)

@@ -22,6 +22,8 @@ import {
   distanceText as dist,
   filterDispersionByLie,
   findingLine,
+  puttMissHeadline,
+  puttMissTally,
   legacySlopeToAxes,
   mostlyTeeShots,
   readQuality,
@@ -46,7 +48,7 @@ import {
   type ShotShape,
   type ShotStartLine,
 } from '@oga/core'
-import { getShotsByClub } from '@oga/supabase'
+import { getMissedPutts, getShotsByClub } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -66,6 +68,7 @@ import { flightOf, type ChartProps } from '../../components/patterns/chartParts'
 import { ColourRow, LAYER_INFO, LayerBar, type LegendEntry } from '../../components/patterns/LayerControls'
 import { FilterSheet } from '../../components/patterns/FilterSheet'
 import { PatternNumbers } from '../../components/patterns/PatternNumbers'
+import { PuttPatterns, type MissedPutt, type PuttView } from '../../components/patterns/PuttPatterns'
 import { ShareCard } from '../../components/patterns/ShareCard'
 import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from '../../components/patterns/layers'
 import { useUnitsContext } from '../../contexts/UnitsContext'
@@ -155,7 +158,8 @@ export default function Patterns() {
   const { playsLeftHanded: leftHanded } = useUnitsContext()
   const [club, setClub] = useState<Club>('7i')
   // The player's bag (DEFAULT_BAG while it loads or if empty), in catalog
-  // order. No putter: putts have their own page, as on the web.
+  // order. The putter's stop is added at the end of the ladder for missed
+  // putts (#747); it has no shot pattern.
   const { bag } = useUserBag()
   const clubOptions = useMemo(() => {
     const have = new Set<string>((bag.length ? bag : DEFAULT_BAG).map((c) => c.club_type))
@@ -163,7 +167,7 @@ export default function Patterns() {
   }, [bag])
   // The default 7i may not be in the bag: fall back to its first club.
   useEffect(() => {
-    if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
+    if (club !== 'putter' && clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
   // Per-club shot counts with start + aim + finish, the wheel's count (#1076).
   const { byClub, loading: countsLoading, error: countsError } = useClubDispersion(user?.id)
@@ -209,8 +213,41 @@ export default function Patterns() {
   const [loaded, setLoaded] = useState<{ club: Club; rows: ShotRow[]; error: boolean } | null>(null)
   const [attempt, setAttempt] = useState(0)
 
+  // Missed putts for the Putter stop, fetched once.
+  const [putts, setPutts] = useState<{ rows: MissedPutt[]; error: boolean } | null>(null)
+  const [puttView, setPuttView] = useState<PuttView>('length')
   useEffect(() => {
     if (!user) return
+    let active = true
+    getMissedPutts(supabase, user.id).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console -- dev diagnostic; the screen shows the error
+        console.error('[patterns/getMissedPutts]', error.message)
+      }
+      const rows = (data ?? []).map((r) => {
+        const hs = r.hole_scores as unknown as { round_id: string; rounds: { played_at: string; courses: { name: string } | null } | null; holes: { number: number } | null } | null
+        return {
+          id: r.id,
+          puttDistanceResult: (r.putt_distance_result as MissedPutt['puttDistanceResult'] | null) ?? undefined,
+          puttDirectionResult: (r.putt_direction_result as MissedPutt['puttDirectionResult'] | null) ?? undefined,
+          puttDistanceFt: r.putt_distance_ft ?? undefined,
+          playedAt: hs?.rounds?.played_at ?? null,
+          course: hs?.rounds?.courses?.name ?? null,
+          hole: hs?.holes?.number ?? null,
+          roundId: hs?.round_id ?? null,
+        }
+      })
+      setPutts({ rows, error: !!error })
+    })
+    return () => {
+      active = false
+    }
+  }, [user?.id])
+  const puttTally = useMemo(() => puttMissTally(putts?.rows ?? []), [putts])
+
+  useEffect(() => {
+    if (!user || club === 'putter') return
     let active = true
     getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
@@ -276,6 +313,49 @@ export default function Patterns() {
     } finally {
       setSharing(false)
     }
+  }
+
+  const ladderClubs = [...clubOptions, 'putter'] as Club[]
+  const ladderRow = (
+    <ClubLadder
+      clubs={ladderClubs}
+      value={club}
+      onChange={setClub}
+      typical={ladderNumber}
+      aimed={aimed}
+      unitWords={metres ? 'metres' : 'yards'}
+      width={screenWidth - 36}
+      missedPutts={putts && !putts.error ? puttTally.misses : null}
+    />
+  )
+
+  if (club === 'putter' && !countsLoading && !countsError && anyAimed) {
+    const headline = puttMissHeadline(puttTally, puttView)
+    const rounds = new Set((putts?.rows ?? []).map((p) => p.roundId)).size
+    const m = puttTally.misses
+    return (
+      <PaperSurface style={{ flex: 1 }}>
+        <AppBar title="Shot patterns" />
+        <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+          {headline && (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: P.ink }]}>
+              {headline}
+            </Text>
+          )}
+          <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: putts?.error ? P.neg : P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+            {!putts
+              ? 'Loading…'
+              : putts.error
+                ? "Couldn't load your putts. Go back and try again."
+                : m > 0
+                  ? `${m} missed putt${m === 1 ? '' : 's'}, last ${rounds} round${rounds === 1 ? '' : 's'}. Holed putts aren't counted.`
+                  : 'Where your missed putts finish: short or long, left or right.'}
+          </Text>
+          <View style={{ marginTop: 12 }}>{ladderRow}</View>
+          {putts && !putts.error && <PuttPatterns putts={putts.rows} tally={puttTally} view={puttView} onView={setPuttView} width={screenWidth - 36} />}
+        </ScrollView>
+      </PaperSurface>
+    )
   }
 
   // No aimed shot anywhere → the example (B); this club under 5 → its
@@ -379,7 +459,7 @@ export default function Patterns() {
   const caption = [
     view === 'aim'
       ? stats && layers.rings
-        ? `Your next ${noun} will probably finish inside the solid ring.`
+        ? `Your next ${noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
         : ''
       : 'Lines leave on your recorded start line and bend by your recorded shape.',
     view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
@@ -471,7 +551,7 @@ export default function Patterns() {
             </Text>
           )}
           <View style={{ marginTop: 12 }}>
-            <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} aimed={aimed} unitWords={metres ? 'metres' : 'yards'} width={screenWidth - pad * 2} />
+            {ladderRow}
           </View>
         </Entrance>
 

@@ -62,7 +62,7 @@ export function NewRoundPage() {
   const teesQuery = useCourseTees(courseId)
   const tees = teesQuery.data ?? []
   const teePar = (tees.find((t) => t.id === courseTeeId) ?? tees[0])?.par
-  const guessedHoles = guessHoleCount(teePar, (holesQuery.data ?? []).map((h) => h.number))
+  const guessedHoles = guessHoleCount(teePar, (holesQuery.data ?? []).filter((h) => !h.loop_of).map((h) => h.number))
   const holeCount = otherHoles != null ? Number(otherHoles) : (holeChoice ?? guessedHoles)
   const holeKey = otherHoles != null || !HOLE_KEYS.some((k) => k.value === holeCount) ? 'other' : holeCount
   // isPending, not isLoading: no data yet, even on the render before the fetch starts.

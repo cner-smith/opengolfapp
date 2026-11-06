@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { marksFor, marksPath, pencilTick } from './pencil'
+import { marksFor, marksPath, pencilEllipse, pencilTick } from './pencil'
 
 describe('pencil marks', () => {
   it('draws nothing at par, one gesture for birdie / bogey, two for eagle / double', () => {
@@ -30,5 +30,29 @@ describe('marksPath', () => {
     expect(marksPath(ms, 0)).toBe('')
     expect(full).toMatch(/^M[\d.-]+ [\d.-]+ Q.*Z$/)
     expect(marksPath(ms, ms[0]!.m.dur / 2).length).toBeLessThan(full.length)
+  })
+})
+
+describe('pencilEllipse', () => {
+  // Half-extents of the drawn line, from its points.
+  const extent = (ms: ReturnType<typeof pencilEllipse>) => {
+    const pts = ms.flatMap((x) => x.m.strokes.flatMap((st) => st.pts))
+    return { x: Math.max(...pts.map((p) => Math.abs(p.x))), y: Math.max(...pts.map((p) => Math.abs(p.y))) }
+  }
+
+  it('turns a long ring by its tilt: upright at 90°, lying flat at 0°', () => {
+    // a = 40, b = 10. Flat, the line reaches about 40 across and 10 down;
+    // turned 90° it is the other way round. The hand wobbles and drifts
+    // outward by up to ~15%, so the checks leave that much room.
+    const flat = extent(pencilEllipse(40, 10, 400, 3, 0))
+    const upright = extent(pencilEllipse(40, 10, 400, 3, 90))
+    expect(flat.x).toBeGreaterThan(38)
+    expect(flat.y).toBeLessThan(13)
+    expect(upright.y).toBeGreaterThan(38)
+    expect(upright.x).toBeLessThan(13)
+  })
+
+  it('keeps the old slight lean when no tilt is given', () => {
+    expect(pencilEllipse(29, 12, 220, 7)).toEqual(pencilEllipse(29, 12, 220, 7, -6))
   })
 })

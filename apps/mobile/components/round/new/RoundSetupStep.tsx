@@ -75,7 +75,8 @@ export function RoundSetupStep({
     ;(async () => {
       try {
         const [h, t] = await Promise.all([
-          supabase.from('holes').select('number').eq('course_id', courseId),
+          // Repeats of the front nine (#1326) aren't the course's own holes.
+          supabase.from('holes').select('number').eq('course_id', courseId).is('loop_of', null),
           getCourseTees(supabase, courseId),
         ])
         if (active) setCourse({ holeNumbers: (h.data ?? []).map((r) => r.number), tees: t.data ?? [] })

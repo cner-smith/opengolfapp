@@ -12,6 +12,7 @@ export function ClubLadder({
   typical,
   aimed,
   unit,
+  missedPutts,
 }: {
   clubs: readonly Club[]
   value: Club
@@ -20,6 +21,8 @@ export function ClubLadder({
   typical: (c: Club) => number | null
   aimed: (c: Club) => number
   unit: DistanceUnit
+  /** The Putter stop's number: missed putts with a result (#747). */
+  missedPutts?: number | null
 }) {
   const row = useRef<HTMLDivElement | null>(null)
   const unitLong = unit === 'meters' ? 'metres' : 'yards'
@@ -32,14 +35,14 @@ export function ClubLadder({
   }, [value])
 
   // The widest hole between two clubs that both have a number.
-  const numbered = clubs.filter((c) => typical(c) != null)
+  const numbered = clubs.filter((c) => c !== 'putter' && typical(c) != null)
   let gap: { from: Club; to: Club; size: number } | null = null
   for (let i = 1; i < numbered.length; i++) {
     const size = typical(numbered[i - 1]!)! - typical(numbered[i]!)!
     if (!gap || size > gap.size) gap = { from: numbered[i - 1]!, to: numbered[i]!, size }
   }
   const i = clubs.indexOf(value)
-  const showsGaps = clubs.some((c, j) => j > 0 && typical(c) != null && typical(clubs[j - 1]!) != null)
+  const showsGaps = numbered.length > 1 && clubs.some((c, j) => j > 0 && c !== 'putter' && typical(c) != null && typical(clubs[j - 1]!) != null)
 
   return (
     // width 0 / min-width 100%: the row scrolls inside the page instead of widening it.
@@ -53,11 +56,14 @@ export function ClubLadder({
       >
         {clubs.map((c, j) => {
           const on = c === value
-          const t = typical(c)
+          const putter = c === 'putter'
+          // The putter's number is its missed putts, not a distance.
+          const t = putter ? missedPutts ?? null : typical(c)
           const n = aimed(c)
-          const prev = j > 0 ? typical(clubs[j - 1]!) : null
-          const label =
-            t != null
+          const prev = j > 0 && !putter ? typical(clubs[j - 1]!) : null
+          const label = putter
+            ? `Putter, ${missedPutts ?? 0} missed putt${missedPutts === 1 ? '' : 's'} with a result`
+            : t != null
               ? `${clubNoun(c)}, typical distance ${t} ${unitLong}`
               : n > 0
                 ? `${clubNoun(c)}, ${n} of ${MIN_SAMPLES_FOR_STATS} aimed shots`
@@ -93,11 +99,11 @@ export function ClubLadder({
                 minHeight: 46,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: on ? 600 : 400 }}>{c === 'driver' ? 'dr' : c}</span>
+              <span style={{ fontSize: 13, fontWeight: on ? 600 : 400 }}>{c === 'driver' ? 'dr' : putter ? 'Putter' : c}</span>
               {t != null ? (
                 <span className="font-serif tabular" style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.1 }}>{t}</span>
               ) : (
-                <span style={{ fontSize: 12, lineHeight: 1.5, color: on ? '#F2EEE5' : '#5C6356' }}>{n > 0 ? `${n} of ${MIN_SAMPLES_FOR_STATS}` : '—'}</span>
+                <span style={{ fontSize: 12, lineHeight: 1.5, color: on ? '#F2EEE5' : '#5C6356' }}>{n > 0 && !putter ? `${n} of ${MIN_SAMPLES_FOR_STATS}` : '—'}</span>
               )}
               {t != null && prev != null && (
                 <span

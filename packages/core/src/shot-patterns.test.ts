@@ -13,6 +13,7 @@ import {
   recentPoints,
   ringExtent,
   dispersionVerdict,
+  puttMissTally,
   filterDispersionByLie,
   getAimCorrection,
   missTally,
@@ -758,5 +759,65 @@ describe('recentPoints', () => {
     )
     const r = recentVsAll(spread, 5)!
     expect(r.recent).toEqual(computeDispersionStats(recentPoints(spread, 5).recent))
+  })
+})
+
+// The #747 mock's 40 missed putts, built band by band. Per band: on-line
+// short/long, then the four corners (short-left, short-right, long-left, long-right).
+describe('puttMissTally', () => {
+  type P = Parameters<typeof puttMissTally>[0][number]
+  const many = (n: number, p: P): P[] => Array.from({ length: n }, () => ({ ...p }))
+  const band = (ft: number, on: [number, number], sl: number, sr: number, ll: number, lr: number): P[] => [
+    ...many(on[0], { puttDistanceResult: 'short', puttDistanceFt: ft }),
+    ...many(on[1], { puttDistanceResult: 'long', puttDistanceFt: ft }),
+    ...many(sl, { puttDistanceResult: 'short', puttDirectionResult: 'left', puttDistanceFt: ft }),
+    ...many(sr, { puttDistanceResult: 'short', puttDirectionResult: 'right', puttDistanceFt: ft }),
+    ...many(ll, { puttDistanceResult: 'long', puttDirectionResult: 'left', puttDistanceFt: ft }),
+    ...many(lr, { puttDistanceResult: 'long', puttDirectionResult: 'right', puttDistanceFt: ft }),
+  ]
+  // Inside 6 ft at 3 and 5.9 ft, 6–15 at exactly 6 and 14.9, 15 and out at exactly 15 and 30.
+  const mock: P[] = [
+    ...band(3, [1, 0], 1, 1, 1, 2),
+    ...band(5.9, [0, 1], 0, 2, 1, 2),
+    ...band(6, [1, 0], 2, 3, 0, 2),
+    ...band(14.9, [0, 1], 2, 2, 1, 2),
+    ...band(15, [1, 0], 3, 2, 1, 0),
+    ...band(30, [0, 1], 0, 3, 1, 0),
+  ]
+
+  it('counts the mock: 24 short, 16 long, 13 left, 21 right, 6 on line', () => {
+    const t = puttMissTally(mock)
+    expect(t.misses).toBe(40)
+    expect([t.short, t.long, t.left, t.right]).toEqual([24, 16, 13, 21])
+    expect(t.corners).toEqual({ shortLeft: 8, shortRight: 13, longLeft: 5, longRight: 8 })
+    expect(t.onLine).toEqual({ short: 3, long: 3 })
+  })
+
+  it('splits by stored length: < 6, 6 up to 15, 15 and out', () => {
+    const { inside6, mid, outside15 } = puttMissTally(mock).bands
+    expect([inside6.misses, inside6.short, inside6.long, inside6.left, inside6.right]).toEqual([12, 5, 7, 3, 7])
+    expect(inside6.corners).toEqual({ shortLeft: 1, shortRight: 3, longLeft: 2, longRight: 4 })
+    expect(inside6.onLine).toEqual({ short: 1, long: 1 })
+    expect([mid.misses, mid.short, mid.long, mid.left, mid.right]).toEqual([16, 10, 6, 5, 9])
+    expect([outside15.misses, outside15.short, outside15.long, outside15.left, outside15.right]).toEqual([12, 9, 3, 5, 5])
+    expect(outside15.corners).toEqual({ shortLeft: 3, shortRight: 5, longLeft: 2, longRight: 0 })
+  })
+
+  it('leaves holed and unrecorded putts out, and counts a putt with no length in All only', () => {
+    const t = puttMissTally([
+      { puttMade: true, puttDistanceFt: 4 },
+      // A holed putt keeps no miss even if a stale axis is still set.
+      { puttMade: true, puttDistanceResult: 'short', puttDistanceFt: 4 },
+      { puttDistanceFt: 20 },
+      { puttDistanceResult: 'long', puttDirectionResult: 'left' },
+      { puttDirectionResult: 'right', puttDistanceFt: 8 },
+    ])
+    expect(t.misses).toBe(2)
+    expect([t.short, t.long, t.left, t.right]).toEqual([0, 1, 1, 1])
+    expect(t.corners).toEqual({ shortLeft: 0, shortRight: 0, longLeft: 1, longRight: 0 })
+    expect(t.onLine).toEqual({ short: 0, long: 0 })
+    // The no-length miss is in no band; the side-only miss is in 6–15 with no corner.
+    expect(t.bands.inside6.misses + t.bands.outside15.misses).toBe(0)
+    expect([t.bands.mid.misses, t.bands.mid.right, t.bands.mid.short + t.bands.mid.long]).toEqual([1, 1, 0])
   })
 })

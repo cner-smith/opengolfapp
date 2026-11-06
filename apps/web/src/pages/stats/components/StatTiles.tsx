@@ -1,4 +1,4 @@
-import { formatSG, formatBandLabel, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
+import { formatSG, formatBandLabel, sparkPoints, type ApproachBandStat, type PuttSplit, type RecoveryRateStat } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import { useCountUp } from '../../../hooks/useCountUp'
 import { fmtPct } from '../format'
@@ -66,10 +66,13 @@ export function StatTile({
   label,
   value,
   subtle,
+  spark,
 }: {
   label: string
   value: string
   subtle?: string
+  /** Per-round values, oldest → newest (#1354); empty draws nothing. */
+  spark?: number[]
 }) {
   return (
     <div className="paper-tile" style={{ padding: '16px 18px' }}>
@@ -84,6 +87,54 @@ export function StatTile({
           {subtle}
         </div>
       )}
+      {spark && spark.length > 0 && <Sparkline values={spark} />}
+    </div>
+  )
+}
+
+// The last rounds under a tile's number: no axis, a dot and the exact value
+// on the latest round, no trend words (#1354).
+const SPARK_W = 100
+const SPARK_H = 22
+
+function Sparkline({ values }: { values: number[] }) {
+  const pts = sparkPoints(values, SPARK_W, SPARK_H)
+  const last = pts[pts.length - 1]!
+  const latest = Math.round(values[values.length - 1]!)
+  return (
+    <div
+      role="img"
+      aria-label={`Last ${values.length} rounds: ${values.map((v) => Math.round(v)).join(', ')}. Latest ${latest}.`}
+      className="flex items-center"
+      style={{ gap: 8, marginTop: 10 }}
+    >
+      <div style={{ position: 'relative', flex: 1, minWidth: 0, height: SPARK_H + 6 }}>
+        <svg
+          viewBox={`0 -3 ${SPARK_W} ${SPARK_H + 6}`}
+          preserveAspectRatio="none"
+          aria-hidden
+          style={{ display: 'block', width: '100%', height: '100%', overflow: 'visible' }}
+        >
+          <polyline
+            points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#5C6356"
+            strokeWidth={1.25}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div
+          style={{ position: 'absolute', right: -3, top: last.y, width: 6, height: 6, borderRadius: 3, background: '#1C211C' }}
+        />
+      </div>
+      <span
+        aria-hidden
+        className="font-serif tabular text-caddie-ink"
+        style={{ fontSize: 13, lineHeight: 1, minWidth: 18, position: 'relative', top: last.y - SPARK_H / 2 }}
+      >
+        {latest}
+      </span>
     </div>
   )
 }
@@ -101,6 +152,59 @@ export function StatRow({ label, value, note }: { label: string; value: string; 
         {note && <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 2 }}>{note}</div>}
       </div>
       <div className="font-serif tabular text-caddie-ink" style={{ fontSize: 22, fontWeight: 500 }}>{value}</div>
+    </div>
+  )
+}
+
+// Putts per hole as one strip (#1355): 1, 2, 3+ left to right, each told
+// apart by position, label and tone (light, mid, ink), never colour alone.
+const PUTT_TONE = ['#FBF8F1', 'rgba(92,99,86,.55)', '#1C211C'] as const
+const PUTT_WORD = { '1': 'one putt', '2': 'two', '3+': 'three or more' } as const
+
+export function PuttStrip({ split }: { split: PuttSplit | null }) {
+  return (
+    <div style={{ padding: '10px 0 12px', borderBottom: '1px solid #E4DCC8' }}>
+      <div className="flex items-baseline justify-between" style={{ gap: 12 }}>
+        <div className="text-caddie-ink" style={{ fontSize: 15 }}>Putts per hole</div>
+        {split && <div className="text-caddie-ink-dim" style={{ fontSize: 12 }}>{split.holes} holes</div>}
+      </div>
+      {split ? (
+        <>
+          <div
+            role="img"
+            aria-label={split.buckets.map((b) => `${PUTT_WORD[b.putts]}: ${Math.round(b.pct)}%, ${b.count} holes`).join('; ')}
+            className="flex"
+            style={{ height: 14, marginTop: 10, border: '1px solid #9F9580' }}
+          >
+            {split.buckets.map((b, i) => (
+              <div
+                key={b.putts}
+                className="st-grow"
+                style={{
+                  width: `${b.pct}%`,
+                  background: PUTT_TONE[i],
+                  borderLeft: i > 0 && b.count > 0 ? '1px solid #F2EEE5' : undefined,
+                  transformOrigin: 'left',
+                }}
+              />
+            ))}
+          </div>
+          <div aria-hidden className="grid grid-cols-3" style={{ marginTop: 8, gap: 8 }}>
+            {split.buckets.map((b, i) => (
+              <div key={b.putts} style={{ textAlign: (['left', 'center', 'right'] as const)[i] }}>
+                <div className="font-serif tabular text-caddie-ink" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.1 }}>
+                  {Math.round(b.pct)}%
+                </div>
+                <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 2 }}>
+                  {PUTT_WORD[b.putts]} · {b.count}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 4 }}>Needs putts logged</div>
+      )}
     </div>
   )
 }

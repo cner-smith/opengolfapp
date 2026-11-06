@@ -96,7 +96,7 @@ export function PatternNumbers({
           value={nb(`${shortMore ? misses.short : misses.long} of ${n}`)}
           note={`${shortMore ? `${misses.long} long` : `${misses.short} short`}; ${misses.left} left, ${misses.right} right of the aim`}
         />
-        <StatRow label="95% of shots" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring." />
+        <StatRow label="95% of shots" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring on From the tee." />
         <TallyRow
           label="Shape"
           tally={shape}

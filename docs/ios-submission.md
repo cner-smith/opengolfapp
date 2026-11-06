@@ -46,8 +46,11 @@ timeline.
 
 ## First iOS build & on-device smoke (#376)
 
-OGA has never been built for iOS. This is the runbook to get a signed IPA onto
-the test iPhone. Build host is Linux + a physical iPhone (no Mac) → builds run
+This was the runbook for OGA's first iOS build; OGA is now on the App Store.
+It is kept for reference, and some config details below have moved on since
+(`eas.json` now has five profiles, including an iOS `simulator` one, and build
+numbers are managed remotely by EAS). Read `eas.json` and `app.config.ts` for
+the current config. Build host is Linux + a physical iPhone (no Mac) → builds run
 on EAS Cloud and install on the device via **internal (ad-hoc) distribution**; a
 simulator build is not useful here (it only runs in the macOS Simulator).
 

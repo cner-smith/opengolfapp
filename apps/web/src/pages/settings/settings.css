@@ -84,6 +84,35 @@
   }
 }
 
+/* Print (My bag → Print): only the yardage card, without its drag handles,
+   editor or help line. Backgrounds print so the gap labels still mask the
+   rules they sit on. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .bag-card,
+  .bag-card * {
+    visibility: visible;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .bag-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 120mm;
+    border-color: #1c211c !important;
+  }
+  .bag-card .bag-print-blank {
+    visibility: hidden;
+  }
+  .bag-card .bag-noprint {
+    display: none;
+  }
+}
+
 /* Option keys on Profile and My bag: the shared .key, a size down. */
 .set-key.key {
   min-height: 40px;

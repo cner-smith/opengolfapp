@@ -24,6 +24,8 @@ export interface ShotCalloutProps {
   markers: LatLng[]
   /** How many of `markers` are crumbs with a number plate. */
   crumbCount: number
+  /** Each crumb's plate width (core plateWidth). */
+  plateWidths: number[]
   /** The side each crumb's plate goes, fanned so plates stay clear of each other and of the dots. */
   onPlates: (sides: PlateSide[]) => void
   /** Bottom-left corner of the map to keep clear (the logging mode rocker). */
@@ -62,7 +64,7 @@ export function ShotCallout(p: ShotCalloutProps) {
     // Plates first (#1208): core's fanPlates, clear of each other, the
     // selected disc, the leg's end, the pin and the aim.
     const crumbs = scr.slice(3, 3 + q.crumbCount)
-    const sides = fanPlates(crumbs, [...(end ? [end] : []), ...scr.slice(3 + q.crumbCount)], a)
+    const sides = fanPlates(crumbs, [...(end ? [end] : []), ...scr.slice(3 + q.crumbCount)], a, q.plateWidths)
     q.onPlates(sides)
     setPlace(
       placeCallout({
@@ -70,7 +72,7 @@ export function ShotCallout(p: ShotCalloutProps) {
         end,
         prev: q.prev ? scr[2]! : null,
         dots: [a, ...(end ? [end] : []), ...scr.slice(3)],
-        plates: crumbs.map((d, i) => plateBox(d, sides[i]!)),
+        plates: crumbs.map((d, i) => plateBox(d, sides[i]!, q.plateWidths[i])),
         box: bb,
         size: sz,
         avoidCorner: q.avoidCorner,
@@ -109,6 +111,7 @@ export function ShotCallout(p: ShotCalloutProps) {
     p.prev?.lat,
     p.prev?.lng,
     markerKey,
+    p.plateWidths.join(),
   ])
 
   return (

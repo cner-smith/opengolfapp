@@ -11,8 +11,10 @@ import {
   startCategory,
   isPuttShot,
   obCount,
+  plateWidth,
   projectShotMove,
   resolveHole,
+  shortClubLabel,
   summarizeShotStep,
   type DistanceUnit,
 } from '@oga/core'
@@ -442,11 +444,16 @@ export function PastRoundMap({
   // (logging) or drops back to review (completed).
   // A save that fails puts the stored start back and resolves false, so
   // HoleMap snaps the dragged marker back too (#1129, as the live round #1111).
+  // One save at a time: `storedStart` is read from optimistic state, so a drag
+  // landing mid-save would capture the first drag's unsaved spot as "stored"
+  // and a failure would restore it (#1322). Refused drags snap back.
+  const savingStartRef = useRef(false)
   async function handleSetBall(loc: LatLng) {
     if (!currentHoleScore || !active) {
       Alert.alert('Save failed', "That shot didn't save.")
       return false
     }
+    if (savingStartRef.current) return false
     const idx = activeIdx
     const storedStart = active.start
     const wasInitial = storedStart == null
@@ -455,7 +462,14 @@ export function PastRoundMap({
     )
     // Await the placement INSERT so the row + id exist before any follow-up
     // (a putt confirmation may update it). Only branch on the FIRST placement.
-    if (!(await persistShotAt(idx, { start: loc }))) {
+    savingStartRef.current = true
+    let saved: boolean
+    try {
+      saved = await persistShotAt(idx, { start: loc })
+    } finally {
+      savingStartRef.current = false
+    }
+    if (!saved) {
       setPlaced((prev) =>
         prev.map((s, i) => (i === idx ? { ...s, start: storedStart } : s)),
       )
@@ -710,14 +724,25 @@ export function PastRoundMap({
   const onPlates = useCallback((s: PlateSide[]) => setPlateSides((o) => (o.join() === s.join() ? o : s)), [])
   const pastCrumbs = useMemo<PastCrumbs>(() => {
     const others = placedReal.filter((x) => x.i !== activeIdx)
+    // Each plate names its club (#737); a shot with none shows its number only.
+    const clubOf = (id: string | null) => {
+      const c = id ? shots.find((r) => r.id === id)?.club : null
+      return c ? shortClubLabel({ club_type: c }) : null
+    }
     return {
-      crumbs: others.map(({ s }, ci) => ({ at: s.start!, n: s.shotNumber, ob: s.ob === true, plate: plateSides[ci] })),
+      crumbs: others.map(({ s }, ci) => ({
+        at: s.start!,
+        n: s.shotNumber,
+        ob: s.ob === true,
+        club: clubOf(s.id),
+        plate: plateSides[ci],
+      })),
       path: placedReal.map((x) => x.s.start!),
       segment: active?.start && segEnd ? [active.start, segEnd] : null,
       selectedN: active?.start ? active.shotNumber : null,
       onSelect: selectCrumbs ? (ci) => others[ci] && setActiveIdx(others[ci].i) : undefined,
     }
-  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs, plateSides])
+  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs, plateSides, shots])
 
   // Flag callout (§19.9 C) on the selected start: the aim leg while logging
   // an aimed shot, otherwise the leg to the next shot / the pin.
@@ -748,6 +773,7 @@ export function PastRoundMap({
       ),
     [pastCrumbs.crumbs, effectivePin, active?.aim],
   )
+  const plateWidths = useMemo(() => pastCrumbs.crumbs.map((c) => plateWidth(c.n, c.club)), [pastCrumbs.crumbs])
   const projectRef = useRef<Projector['current']>(null)
   const cameraListenerRef = useRef<(() => void) | null>(null)
   const onCameraChanged = useCallback(() => cameraListenerRef.current?.(), [])
@@ -818,6 +844,7 @@ export function PastRoundMap({
             prev={prevStart}
             markers={calloutMarkers}
             crumbCount={pastCrumbs.crumbs.length}
+            plateWidths={plateWidths}
             onPlates={onPlates}
             avoidCorner={completed ? undefined : { w: MARGIN + 186 + 4, h: ROCKER_BOTTOM + 47 + 4 }}
             value={callout.value}

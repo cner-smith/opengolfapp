@@ -331,9 +331,11 @@ export function marksFor(toPar: number, seed: number): { m: Mark; at: number }[]
 }
 
 /** A quick pencil ring of half-axes a × b (dp at scale 1), drawn in `dur` ms
- *  — the loop round the wheel's AUTO tab on landing home (§15 Tier 3). */
-export function pencilEllipse(a: number, b: number, dur: number, seed: number): { m: Mark; at: number }[] {
-  return [{ m: circle({ ...varyCircle(C1, seed), a, b, dur, tilt: -6 }, seed), at: 0 }]
+ *  — the loop round the wheel's AUTO tab on landing home (§15 Tier 3), and the
+ *  68% ring on Shot patterns. `tilt` turns the a axis clockwise on screen
+ *  (degrees, y down), as an SVG rotate() does. */
+export function pencilEllipse(a: number, b: number, dur: number, seed: number, tilt = -6): { m: Mark; at: number }[] {
+  return [{ m: circle({ ...varyCircle(C1, seed), a, b, dur, tilt }, seed), at: 0 }]
 }
 
 /** A pencil check mark (fairway / green hit), seeded so each tick is its own:

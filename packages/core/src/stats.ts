@@ -563,29 +563,29 @@ export interface ClubDistanceStat {
 const CLUB_DISTANCE_MIN_YARDS = 3
 const CLUB_DISTANCE_MAX_YARDS = 450
 
-export function clubDistanceStats(
-  shots: {
-    club: string | null
-    lie_type: string | null
-    start_lat: number | null
-    start_lng: number | null
-    end_lat: number | null
-    end_lng: number | null
-  }[],
-): ClubDistanceStat[] {
+export interface ClubDistanceShot {
+  club: string | null
+  lie_type: string | null
+  start_lat: number | null
+  start_lng: number | null
+  end_lat: number | null
+  end_lng: number | null
+}
+
+/** One shot's start→finish yards under the Club distances rule (no putts or
+ *  green lies, 3–450 yd); null when it doesn't count. Club history reads it too. */
+export function clubShotYards(s: ClubDistanceShot): number | null {
+  if (!s.club || s.club === 'putter' || s.lie_type === 'green') return null
+  if (s.start_lat == null || s.start_lng == null || s.end_lat == null || s.end_lng == null) return null
+  const d = haversineYards(s.start_lat, s.start_lng, s.end_lat, s.end_lng)
+  return d < CLUB_DISTANCE_MIN_YARDS || d > CLUB_DISTANCE_MAX_YARDS ? null : d
+}
+
+export function clubDistanceStats(shots: ClubDistanceShot[]): ClubDistanceStat[] {
   const byClub = new Map<string, number[]>()
   for (const s of shots) {
-    if (!s.club || s.club === 'putter' || s.lie_type === 'green') continue
-    if (
-      s.start_lat == null ||
-      s.start_lng == null ||
-      s.end_lat == null ||
-      s.end_lng == null
-    ) {
-      continue
-    }
-    const d = haversineYards(s.start_lat, s.start_lng, s.end_lat, s.end_lng)
-    if (d < CLUB_DISTANCE_MIN_YARDS || d > CLUB_DISTANCE_MAX_YARDS) continue
+    const d = clubShotYards(s)
+    if (d == null || !s.club) continue
     const arr = byClub.get(s.club)
     if (arr) arr.push(d)
     else byClub.set(s.club, [d])
@@ -614,6 +614,15 @@ export interface ShortGameStats {
   upAndDownPct: number | null
   scramblingPct: number | null
   sandSavePct: number | null
+  /** Holes putted out by putt count, 1 / 2 / 3+ (#1355); null when none. */
+  puttSplit: PuttSplit | null
+}
+
+// Share of putted holes (putts logged, 1 or more) by putt count. A chip-in
+// (0 putts) and a hole with no putts logged stay out, so the shares add to 100.
+export interface PuttSplit {
+  holes: number
+  buckets: { putts: '1' | '2' | '3+'; count: number; pct: number }[]
 }
 
 const AROUND_GREEN_LIES = new Set(['sand', 'fringe', 'rough', 'recovery'])
@@ -633,6 +642,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
   let scrambleMakes = 0
   let sandChances = 0
   let sandMakes = 0
+  const puttCounts = [0, 0, 0]
 
   for (const { hs, hole, shots } of flatten(rounds)) {
     if (!isPlayed(hs)) continue
@@ -642,6 +652,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
       puttsOnGirHoles += hs.putts ?? 0
     }
     if ((hs.putts ?? 0) >= 3) threePuttHoles += 1
+    if (hs.putts != null && hs.putts >= 1) puttCounts[Math.min(hs.putts, 3) - 1]! += 1
     if (hs.gir === false) {
       upDownChances += 1
       if (hs.score <= hole.par) upDownMakes += 1
@@ -670,7 +681,56 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
     upAndDownPct: pct(upDownMakes, upDownChances),
     scramblingPct: pct(scrambleMakes, scrambleChances),
     sandSavePct: pct(sandMakes, sandChances),
+    puttSplit: puttSplit(puttCounts),
   }
+}
+
+// The four headline tiles' values round by round, oldest → newest, for a
+// sparkline under each number (#1354). Each point is the headline formula run
+// on one round, so the line and the number can't disagree. Whole rounds only
+// (a half round's putts would read as a great day); the last 10 rounds with
+// data; under 3 points the series is empty and no line is drawn.
+export interface StatSparklines {
+  fairwayPct: number[]
+  girPct: number[]
+  puttsPerRound: number[]
+  upAndDownPct: number[]
+}
+
+const SPARK_MAX = 10
+const SPARK_MIN = 3
+
+export function statSparklines(rounds: DetailedRound[]): StatSparklines {
+  const perRound = wholeRounds(rounds)
+    .reverse()
+    .map((r) => ({ b: ballStrikingStats([r]), s: shortGameStats([r]) }))
+  const series = (pick: (p: (typeof perRound)[number]) => number | null): number[] => {
+    const vs = perRound.map(pick).filter((v): v is number => v != null).slice(-SPARK_MAX)
+    return vs.length >= SPARK_MIN ? vs : []
+  }
+  return {
+    fairwayPct: series((p) => p.b.fairwayPct),
+    girPct: series((p) => p.b.girPct),
+    puttsPerRound: series((p) => p.s.puttsPerRound),
+    upAndDownPct: series((p) => p.s.upAndDownPct),
+  }
+}
+
+// A series laid into a w × h box, evenly spaced, the highest value at the
+// top (y = 0). No axis, so the line uses the series' own range; a flat
+// series sits on the middle line.
+export function sparkPoints(values: number[], w: number, h: number): { x: number; y: number }[] {
+  const lo = Math.min(...values)
+  const span = Math.max(...values) - lo
+  const step = values.length > 1 ? w / (values.length - 1) : 0
+  return values.map((v, i) => ({ x: i * step, y: span > 0 ? h - ((v - lo) / span) * h : h / 2 }))
+}
+
+function puttSplit(counts: number[]): PuttSplit | null {
+  const holes = counts.reduce((a, b) => a + b, 0)
+  if (holes === 0) return null
+  const keys = ['1', '2', '3+'] as const
+  return { holes, buckets: keys.map((putts, i) => ({ putts, count: counts[i]!, pct: (counts[i]! / holes) * 100 })) }
 }
 
 // ---------------------------------------------------------------------------
@@ -886,6 +946,7 @@ export interface DetailedStats {
   scoringDistribution: ReturnType<typeof scoringDistribution>
   ballStriking: BallStrikingStats
   shortGame: ShortGameStats
+  sparklines: StatSparklines
   missTendency: MissTendencyEntry[]
   costlyLies: CostlyLieEntry[]
   clubAccuracy: ClubAccuracyEntry[]
@@ -908,6 +969,7 @@ export function computeDetailedStats(
     scoringDistribution: scoringDistribution(rounds),
     ballStriking: ballStrikingStats(rounds),
     shortGame: shortGameStats(rounds),
+    sparklines: statSparklines(rounds),
     missTendency: missTendency(rounds),
     costlyLies: costlyLies(rounds),
     clubAccuracy: clubAccuracy(rounds),

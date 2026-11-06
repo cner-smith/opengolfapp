@@ -12,7 +12,18 @@ import {
   type ShotStartLine,
 } from './constants'
 import type { FlightKind } from './shot-flight'
-import { aimAdvice, missLean, type DispersionPoint, type DispersionStats, type RecordedTally } from './shot-patterns'
+import {
+  MIN_PUTT_MISSES_FOR_BAR,
+  PUTT_BANDS,
+  aimAdvice,
+  missLean,
+  topPuttCorner,
+  type DispersionPoint,
+  type DispersionStats,
+  type PuttBand,
+  type PuttMissTally,
+  type RecordedTally,
+} from './shot-patterns'
 import type { DistanceUnit } from './types'
 import { YARDS_TO_METERS } from './units'
 
@@ -229,4 +240,43 @@ export function recordedNote(
         ? `No ${noun} shot here has its ${word} recorded yet. Set it in a shot’s result after the hole.`
         : `${capFirst(word)} recorded on ${recorded} of ${points.length}.`,
   }
+}
+
+const BAND_PHRASE: Record<PuttBand, string> = { inside6: 'inside 6 ft', mid: 'from 6 to 15 ft', outside15: 'from 15 ft and out' }
+
+/** The putting view's headline (#747): A = corners, B = bars, C = bars by length. */
+export function puttMissHeadline(t: PuttMissTally, view: 'corners' | 'bars' | 'length'): string | null {
+  if (t.misses === 0) return null
+  if (view === 'corners') {
+    const top = topPuttCorner(t)
+    if (!top) return 'Your missed putts spread across the corners.'
+    const [d, s] = top.corner.startsWith('short') ? ['short', top.corner.slice(5)] : ['long', top.corner.slice(4)]
+    return `Your missed putts finish ${d} and ${s.toLowerCase()} most often: ${top.count} of ${t.misses}.`
+  }
+  if (view === 'length') {
+    // Bands with enough misses that lean one way, the most lopsided first.
+    const leans = PUTT_BANDS.map(({ band }) => ({ band, c: t.bands[band] }))
+      .filter(({ c }) => c.misses >= MIN_PUTT_MISSES_FOR_BAR && c.short !== c.long)
+      .map(({ band, c }) => ({ band, way: c.short > c.long ? 'short' : 'long', n: Math.max(c.short, c.long), of: c.short + c.long }))
+      .sort((a, b) => b.n / b.of - a.n / a.of)
+    const lead = leans[0]
+    if (lead) {
+      const other = leans.find((l) => l.way !== lead.way)
+      return `${capFirst(BAND_PHRASE[lead.band])}, your misses finish ${lead.way}: ${lead.n} of ${lead.of}.${other ? ` ${capFirst(BAND_PHRASE[other.band])} they go ${other.way}.` : ''}`
+    }
+  }
+  const parts: string[] = []
+  const of = t.short + t.long
+  if (of > 0) {
+    parts.push(
+      t.short === t.long
+        ? 'Your missed putts finish short as often as long.'
+        : `Your missed putts finish ${t.short > t.long ? 'short' : 'long'}: ${Math.max(t.short, t.long)} of ${of}.`,
+    )
+  }
+  if (t.left + t.right > 0) {
+    const side = t.left === t.right ? 'they split evenly' : t.right > t.left ? 'they go right more than left' : 'they go left more than right'
+    parts.push(of > 0 ? `Sideways, ${side}.` : `Your missed putts ${side.replace('they ', '')}.`)
+  }
+  return parts.join(' ') || null
 }

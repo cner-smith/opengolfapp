@@ -10,6 +10,7 @@ import {
   isPartialRound,
   wholeRoundWindow,
   roundHolesPlayed,
+  sgBreakdown,
   sgFinding,
   sgStandouts,
   symmetricNiceTicks,
@@ -34,7 +35,8 @@ import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
-import { ApproachBandRow, LedgerRow } from '../../components/stats/StatsLedger'
+import { ApproachBandRow, LedgerRow, PuttStrip, Sparkline } from '../../components/stats/StatsLedger'
+import { ClubHistory } from '../../components/stats/ClubHistory'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Short labels for the standout callout, keyed to SGAverages (camelCase);
@@ -134,15 +136,10 @@ export default function Stats() {
     [rounds],
   )
 
-  const avgs = useMemo(
-    () =>
-      SERIES.map((s) => {
-        const values = wholeRounds.map((r) => r[s.key]).filter((v): v is number => v !== null)
-        const a = values.length === 0 ? 0 : values.reduce((x, y) => x + y, 0) / values.length
-        return { ...s, value: a }
-      }),
-    [wholeRounds],
-  )
+  const avgs = useMemo(() => {
+    const { breakdown } = sgBreakdown(wholeRounds)
+    return SERIES.map((s) => ({ ...s, value: breakdown.find((b) => b.key === s.key)?.value ?? 0 }))
+  }, [wholeRounds])
 
   // Pre-build the chart series once per rounds change. The inline
   // ordered.map(...) inside <VictoryLine> previously rebuilt every
@@ -534,8 +531,8 @@ export default function Stats() {
               <Entrance index={3}>
               <Section title="Ball striking">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
-                  <StatTile style={TILE} label="Fairways hit" value={fmtPct(stats.ballStriking.fairwayPct)} />
-                  <StatTile style={TILE} label="Greens in regulation" value={fmtPct(stats.ballStriking.girPct)} />
+                  <StatTile style={TILE} label="Fairways hit" value={fmtPct(stats.ballStriking.fairwayPct)}><Sparkline values={stats.sparklines.fairwayPct} /></StatTile>
+                  <StatTile style={TILE} label="Greens in regulation" value={fmtPct(stats.ballStriking.girPct)}><Sparkline values={stats.sparklines.girPct} /></StatTile>
                 </View>
                 <LedgerRow
                   label="Drive"
@@ -554,11 +551,11 @@ export default function Stats() {
               <Entrance index={4}>
               <Section title="Short game">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
-                  <StatTile style={TILE} label="Putts a round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
-                  <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)} />
+                  <StatTile style={TILE} label="Putts a round" value={fmtNum(stats.shortGame.puttsPerRound, 1)}><Sparkline values={stats.sparklines.puttsPerRound} /></StatTile>
+                  <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)}><Sparkline values={stats.sparklines.upAndDownPct} /></StatTile>
                 </View>
                 <LedgerRow label="Putts per green hit" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
-                <LedgerRow label="Three-putts" value={fmtPct(stats.shortGame.threePuttPct)} />
+                <PuttStrip split={stats.shortGame.puttSplit} />
                 <LedgerRow label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
                 <LedgerRow label="Sand saves" value={fmtPct(stats.shortGame.sandSavePct)} />
               </Section>
@@ -759,6 +756,12 @@ export default function Stats() {
                   })}
                 </View>
               </Section>
+              </Entrance>
+            )}
+
+            {clubDistances.length > 0 && (
+              <Entrance index={7}>
+                <ClubHistory clubDistances={clubDistances} unit={unit} width={screenWidth - 36} />
               </Entrance>
             )}
           </>

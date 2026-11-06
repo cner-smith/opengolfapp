@@ -167,6 +167,7 @@ export function useRoundData({
         return {
           id: scored.id,
           course_id: roundData.course_id,
+          loop_of: null,
           number: num,
           par: scored.par ?? 4,
           yards: null,
@@ -181,6 +182,7 @@ export function useRoundData({
       return {
         id: `synthetic-${roundData.id}-hole-${num}`,
         course_id: roundData.course_id,
+        loop_of: null,
         number: num,
         par: 4,
         yards: null,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import Svg, { Circle, Path } from 'react-native-svg'
 import {
   bearingDegrees,
   calculateShotSG,
@@ -16,6 +17,7 @@ import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
 import { Marker } from './markers/Marker'
+import { P } from '../paper/tokens'
 import { FLAG_ANCHOR, FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
@@ -43,6 +45,19 @@ function toCoord(l: LatLng): [number, number] {
 // Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
 // still track the finger; onDragEnd always applies the final position.
 const AIM_DRAG_THROTTLE_MS = 40
+// The aim handle's box and its four grip arrows (N/E/S/W): tips 37 out from
+// the centre, bases just outside the ring's halo.
+const AIM_BOX = 84
+const AIM_C = AIM_BOX / 2
+const AIM_GRIPS = [0, 90, 180, 270].map((deg) => {
+  const pt = (along: number, across: number) => {
+    const a = (deg * Math.PI) / 180
+    const x = AIM_C + along * Math.sin(a) + across * Math.cos(a)
+    const y = AIM_C - along * Math.cos(a) + across * Math.sin(a)
+    return `${Math.round(x * 100) / 100} ${Math.round(y * 100) / 100}`
+  }
+  return `M${pt(37, 0)} L${pt(29, 5.5)} L${pt(29, -5.5)} Z`
+})
 // Distance labels are @rnmapbox MarkerViews that capture touches (their content
 // wrapper hardcodes the touch responder), so a label sitting at its leg's
 // midpoint steals the drag from the aim handle when that leg is short — the
@@ -470,27 +485,23 @@ export function HoleMap({
   // Static child — memoized so the PureComponent never re-bitmaps it.
   // @rnmapbox PointAnnotation hit-tests the OPAQUE pixels of the rendered
   // bitmap, NOT the React View frame — so a fully transparent pad is not
-  // grabbable and only the tiny dot was draggable. A visible translucent 48pt
-  // disc gives a real ~48pt opaque touch target (and shows the grab zone). The
-  // outer 80pt box just centers it. Proper fix is a MarkerView + gesture-handler
+  // grabbable and only the tiny dot was draggable. The tinted 48pt disc is the
+  // touch target (the old 22% fill was grabbable; this one is 30%); the solid
+  // amber ring, ink halo and four grip arrows say it drags (#950). The outer
+  // box just centers it. Proper fix is a MarkerView + gesture-handler
   // rewrite — see the tracking issue.
   const aimHandle = useMemo(
     () => (
-      <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
-        <View
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: 'rgba(166,106,31,0.22)',
-            borderWidth: 1.5,
-            borderColor: 'rgba(166,106,31,0.6)',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Marker color="#A66A1F" border="#FBF8F1" size={9} />
-        </View>
+      <View style={{ width: AIM_BOX, height: AIM_BOX }}>
+        <Svg width={AIM_BOX} height={AIM_BOX} viewBox={`0 0 ${AIM_BOX} ${AIM_BOX}`}>
+          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.ink} strokeOpacity={0.55} strokeWidth={7} />
+          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="rgba(166,106,31,0.30)" stroke={P.warn} strokeWidth={4} />
+          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.raised} strokeWidth={1.2} />
+          {AIM_GRIPS.map((d) => (
+            <Path key={d} d={d} fill={P.raised} stroke={P.ink} strokeWidth={1.2} strokeLinejoin="round" />
+          ))}
+          <Circle cx={AIM_C} cy={AIM_C} r={4.5} fill={P.warn} stroke={P.raised} strokeWidth={2} />
+        </Svg>
       </View>
     ),
     [],
@@ -693,6 +704,7 @@ export function HoleMap({
               obs={pastCrumbObs}
               numbers={pastCrumbs.crumbs.map((c) => c.n)}
               plates={pastCrumbs.crumbs.map((c) => c.plate)}
+              clubs={pastCrumbs.crumbs.map((c) => c.club)}
               segment={pastSegmentLine}
               onSelect={pastCrumbs.onSelect}
             />
