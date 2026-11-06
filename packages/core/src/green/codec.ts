@@ -32,6 +32,7 @@ export interface GreenGrid {
 
 const HEADER = 11
 const ESCAPE_Q = 16
+const MAX_CELLS = 1 << 20
 
 function fail(why: string): never {
   throw new Error(`Invalid green grid: ${why}`)
@@ -58,6 +59,9 @@ export function decodeGreenGrid(b: Uint8Array): GreenGrid {
   if (k > 15) fail(`Rice k ${k} is over 15`)
 
   const n = W * H
+  // Checked before allocating: a garbage header can claim 65535×65535 cells (~55 GB of arrays).
+  // A green is ~2,000 cells; this cap is a 512 m square at 0.5 m.
+  if (n > MAX_CELLS) fail(`${W}×${H} is over ${MAX_CELLS} cells`)
   const mask = new Uint8Array(n)
   let pos = HEADER
   let inside = false
@@ -72,7 +76,7 @@ export function decodeGreenGrid(b: Uint8Array): GreenGrid {
       scale *= 128
       if (!(x & 128)) break
     }
-    if (v > n - i) fail('the mask runs overrun the grid')
+    if (i + v > n) fail('the mask runs overrun the grid')
     if (inside) mask.fill(1, i, i + v)
     i += v
     inside = !inside
