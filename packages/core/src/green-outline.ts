@@ -87,6 +87,7 @@ function distanceToRingM(pt: GeoPoint, ring: GeoPoint[]): number {
 
 export interface OsmGreenMap {
   outline: string
+  /** The outer ring's area; a multipolygon's inner rings aren't subtracted (rare on greens). */
   areaM2: number
   flagged: boolean
   flagReason: string | null

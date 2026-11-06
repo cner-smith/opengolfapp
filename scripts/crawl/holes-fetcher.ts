@@ -261,9 +261,11 @@ interface GreenCounts {
 
 // Write each hole's OSM green outline to green_maps (#1374), on every course this pass
 // matched, including the ones whose holes it skips: green_maps is a separate table, so
-// a curated course's holes stay untouched. Matched on the hole way's green end; holes
-// with no OSM way use their stored pin. Never replaces a 'model' or 'manual' outline,
-// and leaves an unchanged OSM outline (and any offline flag on it) alone.
+// a curated course's holes stay untouched. Holes this pass writes match on the hole way's
+// green end. Skipped courses match on their stored pin only: their hand-set numbers may not
+// be OSM's refs, so a way picked by number could carry a neighbouring hole's green.
+// Never replaces a 'model' or 'manual' outline, and leaves an unchanged OSM outline (and
+// any offline flag on it) alone; osm-import's upsertOsmGreenMaps applies the same rule.
 // dryRun reads only and returns the counts.
 async function writeGreenMaps(
   map: Map<string, OgaHoleGeo[]>,
@@ -301,7 +303,9 @@ async function writeGreenMaps(
   const rows: GreenMapRow[] = []
   for (const t of targets) {
     counts.holes++
-    const greenEnd = map.get(t.courseId)?.find((h) => h.number === t.number)?.greenEnd ?? null
+    const greenEnd = written.has(t.courseId)
+      ? (map.get(t.courseId)?.find((h) => h.number === t.number)?.greenEnd ?? null)
+      : null
     const anchor = greenEnd ?? t.pin
     const near = anchor
       ? f.greenOutlines

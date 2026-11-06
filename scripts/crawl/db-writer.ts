@@ -474,7 +474,9 @@ export async function fetchHolesForGreens(
   courseIds: string[],
 ): Promise<{ id: string; course_id: string; number: number; pin_lat: number | null; pin_lng: number | null }[]> {
   const out: { id: string; course_id: string; number: number; pin_lat: number | null; pin_lng: number | null }[] = []
-  const CHUNK = 50 // 50 courses x 18 holes stays under PostgREST's 1000-row cap
+  // holes.number is 1..18 and unique per course, so 50 courses = at most 900 rows,
+  // under PostgREST's 1000-row cap.
+  const CHUNK = 50
   for (let i = 0; i < courseIds.length; i += CHUNK) {
     const { data, error } = await supabase
       .from('holes')

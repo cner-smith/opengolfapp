@@ -417,6 +417,7 @@ export type OsmGreenMapFn = (
 
 // One green_maps row per imported hole whose green OSM has (#1374). Never replaces a
 // 'model' or 'manual' outline; leaves an unchanged OSM outline, and any flag on it, alone.
+// scripts/crawl/holes-fetcher.ts writeGreenMaps applies the same rule.
 // The upsert names only outline columns, so a stored grid survives.
 export async function upsertOsmGreenMaps(
   client: OgaSupabaseClient,

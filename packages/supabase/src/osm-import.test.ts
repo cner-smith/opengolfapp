@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { matchHoles, parseElements } from './osm-import'
+import { matchHoles, parseElements, upsertOsmGreenMaps, type OsmGreenMapFn } from './osm-import'
+import type { OgaSupabaseClient } from './client'
 
 const QUERY_CENTER = { lat: 55.9533, lon: -3.1883 }
 
@@ -121,5 +122,61 @@ describe('parseElements', () => {
     ])
     // The pin still snaps only to way greens, as before.
     expect(greens).toHaveLength(1)
+  })
+})
+
+describe('upsertOsmGreenMaps', () => {
+  // Stub: green_maps already holds a manual outline on h1 and an OSM outline 'same' on h2.
+  function stubClient(existing: { hole_id: string; outline: string; outline_source: string }[]) {
+    const upserts: unknown[][] = []
+    const client = {
+      from: () => ({
+        select: () => ({ in: async () => ({ data: existing, error: null }) }),
+        upsert: async (rows: unknown[]) => {
+          upserts.push(rows)
+          return { error: null }
+        },
+      }),
+    } as unknown as OgaSupabaseClient
+    return { client, upserts }
+  }
+  const pt = { lat: 0, lon: 0 }
+  const matched = (ref: number) => ({
+    ref, par: 4, yards: null, tee: pt, pin: pt, greenEnd: pt, hasGreenMatch: true, hasTeeMatch: true,
+  })
+  const greenMap: OsmGreenMapFn = () => ({ outline: 'same', areaM2: 500.04, flagged: true, flagReason: 'nearest green, 3 m from the hole\'s end' })
+
+  it('never replaces a manual outline, skips an unchanged OSM one, and writes the rest', async () => {
+    const { client, upserts } = stubClient([
+      { hole_id: 'h1', outline: 'traced', outline_source: 'manual' },
+      { hole_id: 'h2', outline: 'same', outline_source: 'osm' },
+    ])
+    const got = await upsertOsmGreenMaps(
+      client,
+      [{ id: 'h1', hole: matched(1) }, { id: 'h2', hole: matched(2) }, { id: 'h3', hole: matched(3) }],
+      [],
+      greenMap,
+    )
+    expect(got).toEqual({ written: 1, flaggedRefs: [1, 2, 3], missingRefs: [] })
+    expect(upserts).toEqual([
+      [
+        {
+          hole_id: 'h3',
+          outline: 'same',
+          area_m2: 500,
+          outline_source: 'osm',
+          outline_score: null,
+          outline_flagged: true,
+          outline_flag_reason: "nearest green, 3 m from the hole's end",
+        },
+      ],
+    ])
+  })
+
+  it('reports holes with no green and writes nothing for them', async () => {
+    const { client, upserts } = stubClient([])
+    const got = await upsertOsmGreenMaps(client, [{ id: 'h1', hole: matched(7) }], [], () => null)
+    expect(got).toEqual({ written: 0, flaggedRefs: [], missingRefs: [7] })
+    expect(upserts).toEqual([])
   })
 })
