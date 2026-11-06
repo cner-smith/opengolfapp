@@ -830,6 +830,8 @@ export function PastRoundMap({
           // No GPS here, and nothing floats over this map's bottom edge —
           // its controls are a solid panel below it.
           aimBallInset={50}
+          // Clear of the Mapbox logo, and the mode rocker while logging.
+          wayfinderBottom={completed ? 36 : ROCKER_BOTTOM + 51}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}
