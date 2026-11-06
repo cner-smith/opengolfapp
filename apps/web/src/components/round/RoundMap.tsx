@@ -133,6 +133,8 @@ interface RoundMapProps {
     show: boolean
     paceLines: PlacedPoint[][]
     approachDeg: number
+    /** The green view's flag is held: only the outline stays (#1385). */
+    held?: boolean
   }
   /** Bumped when the green view moves the pin, so the camera stays put as it does for a map drag. */
   pinMovedInView?: number
@@ -287,6 +289,7 @@ export function RoundMap({
     show: green.show,
     paceLines: green.paceLines,
     approachDeg: green.approachDeg,
+    held: green.held ?? false,
     tee: effectiveTee,
     pin: effectivePin,
   })

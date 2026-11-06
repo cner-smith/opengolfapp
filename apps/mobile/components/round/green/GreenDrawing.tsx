@@ -84,6 +84,7 @@ export function GreenDrawing({
   flagHeight,
   mini = false,
   dashed = false,
+  rails = false,
 }: {
   green: PreparedGreen
   frame: ScreenFrame
@@ -98,6 +99,8 @@ export function GreenDrawing({
   mini?: boolean
   /** The grid is still being read. */
   dashed?: boolean
+  /** The flag is held: draw the rails to the edges (#1385). */
+  rails?: boolean
 }) {
   const { s, vx, vy } = layout
   const u = 1 / s
@@ -178,6 +181,7 @@ export function GreenDrawing({
             )
           })}
         {!mini && pinXY && sheet && <MarginBars frame={frame} pin={pinXY} sheet={sheet} u={u} />}
+        {rails && !mini && pinXY && sheet && <Rails pin={pinXY} sheet={sheet} u={u} />}
       </Svg>
       {flagPx && (
         <FlagSvg
@@ -193,6 +197,28 @@ export function GreenDrawing({
         />
       )}
     </View>
+  )
+}
+
+// The rails (#1385): while the flag is held, dashed cream lines with an ink
+// halo from the pin to the front edge along the player's line and to the
+// nearer side edge, where pinSheet measured. They guide the eye; the pin goes
+// only where the finger puts it.
+function Rails({ pin, sheet, u }: { pin: [number, number]; sheet: PinSheet; u: number }) {
+  const [px, py] = pin
+  const ends: [number, number][] = [
+    [px, py + sheet.onPaces * PACE_M],
+    [px + (sheet.side === 'left' ? -1 : 1) * sheet.sidePaces * PACE_M, py],
+  ]
+  return (
+    <G>
+      {ends.map(([x, y], i) => (
+        <G key={i}>
+          <Line x1={px} y1={py} x2={x} y2={y} stroke={P.ink} strokeOpacity={0.75} strokeWidth={3.4 * u} strokeLinecap="round" />
+          <Line x1={px} y1={py} x2={x} y2={y} stroke={P.raised} strokeWidth={1.6 * u} strokeDasharray={`${r3(5 * u)} ${r3(3.5 * u)}`} />
+        </G>
+      ))}
+    </G>
   )
 }
 

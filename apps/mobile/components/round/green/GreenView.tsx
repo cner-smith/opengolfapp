@@ -86,6 +86,8 @@ export function useGreenView(i: GreenViewInput): {
   const [flipped, setFlipped] = useState(false)
   const [mapOn, setMapOn] = useState(false)
   const [paceOn, setPaceOn] = useState(false)
+  // The view's flag is held: the map sets its other green effects aside too (#1385).
+  const [held, setHeld] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -157,13 +159,14 @@ export function useGreenView(i: GreenViewInput): {
       onPaceOn={setPaceOn}
       onSetPin={i.onSetPin}
       onStartPinPlacement={i.onStartPinPlacement}
+      onHold={setHeld}
     />
   ) : null
 
   const lidar = green && typeof green.lidar === 'object' ? green.lidar : null
   const mapLayers =
     green && !i.pinPlacementOpen && ((mapOn && lidar && mode !== 'plain') || paceOn) ? (
-      <GreenMapLayers green={green} mode={mapOn && lidar ? mode : 'plain'} approach={approach} pin={i.pin} paceLines={paceOn} />
+      <GreenMapLayers green={green} mode={mapOn && lidar ? mode : 'plain'} approach={approach} pin={i.pin} paceLines={paceOn} held={held} />
     ) : null
 
   return { key, view, mapLayers, open, close }
@@ -299,6 +302,7 @@ function GreenDetail(p: {
   onPaceOn: (on: boolean) => void
   onSetPin: (pin: GeoPoint) => unknown
   onStartPinPlacement: () => void
+  onHold: (held: boolean) => void
 }) {
   const insets = useSafeAreaInsets()
   const reduce = useReducedMotion()
@@ -436,6 +440,13 @@ function Detail(
   const lidar = typeof green.lidar === 'object' ? green.lidar : null
   const [pin, setPin] = useState<GeoPoint | null>(p.pin)
   const [dragging, setDragging] = useState(false)
+  const { onHold } = p
+  useEffect(() => {
+    if (!dragging) return
+    onHold(true)
+    // Released, or the view closed mid-drag.
+    return () => onHold(false)
+  }, [dragging, onHold])
   useEffect(() => setPin(p.pin), [p.pin?.lat, p.pin?.lng])
   const sheet = useMemo(() => (pin ? pinSheet(green.ring, pin, p.approach) : null), [green.ring, pin, p.approach])
   const ff = useMemo(() => (lidar ? falseFront(lidar.grid, lidar.field, p.approach) : null), [lidar, p.approach])
@@ -446,6 +457,8 @@ function Detail(
   const flagPx = [(fx - layout.vx) * layout.s, (fy - layout.vy) * layout.s] as const
   const start = useRef<[number, number]>([0, 0])
   const moved = useRef<GeoPoint | null>(null)
+  // Touch moves can outrun the screen: the pin (and its paces) move at most once a frame.
+  const frameReq = useRef(0)
   const pan = Gesture.Pan()
     .runOnJS(true)
     .minDistance(0)
@@ -457,11 +470,18 @@ function Detail(
     .onUpdate((e) => {
       const q = frame.from([start.current[0] + e.translationX / layout.s, start.current[1] + e.translationY / layout.s])
       moved.current = q
-      setPin(q)
+      if (frameReq.current) return
+      frameReq.current = requestAnimationFrame(() => {
+        frameReq.current = 0
+        if (moved.current) setPin(moved.current)
+      })
     })
     .onFinalize(() => {
+      cancelAnimationFrame(frameReq.current)
+      frameReq.current = 0
       setDragging(false)
       if (moved.current) {
+        setPin(moved.current)
         haptic('confirm')
         void p.onSetPin(moved.current)
       }
@@ -515,6 +535,7 @@ function Detail(
           holeNumber={p.holeNumber}
           flagHeight={30}
           dashed={green.lidar === 'pending'}
+          rails={dragging}
         />
         <GestureDetector gesture={pan}>
           <View

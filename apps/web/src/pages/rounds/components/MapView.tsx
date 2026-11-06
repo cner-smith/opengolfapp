@@ -209,6 +209,8 @@ export function MapView({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [paceLinesOn, setPaceLinesOn] = useState(false)
   const [pinMovedInView, setPinMovedInView] = useState(0)
+  // The green view's flag is held: the map sets its other green effects aside (#1385).
+  const [pinHeld, setPinHeld] = useState(false)
   const wide = useWide()
   useEffect(() => {
     if (!sheetOpen) return
@@ -325,8 +327,8 @@ export function MapView({
     [paceLinesOn, green, pinLat, pinLng, approachDeg],
   )
   const greenMap = useMemo(
-    () => ({ data: green, mode: greenView, show: greenOn, paceLines: greenPaceLines, approachDeg }),
-    [green, greenView, greenOn, greenPaceLines, approachDeg],
+    () => ({ data: green, mode: greenView, show: greenOn, paceLines: greenPaceLines, approachDeg, held: pinHeld }),
+    [green, greenView, greenOn, greenPaceLines, approachDeg, pinHeld],
   )
   const greenPanel = (size: number) => (
     <GreenView
@@ -347,6 +349,7 @@ export function MapView({
         setSheetOpen(false)
         handlers.onStartPlacePin()
       }}
+      onHold={setPinHeld}
       size={size}
     />
   )
