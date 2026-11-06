@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { View } from 'react-native'
-import Mapbox, { type MapState } from '@rnmapbox/maps'
+import Mapbox from '@rnmapbox/maps'
 import Svg, { Circle, Path } from 'react-native-svg'
 import {
   bearingDegrees,
@@ -11,9 +11,6 @@ import {
   getExpectedStrokes,
   startCategory,
   NEAR_GREEN_YARDS,
-  viewPoint,
-  wayfinder,
-  type MapCamera,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -28,8 +25,9 @@ import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { AimPath } from './markers/AimPath'
-import { ObCallout, offscreenArrow, WAYFINDER_KEY, WayfinderKey } from './markers/Callouts'
+import { ObCallout, offscreenArrow, WayfinderKey } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
+import { useWayfinder } from './hooks/useWayfinder'
 import { TeeBadge } from './HoleMapOverlays'
 import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow, PlateSide } from './HoleMap.types'
 
@@ -211,45 +209,18 @@ export function HoleMap({
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
 
-  // The wayfinder (#1386), from the camera as of the last settle: no
-  // per-frame work. getPointInView answers (-1, -1) off the map (Mapbox's
-  // pixelForCoordinate), so the ball is projected from the camera instead;
-  // only the centre is measured, as padding moves it off the middle.
-  const [wfCam, setWfCam] = useState<MapCamera | null>(null)
-  const measureWayfinder = async (s: MapState) => {
-    const map = mapViewRef.current
-    const [lng, lat] = s.properties.center
-    if (wayfinderBottom == null || !map || !mapSize || lng == null || lat == null) return
-    let centerPx: [number, number] = [mapSize.w / 2, mapSize.h / 2]
-    try {
-      const [x, y] = await map.getPointInView([lng, lat])
-      if (x != null && y != null) centerPx = [x, y]
-    } catch {
-      // Not ready: frame from the middle.
-    }
-    const { zoom, heading, pitch } = s.properties
-    setWfCam({ center: { lat, lng }, zoom, bearing: heading, pitch, centerPx, height: mapSize.h })
-  }
-  const wfPin = roundPin ?? pin
-  const wf = useMemo(
-    () =>
-      wayfinderBottom == null || !wfCam || !mapSize || isPinMode
-        ? null
-        : wayfinder({
-            ball: ball ?? null,
-            pin: wfPin ?? null,
-            zoom: wfCam.zoom,
-            project: (p) => viewPoint(p, wfCam),
-            // Below the top ornaments, above the dock and its open drawer.
-            area: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - wayfinderBottom },
-            key: WAYFINDER_KEY,
-            avoid: legTagClamp?.drawer
-              ? [{ left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }]
-              : [],
-            unit,
-          }),
-    [wayfinderBottom, wfCam, mapSize, isPinMode, ball?.lat, ball?.lng, wfPin?.lat, wfPin?.lng, legTagClamp?.drawer?.maxY, lefty, unit],
-  )
+  const { wf, onIdle: measureWayfinder } = useWayfinder({
+    mapViewRef,
+    mapSize,
+    bottom: wayfinderBottom,
+    ball,
+    pin: roundPin ?? pin,
+    hidden: isPinMode,
+    drawer: legTagClamp?.drawer && mapSize
+      ? { left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }
+      : null,
+    unit,
+  })
 
   const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
@@ -699,7 +670,7 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
-            void measureWayfinder(state)
+            measureWayfinder(state)
             setCupK(flagCupK(state.properties.pitch))
             setIdleTick((t) => t + 1)
           }}

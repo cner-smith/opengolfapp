@@ -349,10 +349,10 @@ function WayfinderKey({
       frame = 0
       const el = map.getContainer()
       const box = el.getBoundingClientRect()
-      // The keys and chrome over the map (MapView marks them), and Mapbox's
+      // The keys and chrome over the map (MapView marks the area and them), and Mapbox's
       // own logo and attribution corners.
       const chrome = [
-        ...(el.parentElement?.parentElement?.querySelectorAll(':scope > [data-map-chrome]') ?? []),
+        ...(el.closest('[data-map-area]')?.querySelectorAll('[data-map-chrome]') ?? []),
         ...el.querySelectorAll('.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right'),
       ]
       const avoid = chrome.map((c) => {
@@ -398,7 +398,9 @@ function WayfinderKey({
   }, [mapRef, ballLat, ballLng, pinLat, pinLng, unit])
 
   if (!wf) return null
+  // "150 yd" → a serif number and its unit; '—' has no unit.
   const cut = wf.distance.lastIndexOf(' ')
+  const [num, unitLabel] = cut < 0 ? [wf.distance, ''] : [wf.distance.slice(0, cut), wf.distance.slice(cut + 1)]
   return (
     <div
       className="key"
@@ -426,9 +428,9 @@ function WayfinderKey({
       </svg>
       <span>
         <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 17 }}>
-          {wf.distance.slice(0, cut)}
+          {num}
         </span>{' '}
-        {wf.distance.slice(cut + 1)}
+        {unitLabel}
       </span>
     </div>
   )
