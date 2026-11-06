@@ -409,6 +409,43 @@ export function PatternKey({ active, onToggle, bottom }: { active: boolean; onTo
   )
 }
 
+// The Green key (#1380): a plain key above Pattern, like mobile's L1 stack.
+export function GreenKey({ active, onToggle, bottom }: { active: boolean; onToggle: () => void; bottom: number }) {
+  return (
+    <button
+      type="button"
+      className="key"
+      aria-pressed={active}
+      onClick={onToggle}
+      title="Show the green"
+      style={{
+        position: 'absolute',
+        left: 12,
+        bottom,
+        zIndex: 5,
+        width: 76,
+        height: 56,
+        padding: 0,
+        flexDirection: 'column',
+        gap: 3,
+        ...body,
+        fontSize: 13,
+        fontWeight: active ? 600 : 400,
+      }}
+    >
+      <svg width="24" height="20" viewBox="0 0 24 20" aria-hidden>
+        <path
+          d="M5 6.5 C7 2.5 16 1.5 19.5 4.5 C22.5 7.5 20 13.5 15 16 C10 18.5 3.5 16.5 2.8 12 C2.4 9.8 3.8 8.4 5 6.5 Z"
+          fill="none"
+          stroke={P.ink}
+          strokeWidth="1.3"
+        />
+      </svg>
+      Green
+    </button>
+  )
+}
+
 export function OverlayRail({
   mode,
   onSetMode,

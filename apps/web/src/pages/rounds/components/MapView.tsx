@@ -1,6 +1,9 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
+  bearingDegrees,
   getExpectedStrokes,
+  paceLines,
+  pinSheet,
   startCategory,
   haversineYards,
   type ShotMarkerCategory,
@@ -15,6 +18,7 @@ import {
 import {
   chromeSurface,
   FooterKeys,
+  GreenKey,
   HoleBlock,
   OverlayRail,
   P,
@@ -23,6 +27,8 @@ import {
   type HoleResult,
 } from '../../../components/round/map/PaperChrome'
 import { useUnits } from '../../../hooks/useUnits'
+import { GreenView } from '../../../components/round/green/GreenView'
+import { useGreenMap, type GreenViewMode } from '../../../components/round/green/useGreenMap'
 import { useClubDispersion } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
@@ -151,7 +157,7 @@ export function MapView({
   onAddShot,
   onEditShot,
 }: MapViewProps) {
-  const { toDisplay, toDisplayFt } = useUnits()
+  const { unit, toDisplay, toDisplayFt } = useUnits()
   // Notice banner sits above the map when the active hole has no tee
   // or pin coords. Dismiss state resets on every hole switch so the
   // player isn't surprised by a missing-data hole later in the round.
@@ -195,9 +201,21 @@ export function MapView({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // "+ Add shot": the next map tap is the new shot's start.
   const [adding, setAdding] = useState(false)
+  // The green view (#1380). The Green key draws it on the map at green zoom;
+  // on desktop the scorecard panel always shows it, at phone width the key
+  // opens it as a sheet.
+  const { courseHasGreens, green } = useGreenMap(holes, activeHoleGeo?.id)
+  const [greenView, setGreenView] = useGreenViewPref(userId)
+  const [greenOn, setGreenOn] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [paceLinesOn, setPaceLinesOn] = useState(false)
+  const [pinMovedInView, setPinMovedInView] = useState(0)
+  const wide = useWide()
   useEffect(() => {
     setSelectedId(null)
     setAdding(false)
+    setGreenOn(false)
+    setSheetOpen(false)
   }, [activeHoleNumber])
   const found = steps.findIndex((s) => s.id === selectedId)
   const stepPos = found >= 0 ? found : steps.length - 1
@@ -281,6 +299,65 @@ export function MapView({
     return s.category === 'putt' ? toDisplayFt(yd * 3) : toDisplay(yd, 1)
   }
 
+  // Front and back are set by the approach: the last shot up to the selected
+  // one played from off the green, else the newest placed ball off it, else
+  // the tee. (pinSheet is null for a point that isn't on the green.)
+  const offGreen = (q: { lat: number; lng: number }) => !green || pinSheet(green.outline, q, 0) == null
+  const approachShot = [...(selected ? steps.slice(0, stepPos + 1) : steps)]
+    .reverse()
+    .find((s) => s.category !== 'putt' && offGreen({ lat: s.startLat!, lng: s.startLng! }))
+  const approachFrom = approachShot
+    ? { lat: approachShot.startLat!, lng: approachShot.startLng! }
+    : [...placedPoints].reverse().find(offGreen) ?? effectiveTee
+  const greenMid = green
+    ? green.outline.reduce((a, q) => ({ lat: a.lat + q.lat / green.outline.length, lng: a.lng + q.lng / green.outline.length }), { lat: 0, lng: 0 })
+    : null
+  const approachDeg =
+    approachFrom && greenMid ? Math.round(bearingDegrees(approachFrom.lat, approachFrom.lng, greenMid.lat, greenMid.lng)) : 0
+  const pinLat = effectivePin?.lat
+  const pinLng = effectivePin?.lng
+  const greenPaceLines = useMemo(
+    () =>
+      paceLinesOn && green && pinLat != null && pinLng != null
+        ? paceLines(green.outline, { lat: pinLat, lng: pinLng }, approachDeg)
+        : [],
+    [paceLinesOn, green, pinLat, pinLng, approachDeg],
+  )
+  const greenMap = useMemo(
+    () => ({ data: green, mode: greenView, show: greenOn, paceLines: greenPaceLines, approachDeg }),
+    [green, greenView, greenOn, greenPaceLines, approachDeg],
+  )
+  const greenPanel = (size: number) => (
+    <GreenView
+      green={green}
+      holeNumber={activeHoleNumber}
+      pin={effectivePin}
+      approachDeg={approachDeg}
+      unit={unit}
+      view={greenView}
+      onView={setGreenView}
+      paceLines={paceLinesOn}
+      onPaceLines={setPaceLinesOn}
+      onMovePin={(q) => {
+        setPinMovedInView((n) => n + 1)
+        handlers.onMovePin(q)
+      }}
+      onSetPinOnMap={() => {
+        setSheetOpen(false)
+        handlers.onStartPlacePin()
+      }}
+      size={size}
+    />
+  )
+  const toggleGreen = () => {
+    if (wide) setGreenOn((v) => !v)
+    else if (greenOn) setGreenOn(false)
+    else {
+      setGreenOn(true)
+      setSheetOpen(true)
+    }
+  }
+
   const overlayControlsVisible =
     placementMode == null &&
     (review
@@ -344,8 +421,21 @@ export function MapView({
             selectedId={review ? selected?.id ?? null : null}
             onSelect={setSelectedId}
           />
-          <HolePicker holes={holes} activeNumber={activeHoleNumber} onSelect={onSwitchHole} />
-          <div style={{ flex: 1 }} />
+          {courseHasGreens ? (
+            // Round 6 (#1379): the green takes the hole picker's place; holes
+            // stay a ‹ › away in the hole block.
+            <>
+              <div style={{ flex: 1 }} />
+              <div data-testid="green-panel" style={{ flexShrink: 0, borderTop: `1px solid ${P.ink}`, padding: '12px 16px 14px' }}>
+                {greenPanel(220)}
+              </div>
+            </>
+          ) : (
+            <>
+              <HolePicker holes={holes} activeNumber={activeHoleNumber} onSelect={onSwitchHole} />
+              <div style={{ flex: 1 }} />
+            </>
+          )}
         </div>
         <div style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
           <Suspense fallback={<MapLoading />}>
@@ -378,9 +468,14 @@ export function MapView({
               handicap={handicap}
               selectedShotId={selected?.id ?? null}
               onSelectShot={setSelectedId}
+              green={greenMap}
+              pinMovedInView={pinMovedInView}
             />
           </Suspense>
           {reviewSheet}
+          {placementMode == null && courseHasGreens && (
+            <GreenKey active={greenOn} onToggle={toggleGreen} bottom={mapKeysBottom + 64} />
+          )}
           {placementMode == null && (
             <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
           )}
@@ -479,6 +574,36 @@ export function MapView({
           )}
         </div>
       </div>
+      {!wide && sheetOpen && courseHasGreens && (
+        <div
+          role="dialog"
+          aria-label={`Green ${activeHoleNumber}`}
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 40,
+            maxHeight: '78dvh',
+            overflowY: 'auto',
+            background: P.raised,
+            borderTop: `1px solid ${P.ink}`,
+            borderRadius: '12px 12px 0 0',
+            padding: '8px 16px 18px',
+          }}
+        >
+          <div style={{ width: 32, height: 4, borderRadius: 2, background: P.line, margin: '0 auto 12px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 22 }}>
+              Green {activeHoleNumber}
+            </span>
+            <button type="button" className="key key-primary" onClick={() => setSheetOpen(false)}>
+              Done
+            </button>
+          </div>
+          {greenPanel(Math.min(340, window.innerWidth - 32))}
+        </div>
+      )}
       {saveError && (
         <div
           className="text-caddie-neg"
@@ -665,4 +790,43 @@ function HolePicker({
       </div>
     </div>
   )
+}
+
+// Plain | Height | Slope, remembered per player on this device.
+function useGreenViewPref(userId: string | undefined): [GreenViewMode, (v: GreenViewMode) => void] {
+  const key = `oga.green-view.${userId ?? 'anon'}`
+  const read = (): GreenViewMode => {
+    try {
+      const v = window.localStorage.getItem(key)
+      return v === 'plain' || v === 'height' || v === 'slope' ? v : 'slope'
+    } catch {
+      return 'slope'
+    }
+  }
+  const [view, setView] = useState<GreenViewMode>(read)
+  useEffect(() => setView(read()), [key])
+  return [
+    view,
+    (v) => {
+      setView(v)
+      try {
+        window.localStorage.setItem(key, v)
+      } catch {
+        // Private mode: the pick lasts this visit.
+      }
+    },
+  ]
+}
+
+// Tailwind's lg: the scorecard panel shows from here up.
+function useWide(): boolean {
+  const q = '(min-width: 1024px)'
+  const [wide, setWide] = useState(() => window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const on = () => setWide(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return wide
 }

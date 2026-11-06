@@ -176,6 +176,12 @@ body {
 .rocker button[aria-selected='true'] {
   font-weight: 600;
 }
+.rocker button:disabled {
+  color: rgba(28, 33, 28, 0.35);
+  background: #fbf8f1;
+  box-shadow: inset 0 -3px 0 rgba(28, 33, 28, 0.35);
+  cursor: default;
+}
 .rocker-tight button,
 .rocker-tight button[aria-checked='true'] {
   padding-left: 3px;
