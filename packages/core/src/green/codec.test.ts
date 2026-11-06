@@ -51,6 +51,7 @@ describe('decodeGreenGrid', () => {
     ['a zero step', '01 00 03 00 02 00 22 83 05 00 00 01 05 c3 c0'],
     ['a zero width', '01 02 00 00 02 00 22 83 05 00 00 01 05 c3 c0'],
     ['a Rice k over 15', '01 02 03 00 02 00 22 83 05 00 10 01 05 c3 c0'],
+    ['a 65535×65535 grid (refused before allocating ~55 GB)', '01 02 ff ff ff ff 22 83 05 00 00 01 05 c3 c0'],
     ['mask runs that overrun the grid', '01 02 03 00 02 00 22 83 05 00 00 01 09 c3 c0'],
     ['an unterminated mask varint', '01 02 03 00 02 00 22 83 05 00 00 81 81'],
     ['mask runs that stop short of the grid', '01 02 03 00 02 00 22 83 05 00 00 01'],
