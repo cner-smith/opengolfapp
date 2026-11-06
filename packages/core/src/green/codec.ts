@@ -38,6 +38,14 @@ function fail(why: string): never {
   throw new Error(`Invalid green grid: ${why}`)
 }
 
+/** Throws unless the grid's arrays match its size and the size is under the cap. Run before allocating per cell. */
+export function checkGreenGrid(g: GreenGrid): void {
+  const n = g.width * g.height
+  if (!(g.width >= 1 && g.height >= 1 && Number.isInteger(g.width) && Number.isInteger(g.height))) fail(`grid size ${g.width}×${g.height}`)
+  if (n > MAX_CELLS) fail(`${g.width}×${g.height} is over ${MAX_CELLS} cells`)
+  if (g.mask.length !== n || g.heightsMm.length !== n) fail(`arrays of ${g.mask.length} and ${g.heightsMm.length} for ${n} cells`)
+}
+
 function predict(Q: Int32Array, W: number, r: number, c: number): number {
   const j = r * W + c
   if (r && c) return Q[j - 1]! + Q[j - W]! - Q[j - W - 1]!
