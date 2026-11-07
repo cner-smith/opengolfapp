@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { View, type StyleProp, type ViewStyle } from 'react-native'
 import Svg, { Ellipse, Path, Rect, Text as SvgText } from 'react-native-svg'
 import { P } from '../../paper/tokens'
 
@@ -9,7 +9,6 @@ import { P } from '../../paper/tokens'
 // PointAnnotation anchor is FLAG_ANCHOR. An explicit-size native View also
 // keeps Android from measuring the SVG as zero before it paints.
 const H = 38
-const W = (38 * H) / 48
 const S = H / 48
 export const FLAG_ANCHOR = { x: 12 / 44, y: 38 / 44 }
 
@@ -20,6 +19,27 @@ const POLE_IN_CUP = '#6E7266'
 const f = (n: number) => Math.round(n * 100) / 100
 
 export function FlagMarker({ tone, hole, k }: { tone: 'dim' | 'strong'; hole: number; k: number }) {
+  return (
+    <View style={{ width: 44, height: 44 }}>
+      <FlagSvg tone={tone} hole={hole} k={k} height={H} style={{ position: 'absolute', left: 12 - 9 * S, top: 38 - 42 * S }} />
+    </View>
+  )
+}
+
+/** The flag alone at any height; its pin point is (9/38, 42/48) of the box. The green view scales it with the drawing (#1381). */
+export function FlagSvg({
+  tone,
+  hole,
+  k,
+  height,
+  style,
+}: {
+  tone: 'dim' | 'strong'
+  hole: number
+  k: number
+  height: number
+  style?: StyleProp<ViewStyle>
+}) {
   const ry = f(7.2 * k)
   const wide = hole >= 10
   const clothEnd = wide ? 34.4 : 29.9
@@ -27,58 +47,51 @@ export function FlagMarker({ tone, hole, k }: { tone: 'dim' | 'strong'; hole: nu
   const cloth = `M10.2 1.4 C${c1} 0.2 ${c2} 2.8 ${clothEnd} 1.4 L${clothEnd} 17.4 C${c2} 18.8 ${c1} 16.2 10.2 17.6 Z`
   const strong = tone === 'strong'
   return (
-    <View style={{ width: 44, height: 44 }}>
-      <Svg
-        width={W}
-        height={H}
-        viewBox="0 0 38 48"
-        style={{ position: 'absolute', left: 12 - 9 * S, top: 38 - 42 * S }}
+    <Svg width={(38 * height) / 48} height={height} viewBox="0 0 38 48" style={style}>
+      <Ellipse cx={10.2} cy={42 + 2.52 * k} rx={9.8} ry={9.8 * k} fill={P.ink} opacity={strong ? 0.22 : 0.14} />
+      {strong ? (
+        <>
+          <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill={P.ink} />
+          <Path
+            d={`M3.38 ${f(42 - 0.36 * k)} A5.76 ${f(5.184 * k)} 0 0 1 14.62 ${f(42 - 0.36 * k)} A5.76 ${f(3.24 * k)} 0 0 0 3.38 ${f(42 - 0.36 * k)} Z`}
+            fill={P.raised}
+            opacity={0.85}
+          />
+          <Path d={`M1.8 42 A7.2 ${ry} 0 0 1 16.2 42`} fill="none" stroke={P.raised} strokeWidth={1.6} />
+        </>
+      ) : (
+        <>
+          <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill={P.ink} opacity={0.28} />
+          <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill="none" stroke={P.ink} strokeWidth={2.8} opacity={0.5} />
+          <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill="none" stroke={P.raised} strokeWidth={1.6} strokeDasharray="3 2.2" />
+        </>
+      )}
+      <Rect x={7} y={0.6} width={4} height={41.4} fill={P.ink} />
+      {strong ? (
+        <>
+          <Rect x={7.8} y={1.4} width={2.4} height={40.6 - ry} fill={P.raised} />
+          <Rect x={7.8} y={42 - ry} width={2.4} height={ry} fill={POLE_IN_CUP} />
+          {/* The rim's front half, over the pole. */}
+          <Path d={`M16.2 42 A7.2 ${ry} 0 0 1 1.8 42`} fill="none" stroke={P.raised} strokeWidth={1.6} />
+          <Path d={cloth} fill={CLOTH} stroke={P.ink} strokeWidth={0.8} />
+        </>
+      ) : (
+        <>
+          <Rect x={7.8} y={1.4} width={2.4} height={40.6} fill={P.raised} />
+          <Path d={cloth} fill="#F2EEE5" stroke={CLOTH} strokeWidth={1.5} />
+        </>
+      )}
+      <SvgText
+        x={(10.2 + clothEnd) / 2}
+        y={14.6}
+        textAnchor="middle"
+        fontFamily="Fraunces-MediumItalic"
+        fontSize={13.5}
+        letterSpacing={wide ? -0.3 : 0}
+        fill={strong ? P.raised : CLOTH}
       >
-        <Ellipse cx={10.2} cy={42 + 2.52 * k} rx={9.8} ry={9.8 * k} fill={P.ink} opacity={strong ? 0.22 : 0.14} />
-        {strong ? (
-          <>
-            <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill={P.ink} />
-            <Path
-              d={`M3.38 ${f(42 - 0.36 * k)} A5.76 ${f(5.184 * k)} 0 0 1 14.62 ${f(42 - 0.36 * k)} A5.76 ${f(3.24 * k)} 0 0 0 3.38 ${f(42 - 0.36 * k)} Z`}
-              fill={P.raised}
-              opacity={0.85}
-            />
-            <Path d={`M1.8 42 A7.2 ${ry} 0 0 1 16.2 42`} fill="none" stroke={P.raised} strokeWidth={1.6} />
-          </>
-        ) : (
-          <>
-            <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill={P.ink} opacity={0.28} />
-            <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill="none" stroke={P.ink} strokeWidth={2.8} opacity={0.5} />
-            <Ellipse cx={9} cy={42} rx={7.2} ry={ry} fill="none" stroke={P.raised} strokeWidth={1.6} strokeDasharray="3 2.2" />
-          </>
-        )}
-        <Rect x={7} y={0.6} width={4} height={41.4} fill={P.ink} />
-        {strong ? (
-          <>
-            <Rect x={7.8} y={1.4} width={2.4} height={40.6 - ry} fill={P.raised} />
-            <Rect x={7.8} y={42 - ry} width={2.4} height={ry} fill={POLE_IN_CUP} />
-            {/* The rim's front half, over the pole. */}
-            <Path d={`M16.2 42 A7.2 ${ry} 0 0 1 1.8 42`} fill="none" stroke={P.raised} strokeWidth={1.6} />
-            <Path d={cloth} fill={CLOTH} stroke={P.ink} strokeWidth={0.8} />
-          </>
-        ) : (
-          <>
-            <Rect x={7.8} y={1.4} width={2.4} height={40.6} fill={P.raised} />
-            <Path d={cloth} fill="#F2EEE5" stroke={CLOTH} strokeWidth={1.5} />
-          </>
-        )}
-        <SvgText
-          x={(10.2 + clothEnd) / 2}
-          y={14.6}
-          textAnchor="middle"
-          fontFamily="Fraunces-MediumItalic"
-          fontSize={13.5}
-          letterSpacing={wide ? -0.3 : 0}
-          fill={strong ? P.raised : CLOTH}
-        >
-          {hole}
-        </SvgText>
-      </Svg>
-    </View>
+        {hole}
+      </SvgText>
+    </Svg>
   )
 }

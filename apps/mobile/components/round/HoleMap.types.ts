@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { PlateSide } from '@oga/core'
 import type { PatternOverlay } from './markers/DispersionLayers'
 
@@ -177,6 +178,8 @@ export interface HoleMapProps {
   /** The ball is on the tee of a par 4/5: the live SG readout starts from the
    *  tee line, not the approach table (#998). */
   teeShot?: boolean
+  /** The green's map layers (#1381), drawn under the crumbs and aim. */
+  greenLayers?: ReactNode
 }
 
 /** Which side of its dot a crumb's number plate sits (core's fanPlates picks it). */
