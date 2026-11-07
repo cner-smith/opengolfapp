@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { gridOf } from './__fixtures__/grids'
 import { greenCollar, type SlopeField } from './slope'
-import { bothEndsWords, falseFront, steepnessTerm } from './words'
+import { bothEndsWords, falseFront, falseFrontWords, steepnessTerm } from './words'
 
 describe('steepnessTerm', () => {
   it.each([
@@ -46,9 +46,12 @@ describe('bothEndsWords', () => {
     expect(bothEndsWords(10, 2, 350)).toBe('Front to back')
   })
 
-  it('says Level under the 0.8% noise floor', () => {
-    expect(bothEndsWords(180, 0.79, 0)).toBe('Level')
-    expect(bothEndsWords(180, 0.8, 0)).toBe('Back to front')
+  it('says Level wherever the steepness is Flat, under 1%', () => {
+    expect(bothEndsWords(180, 0.8, 0)).toBe('Level')
+    expect(bothEndsWords(180, 0.99, 0)).toBe('Level')
+    expect(bothEndsWords(180, 1, 0)).toBe('Back to front')
+    // A fitted 1% comes out a hair under; steepnessTerm calls it Gentle, so it gets a direction.
+    expect(bothEndsWords(180, 0.9999999999, 0)).toBe('Back to front')
   })
 })
 
@@ -74,9 +77,9 @@ describe('falseFront', () => {
     return { grid, f }
   }
 
-  it('measures a 6% front band 5 m deep over a 1% green: 16 ft at 6%', () => {
+  it('measures a 6% front band 5 m deep over a 1% green: 5 m at 6%', () => {
     const { grid, f } = field(6, 1)
-    expect(falseFront(grid, f, 0)).toEqual({ depthFt: 16, pct: 6 })
+    expect(falseFront(grid, f, 0)).toEqual({ depthM: 5, pct: 6 })
   })
 
   it('needs 3.5%', () => {
@@ -88,12 +91,12 @@ describe('falseFront', () => {
     const { grid, f } = field(4.4, 3)
     expect(falseFront(grid, f, 0)).toBeNull()
     const g2 = field(4.5, 3)
-    expect(falseFront(g2.grid, g2.f, 0)).toEqual({ depthFt: 16, pct: 4.5 })
+    expect(falseFront(g2.grid, g2.f, 0)).toEqual({ depthM: 5, pct: 4.5 })
   })
 
   it('ends the depth where the fall drops under 3% or the rest + 1', () => {
     const { grid, f } = field(6, 1, 3)
-    expect(falseFront(grid, f, 0)).toEqual({ depthFt: 10, pct: 6 })
+    expect(falseFront(grid, f, 0)).toEqual({ depthM: 3, pct: 6 })
   })
 
   it('reads the fall along the approach: played from the west, an east rise is the false front', () => {
@@ -102,11 +105,23 @@ describe('falseFront', () => {
     const gradE = new Float64Array(n)
     for (let j = 0; j < n; j++) gradE[j] = ((j % 40) * 0.5 + 0.25 < 5 ? 6 : 1) / 100
     const f: SlopeField = { slopePct: gradE.map((v) => v * 100), downhillDeg: new Float64Array(n).fill(270), gradE, gradN: new Float64Array(n), collar: greenCollar(grid) }
-    expect(falseFront(grid, f, 90)).toEqual({ depthFt: 16, pct: 6 })
+    expect(falseFront(grid, f, 90)).toEqual({ depthM: 5, pct: 6 })
   })
 
   it('finds none played from the other end, where the same slope falls away', () => {
     const { grid, f } = field(6, 1)
     expect(falseFront(grid, f, 180)).toBeNull()
+  })
+})
+
+describe('falseFrontWords', () => {
+  // 4 m = 4 / 0.3048 = 13.12 ft; 5 m = 16.40 ft. Whole feet, whole metres, the % to one place.
+  it.each([
+    [{ depthM: 4, pct: 6.7 }, 'yards', 'First 13 ft fall back at 6.7%'],
+    [{ depthM: 4, pct: 6.7 }, 'meters', 'First 4 m fall back at 6.7%'],
+    [{ depthM: 5, pct: 6 }, 'yards', 'First 16 ft fall back at 6.0%'],
+    [{ depthM: 5, pct: 4.46 }, 'meters', 'First 5 m fall back at 4.5%'],
+  ] as const)('%o in %s reads "%s"', (ff, unit, words) => {
+    expect(falseFrontWords(ff, unit)).toBe(words)
   })
 })

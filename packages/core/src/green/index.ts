@@ -11,5 +11,5 @@ export {
   type PlaneTilt,
   type SlopeField,
 } from './slope'
-export { bothEndsWords, falseFront, steepnessTerm, type FalseFront, type SteepnessTerm } from './words'
+export { bothEndsWords, falseFront, falseFrontWords, steepnessTerm, type FalseFront, type SteepnessTerm } from './words'
 export { greenShape, shapePhrase, type GreenShape } from './shape'
