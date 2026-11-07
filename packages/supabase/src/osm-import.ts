@@ -366,23 +366,6 @@ export async function upsertCourse(
   return { id: data.id, created: true }
 }
 
-export async function deleteHolesForCourse(
-  client: OgaSupabaseClient,
-  courseId: string,
-): Promise<number> {
-  // Count first so we can report what was wiped — Supabase delete()
-  // doesn't return the affected row count without a `count: 'exact'`
-  // header, and a separate count keeps the log line accurate.
-  const { count, error: countErr } = await client
-    .from('holes')
-    .select('*', { count: 'exact', head: true })
-    .eq('course_id', courseId)
-  if (countErr) throw countErr
-  const { error } = await client.from('holes').delete().eq('course_id', courseId)
-  if (error) throw error
-  return count ?? 0
-}
-
 export async function upsertMatchedHoles(
   client: OgaSupabaseClient,
   courseId: string,
@@ -492,7 +475,6 @@ export interface OsmImportSummary {
   missingParRefs: number[]
   missingYardsRefs: number[]
   dedupedRefs: number[]
-  wipedHoles: number
   greenOutlinesWritten: number
   /** No OSM green contains the hole's end; the nearest within 30 m was taken and flagged. */
   greenOutlineFlaggedRefs: number[]
@@ -516,15 +498,9 @@ export async function runOsmImport(
   const courseCentroid = centroid(matched.flatMap((h) => [h.tee, h.pin]))
   const { id, created } = await upsertCourse(client, args.name, courseCentroid, args.updateExisting)
 
-  // updateExisting wipes the existing holes before inserting fresh ones, so
-  // a hole that's been removed from OSM upstream doesn't linger in the DB.
-  // Default flow (upsert-only) keeps any holes not present in the new
-  // import — desirable for a partial re-import, but a footgun when the goal
-  // is "reset this course's layout".
-  let wipedHoles = 0
-  if (args.updateExisting && !created) {
-    wipedHoles = await deleteHolesForCourse(client, id)
-  }
+  // Holes update in place on (course_id, number), never delete-and-reinsert: a hole
+  // delete cascades to green_maps (0067) and churns the hole ids (#1398). A hole
+  // no longer in OSM is kept.
   const holeIds = await upsertMatchedHoles(client, id, matched)
   const byNumber = new Map(holeIds.map((h) => [h.number, h.id]))
   const greenResult = await upsertOsmGreenMaps(
@@ -556,7 +532,6 @@ export async function runOsmImport(
     missingParRefs: matched.filter((h) => !h.par || h.par < 3 || h.par > 6).map((h) => h.ref),
     missingYardsRefs: matched.filter((h) => !h.yards).map((h) => h.ref),
     dedupedRefs,
-    wipedHoles,
     greenOutlinesWritten: greenResult.written,
     greenOutlineFlaggedRefs: greenResult.flaggedRefs,
     greenOutlineMissingRefs: greenResult.missingRefs,
