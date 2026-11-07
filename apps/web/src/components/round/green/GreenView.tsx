@@ -172,11 +172,10 @@ function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg:
     )
   }
   const ff = falseFront(s.g, s.field, approachDeg)
-  const second = ff
-    ? `False front · ${falseFrontWords(ff, unit)}`
-    : s.shape && s.shape.kind !== 'planar'
-      ? shapePhrase(s.shape, approachDeg, unit)
-      : 'No false front'
+  const ffWords = ff ? `False front · ${falseFrontWords(ff, unit)}` : null
+  // The shape first; a false front gets its own line rather than hiding it (#1402).
+  const shapeWords = s.shape ? shapePhrase(s.shape, approachDeg, unit) : null
+  const lines = shapeWords ? [shapeWords, ffWords] : [ffWords ?? 'No false front']
   return (
     <div>
       <div style={{ ...serif, fontSize: 18, lineHeight: 1.25 }}>
@@ -200,7 +199,7 @@ function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg:
           {pct ? `${s.tilt.tiltPct.toFixed(1)}%` : steepnessTerm(s.tilt.tiltPct)}
         </button>
       </div>
-      <div style={{ ...sans, fontSize: 13, color: P.inkDim }}>{second}</div>
+      {lines.map((l) => l && <div key={l} style={{ ...sans, fontSize: 13, color: P.inkDim }}>{l}</div>)}
     </div>
   )
 }

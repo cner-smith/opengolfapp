@@ -23,7 +23,7 @@ export function steepnessTerm(slopePct: number): SteepnessTerm {
 // approach: 0 = straight on (the back), 180 = toward the player (the front).
 const ENDS = ['back', 'back right', 'right', 'front right', 'front', 'front left', 'left', 'back left']
 
-function endAt(relDeg: number): string {
+export function endAt(relDeg: number): string {
   return ENDS[Math.floor((((relDeg % 360) + 360 + 22.5) % 360) / 45)]!
 }
 

@@ -494,13 +494,9 @@ function Detail(
   const shown: GreenMode = layers.colour ? p.mode : 'plain'
   const tilt = lidar?.tilt ?? null
   const ends = tilt ? bothEndsWords(tilt.downhillDeg, tilt.tiltPct, p.approach) : null
-  const second = lidar
-    ? ff
-      ? falseFrontWords(ff, p.unit)
-      : lidar.shape && lidar.shape.kind !== 'planar'
-        ? shapePhrase(lidar.shape, p.approach, p.unit)
-        : null
-    : null
+  // The shape first; a false front gets its own line rather than hiding it (#1402).
+  const shapeWords = lidar?.shape ? shapePhrase(lidar.shape, p.approach, p.unit) : null
+  const lines = lidar ? [shapeWords, ff ? falseFrontWords(ff, p.unit) : null] : []
   const source = [
     lidar ? (green.gridSource?.startsWith('3dep:') ? 'USGS 3DEP lidar' : 'Lidar') : null,
     green.outlineSource === 'osm' ? 'OSM outline' : green.outlineSource === 'manual' ? 'Outline drawn by hand' : 'Traced outline',
@@ -564,7 +560,7 @@ function Detail(
               {ends !== 'Level' && <Text style={[TYPE.body, { fontSize: 15, color: P.ink }]}>{ends} ·</Text>}
               <TermWord pct={tilt.tiltPct} flipped={p.flipped} onFlip={p.onFlip} />
             </View>
-            {second && <Small style={{ marginTop: 3, fontSize: 13 }}>{second}</Small>}
+            {lines.map((l) => l && <Small key={l} style={{ marginTop: 3, fontSize: 13 }}>{l}</Small>)}
           </>
         ) : (
           <Small style={{ marginTop: 8, fontSize: 13 }}>
