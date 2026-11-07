@@ -307,7 +307,6 @@ function spotShape(g: GreenGrid, inside: Uint8Array): GreenShape {
 }
 
 const RIDGE_LINES = ['front to back', 'front left to back right', 'left to right', 'front right to back left']
-const SWALE_SIDES = ['left and right', 'front right and back left', 'front and back', 'front left and back right']
 const EDGES = ['back', 'right', 'front', 'left'] as const
 const OPPOSITE = { back: 'front', right: 'left', front: 'back', left: 'right' } as const
 
@@ -345,9 +344,7 @@ export function shapePhrase(s: GreenShape, approachDeg: number, unit: DistanceUn
     case 'ridge':
     case 'swale': {
       const k = Math.floor(((((s.axisDeg - approachDeg) % 180) + 180 + 22.5) % 180) / 45)
-      return s.kind === 'ridge'
-        ? `Ridge · runs ${RIDGE_LINES[k]}, falls off both sides`
-        : `Low through the middle · rises to the ${SWALE_SIDES[k]}`
+      return s.kind === 'ridge' ? `Ridge · runs ${RIDGE_LINES[k]}, falls off both sides` : `Swale · runs ${RIDGE_LINES[k]}, rises on both sides`
     }
     case 'high':
     case 'low': {

@@ -80,10 +80,10 @@ describe('shapePhrase', () => {
     expect(shapePhrase(s, 0, 'yards')).toBe('Low through the middle · rises to the left and right')
   })
 
-  it('words a swale by the sides that rise either side of it', () => {
-    expect(shapePhrase({ kind: 'swale', axisDeg: 0 }, 0, 'yards')).toBe('Low through the middle · rises to the left and right')
-    expect(shapePhrase({ kind: 'swale', axisDeg: 0 }, 90, 'yards')).toBe('Low through the middle · rises to the front and back')
-    expect(shapePhrase({ kind: 'swale', axisDeg: 45 }, 0, 'yards')).toBe('Low through the middle · rises to the front right and back left')
+  it('names a swale like a ridge: the line it runs along', () => {
+    expect(shapePhrase({ kind: 'swale', axisDeg: 0 }, 0, 'yards')).toBe('Swale · runs front to back, rises on both sides')
+    expect(shapePhrase({ kind: 'swale', axisDeg: 0 }, 90, 'yards')).toBe('Swale · runs left to right, rises on both sides')
+    expect(shapePhrase({ kind: 'swale', axisDeg: 45 }, 0, 'yards')).toBe('Swale · runs front left to back right, rises on both sides')
   })
 
   it('says nothing for a saddle', () => {
@@ -163,7 +163,7 @@ describe('greenShape', () => {
   it('finds a swale running front to back', () => {
     const shape = greenShape(gridOf(N, N, (x) => 5 * (x - 10) ** 2))!
     expect(shape.kind).toBe('swale')
-    expect(shapePhrase(shape, 0, 'yards')).toBe('Low through the middle · rises to the left and right')
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Swale · runs front to back, rises on both sides')
   })
 
   it('finds a swale on a tilted green', () => {
