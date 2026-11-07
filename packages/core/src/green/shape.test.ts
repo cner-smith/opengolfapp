@@ -96,23 +96,23 @@ describe('greenShape', () => {
     expect(greenShape(gridOf(N, N, (x) => 20 * x))).toEqual({ kind: 'plain' })
   })
 
-  it('finds two tiers: a 2 m band at 16% between flat tiers, 32 cm apart', () => {
-    // s = metres north of the south edge. Flat to s = 9, up 16% to s = 11, flat after.
+  it('finds two tiers: a 2 m band at 22.5% between flat tiers, 45 cm apart', () => {
+    // s = metres north of the south edge. Flat to s = 9, up 22.5% to s = 11, flat after.
     const tiered = (_: number, y: number) => {
       const s = y + 20
-      return s < 9 ? 0 : s < 11 ? 160 * (s - 9) : 320
+      return s < 9 ? 0 : s < 11 ? 225 * (s - 9) : 450
     }
-    // The band's central differences reach 4% (the floor) in a shoulder bin, so the band reads 3 m: its middle sits 9.5 m in.
+    // The band's central differences pass 4% (the floor) in a shoulder bin, so the band reads 3 m: its middle sits 9.5 m in.
     const shape = greenShape(gridOf(N, N, tiered))!
-    expect(shape).toEqual({ kind: 'two-tiers', stepCm: 32, atM: 9.5 })
-    // 32 / 2.54 = 12.6 in.
-    expect(shapePhrase(shape, 0, 'yards')).toBe('Two tiers · the upper tier is 13 in higher')
+    expect(shape).toEqual({ kind: 'two-tiers', stepCm: 45, atM: 9.5 })
+    // 45 / 2.54 = 17.7 in.
+    expect(shapePhrase(shape, 0, 'yards')).toBe('Two tiers · the upper tier is 18 in higher')
   })
 
-  it('leaves a 16 cm step out of the two tiers: under 30 cm reads as a plain tilt', () => {
+  it('leaves a 35 cm step out of the two tiers: under 40 cm reads as a plain tilt', () => {
     const tiered = (_: number, y: number) => {
       const s = y + 20
-      return s < 9 ? 0 : s < 11 ? 80 * (s - 9) : 160
+      return s < 9 ? 0 : s < 11 ? 175 * (s - 9) : 350
     }
     expect(greenShape(gridOf(N, N, tiered))).toEqual({ kind: 'plain' })
   })

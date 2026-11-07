@@ -2,7 +2,7 @@
 // Rules, on the interior (collar excluded):
 // - two tiers: along the plane's fall line in 1 m bins, one steep band
 //   (≥ 4% and ≥ 2.2× the median) in the middle 20–80%, ≤ 30% of the length,
-//   flatter on both sides, and a step of ≥ 30 cm. Checked first.
+//   flatter on both sides, and a step of ≥ 40 cm. Checked first.
 // - ridge or swale: a quadratic explains ≥ 20 points more than the plane, one
 //   curvature is past ±K0 with ≥ 6 cm of relief and the other is near 0.
 //   Both bent opposite ways past K0 is a saddle: mixed, no words.
@@ -24,7 +24,7 @@ const QUADRATIC_GAIN = 0.2
 /** Curvature, 1/m: bends 0.5·K0·(10 m)² = 20 cm over a 10 m radius. */
 const K0 = 0.004
 const RELIEF_MIN_CM = 6
-const TIER_STEP_CM = 30
+const TIER_STEP_CM = 40
 /** Heights are averaged over a square this far either side of each cell. */
 const SMOOTH_M = 2
 /** A hollow's low spot sits at least this far below every rim cell. */
