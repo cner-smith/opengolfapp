@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { matchHoles, parseElements, upsertOsmGreenMaps, type OsmGreenMapFn } from './osm-import'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { matchHoles, parseElements, runOsmImport, upsertOsmGreenMaps, type OsmGreenMapFn } from './osm-import'
 import type { OgaSupabaseClient } from './client'
 
 const QUERY_CENTER = { lat: 55.9533, lon: -3.1883 }
@@ -178,5 +178,86 @@ describe('upsertOsmGreenMaps', () => {
     const got = await upsertOsmGreenMaps(client, [{ id: 'h1', hole: matched(7) }], [], () => null)
     expect(got).toEqual({ written: 0, flaggedRefs: [], missingRefs: [7] })
     expect(upserts).toEqual([])
+  })
+})
+
+describe('runOsmImport re-fetch (#1398)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // In-memory courses/holes/green_maps. Deleting a hole cascades to its green_maps row (0067);
+  // upserting holes merges on (course_id, number) and gives a new hole a fresh id.
+  function fakeDb() {
+    const course = { id: 'c1', name: 'Test Links' }
+    let holes = [
+      { id: 'h1', course_id: 'c1', number: 1 },
+      { id: 'h2', course_id: 'c1', number: 2 },
+    ]
+    let greenMaps = [{ hole_id: 'h1', outline: 'traced', outline_source: 'manual' }]
+    let nextId = 100
+    const table = (name: string) => ({
+      select: (_cols?: string, opts?: { head?: boolean }) => ({
+        eq: (_col: string, val: string) => {
+          if (name === 'courses') {
+            return { maybeSingle: async () => ({ data: val === course.name ? { id: course.id } : null, error: null }) }
+          }
+          const rows = holes.filter((h) => h.course_id === val)
+          return Promise.resolve(opts?.head ? { count: rows.length, error: null } : { data: rows, error: null })
+        },
+        in: async (_col: string, ids: string[]) => ({ data: greenMaps.filter((g) => ids.includes(g.hole_id)), error: null }),
+      }),
+      update: () => ({ eq: async () => ({ error: null }) }),
+      delete: () => ({
+        eq: async (_col: string, val: string) => {
+          const gone = new Set(holes.filter((h) => h.course_id === val).map((h) => h.id))
+          holes = holes.filter((h) => !gone.has(h.id))
+          greenMaps = greenMaps.filter((g) => !gone.has(g.hole_id))
+          return { error: null }
+        },
+      }),
+      upsert: (rows: Record<string, unknown>[]) => {
+        if (name === 'green_maps') {
+          for (const r of rows) {
+            greenMaps = greenMaps.filter((g) => g.hole_id !== r.hole_id)
+            greenMaps.push(r as (typeof greenMaps)[number])
+          }
+          return Promise.resolve({ error: null })
+        }
+        const out = rows.map((r) => {
+          const old = holes.find((h) => h.course_id === r.course_id && h.number === r.number)
+          if (old) return { id: old.id, number: old.number }
+          const id = `h${nextId++}`
+          holes.push({ id, course_id: r.course_id as string, number: r.number as number })
+          return { id, number: r.number as number }
+        })
+        return { select: async () => ({ data: out, error: null }) }
+      },
+    })
+    const client = { from: table } as unknown as OgaSupabaseClient
+    return { client, holes: () => holes, greenMaps: () => greenMaps }
+  }
+
+  // OSM now maps holes 1 and 3: hole 2 has gone from OSM, hole 3 is new.
+  function stubOverpass() {
+    const node = (id: number, lat: number) => ({ type: 'node' as const, id, lat, lon: -3.1883 })
+    const way = (id: number, nodes: number[], ref: string) => ({
+      type: 'way' as const, id, nodes, tags: { golf: 'hole', ref, par: '4' },
+    })
+    const body = {
+      elements: [node(1, 55.9533), node(2, 55.9543), node(3, 55.9553), node(4, 55.9563), way(10, [1, 2], '1'), way(11, [3, 4], '3')],
+    }
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(body), { status: 200 }))
+  }
+
+  it('updates holes in place, adds missing ones, keeps the rest and their green maps', async () => {
+    const db = fakeDb()
+    stubOverpass()
+    await runOsmImport(db.client, {
+      name: 'Test Links', lat: 55.9533, lng: -3.1883, radius: 1200, updateExisting: true,
+      greenMap: () => ({ outline: 'osm', areaM2: 500, flagged: false, flagReason: null }),
+    })
+    expect(db.holes().map((h) => [h.number, h.id]).sort()).toEqual([[1, 'h1'], [2, 'h2'], [3, 'h100']])
+    expect(db.greenMaps()).toContainEqual({ hole_id: 'h1', outline: 'traced', outline_source: 'manual' })
   })
 })

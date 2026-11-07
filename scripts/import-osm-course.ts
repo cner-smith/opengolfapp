@@ -10,12 +10,10 @@
  * tee_lat/lng + pin_lat/lng. Re-running is safe: the course is
  * matched by name and holes are upserted on (course_id, number).
  *
- * Pass --update-existing to refuse creating a new course row and
- * instead delete-then-replace holes for the matching course. Useful
- * when re-importing layout for a course that already exists in the
- * DB; without this flag a stale hole that's no longer in OSM would
- * remain because the upsert is keyed on (course_id, number) and
- * doesn't drop missing rows.
+ * Pass --update-existing to refuse creating a new course row, so a
+ * name that misses the existing course fails instead of making a
+ * duplicate. Holes are updated in place either way; a hole no longer
+ * in OSM is kept (deleting it would drop its green map).
  *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (read from .env via
  * dotenv/config or the shell).
@@ -93,11 +91,6 @@ async function main() {
   if (summary.dedupedRefs.length > 0) {
     console.log(
       `  Dedup: duplicate hole ways collapsed for refs ${summary.dedupedRefs.join(', ')}`,
-    )
-  }
-  if (summary.wipedHoles > 0) {
-    console.log(
-      `✓ Cleared ${summary.wipedHoles} existing hole row${summary.wipedHoles === 1 ? '' : 's'} on this course`,
     )
   }
   console.log(`${summary.created ? '✓ Created course' : '✓ Updated course'}: ${args.name}`)
