@@ -3,7 +3,8 @@ import type { KeyboardEvent, ReactNode } from 'react'
 // The paper rocker (.rocker in index.css). A radio group by default; `tabs`
 // makes it a tablist for a control that swaps the panel below. Either way
 // one stop in the tab order, arrow keys move the choice. With `onClear`,
-// nothing need be chosen and tapping the chosen segment clears it.
+// nothing need be chosen and tapping the chosen segment clears it. A
+// `disabled` option shows greyed and is skipped by the arrow keys.
 export function Rocker<T extends string | number>({
   options,
   value,
@@ -13,7 +14,7 @@ export function Rocker<T extends string | number>({
   tabs,
   className,
 }: {
-  options: readonly { value: T; label: string; glyph?: ReactNode }[]
+  options: readonly { value: T; label: string; glyph?: ReactNode; disabled?: boolean }[]
   value: T | null
   onChange: (v: T) => void
   onClear?: () => void
@@ -27,7 +28,9 @@ export function Rocker<T extends string | number>({
     if (!step) return
     e.preventDefault()
     // Nothing chosen: Right/Down picks the first option, Left/Up the last.
-    const next = chosen < 0 ? (step > 0 ? 0 : options.length - 1) : (chosen + step + options.length) % options.length
+    let next = chosen < 0 ? (step > 0 ? 0 : options.length - 1) : (chosen + step + options.length) % options.length
+    for (let n = 0; options[next]!.disabled && n < options.length; n++) next = (next + step + options.length) % options.length
+    if (options[next]!.disabled) return
     onChange(options[next]!.value)
     e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[next]?.focus()
   }
@@ -47,6 +50,7 @@ export function Rocker<T extends string | number>({
             role={tabs ? 'tab' : 'radio'}
             {...(tabs ? { 'aria-selected': on } : { 'aria-checked': on })}
             tabIndex={on || (chosen < 0 && i === 0) ? 0 : -1}
+            disabled={o.disabled}
             onClick={() => (on && onClear ? onClear() : onChange(o.value))}
           >
             {o.glyph}

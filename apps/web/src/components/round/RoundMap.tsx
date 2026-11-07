@@ -1,8 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { DEFAULT_HANDICAP, type ShotMarkerCategory } from '@oga/core'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers, type ClubPick } from './map/useMapLayers'
+import { useGreenLayers } from './map/useGreenLayers'
+import type { GreenData, GreenViewMode } from './green/useGreenMap'
 
 // Re-export the map bottom chrome so existing imports
 // (`{ MapBottomChrome } from '.../RoundMap'`) keep working.
@@ -122,7 +124,19 @@ interface RoundMapProps {
   /** The selected saved shot and a click on another one (#1217). */
   selectedShotId?: string | null
   onSelectShot?: (shotId: string) => void
+  /** The green overlay (#1380): drawn while the Green key is on; pace lines whenever switched on. */
+  green?: {
+    data: GreenData | null
+    mode: GreenViewMode
+    show: boolean
+    paceLines: PlacedPoint[][]
+    approachDeg: number
+  }
+  /** Bumped when the green view moves the pin, so the camera stays put as it does for a map drag. */
+  pinMovedInView?: number
 }
+
+const NO_GREEN: NonNullable<RoundMapProps['green']> = { data: null, mode: 'plain', show: false, paceLines: [], approachDeg: 0 }
 
 export function RoundMap({
   hole,
@@ -153,6 +167,8 @@ export function RoundMap({
   handicap = DEFAULT_HANDICAP,
   selectedShotId = null,
   onSelectShot,
+  green = NO_GREEN,
+  pinMovedInView = 0,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -211,7 +227,7 @@ export function RoundMap({
     effectiveCourseLng,
   ])
 
-  const { mapRef, userPlacedRef, mapFailed } = useMapSetup({
+  const { mapRef, mapLoaded, userPlacedRef, mapFailed } = useMapSetup({
     containerRef,
     cameraTarget,
     effectivePin,
@@ -226,6 +242,11 @@ export function RoundMap({
     onMovePin,
     onMoveTee,
   })
+
+  // Runs before the camera effect sees the new pin.
+  useLayoutEffect(() => {
+    if (pinMovedInView) userPlacedRef.current = true
+  }, [pinMovedInView, userPlacedRef])
 
   useMapLayers({
     mapRef,
@@ -251,6 +272,18 @@ export function RoundMap({
     onMoveExistingShotAim,
     selectedShotId,
     onSelectShot,
+  })
+
+  useGreenLayers({
+    mapRef,
+    mapLoaded,
+    green: green.data,
+    mode: green.mode,
+    show: green.show,
+    paceLines: green.paceLines,
+    approachDeg: green.approachDeg,
+    tee: effectiveTee,
+    pin: effectivePin,
   })
 
   return (

@@ -202,3 +202,21 @@ export function greenHachures(g: GreenGrid, field: SlopeField): Hachure[] {
   }
   return out
 }
+
+/** Half the width of a hachure's uphill end, metres. */
+const HACHURE_HALF_WIDTH_M = 0.22
+
+/** A hachure as a triangle in metres (east, south): the uphill corners, then the downhill tip. */
+export function hachureTriangle(h: Hachure): [number, number][] {
+  const d = (h.downhillDeg * Math.PI) / 180
+  const ux = Math.sin(d)
+  const uy = -Math.cos(d)
+  const w = HACHURE_HALF_WIDTH_M
+  const bx = h.eastM - (ux * h.lengthM) / 2
+  const by = h.southM - (uy * h.lengthM) / 2
+  return [
+    [bx - uy * w, by + ux * w],
+    [bx + uy * w, by - ux * w],
+    [h.eastM + (ux * h.lengthM) / 2, h.southM + (uy * h.lengthM) / 2],
+  ]
+}
