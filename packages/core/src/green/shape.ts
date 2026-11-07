@@ -256,7 +256,7 @@ function spotShape(g: GreenGrid, inside: Uint8Array): GreenShape {
   let hi = -1
   let lo = -1
   const rim: number[] = []
-  // Fall arrows: downhill per cell (mm per cell east, north), summed and summed in length.
+  // Fall arrows: downhill per cell (mm per cell east, north). Keep their vector sum and their total length.
   let fe = 0
   let fn = 0
   let fLen = 0
