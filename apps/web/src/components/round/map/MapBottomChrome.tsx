@@ -126,7 +126,7 @@ export function MapBottomChrome({
     const targetLabel =
       placementMode === 'tee' ? 'tee box' : 'pin'
     return (
-      <div style={wrapperStyle}>
+      <div data-map-chrome style={wrapperStyle}>
         <div style={cardStyle}>
           <div style={kickerStyle}>
             Place {targetLabel}
@@ -160,7 +160,7 @@ export function MapBottomChrome({
       </>
     ) : null
   return (
-    <div style={wrapperStyle}>
+    <div data-map-chrome style={wrapperStyle}>
       <div style={cardStyle}>
         {editing ? (
           <>

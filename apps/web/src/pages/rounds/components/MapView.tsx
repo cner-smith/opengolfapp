@@ -438,7 +438,7 @@ export function MapView({
             </>
           )}
         </div>
-        <div style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
+        <div data-map-area style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
           <Suspense fallback={<MapLoading />}>
             <RoundMap
               hole={activeHoleGeo}
@@ -471,6 +471,7 @@ export function MapView({
               onSelectShot={setSelectedId}
               green={greenMap}
               pinMovedInView={pinMovedInView}
+              ball={heroStart}
             />
           </Suspense>
           {reviewSheet}

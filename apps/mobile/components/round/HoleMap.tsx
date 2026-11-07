@@ -25,8 +25,9 @@ import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { AimPath } from './markers/AimPath'
-import { ObCallout, offscreenArrow } from './markers/Callouts'
+import { ObCallout, offscreenArrow, WayfinderKey } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
+import { useWayfinder } from './hooks/useWayfinder'
 import { TeeBadge } from './HoleMapOverlays'
 import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow, PlateSide } from './HoleMap.types'
 
@@ -107,6 +108,7 @@ export function HoleMap({
   ornamentsTop = false,
   tagClearBottom,
   tagClearDrawer,
+  wayfinderBottom,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -137,7 +139,7 @@ export function HoleMap({
   teeShot = false,
   greenLayers,
 }: HoleMapProps) {
-  const { toDisplay, toDisplayFt } = useUnits()
+  const { unit, toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
   // Native side fires "Source X is not in style" when a ShapeSource /
   // LineLayer mounts before the satellite style has finished loading.
@@ -206,6 +208,19 @@ export function HoleMap({
   useEffect(() => {
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
+
+  const { wf, onIdle: measureWayfinder } = useWayfinder({
+    mapViewRef,
+    mapSize,
+    bottom: wayfinderBottom,
+    ball,
+    pin: roundPin ?? pin,
+    hidden: isPinMode,
+    drawer: legTagClamp?.drawer && mapSize
+      ? { left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }
+      : null,
+    unit,
+  })
 
   const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
@@ -655,6 +670,7 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
+            measureWayfinder(state)
             setCupK(flagCupK(state.properties.pitch))
             setIdleTick((t) => t + 1)
           }}
@@ -909,7 +925,7 @@ export function HoleMap({
             <ObCallout at={lastShot} onPress={obCallout.onPress} busy={obCallout.busy} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
-
+        {wf && <WayfinderKey wf={wf} />}
       </View>
     </GestureDetector>
   )

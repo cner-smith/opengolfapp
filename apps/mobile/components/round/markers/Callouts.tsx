@@ -1,9 +1,11 @@
 import { Platform, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import Svg, { G, Path } from 'react-native-svg'
+import type { Wayfinder } from '@oga/core'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
-import { Key } from '../../paper/Paper'
-import { FONT_CAP, P } from '../../paper/tokens'
+import { Key, KeyText } from '../../paper/Paper'
+import { FONT_CAP, LEDGE, P, R } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -86,5 +88,49 @@ export function ObCallout({
         </Key>
       </View>
     </Mapbox.MarkerView>
+  )
+}
+
+// The wayfinder (#1386): the wide, flat chevron as a map key at the map's
+// edge, pointing at the ball, with its distance to the pin. Drawn like a Key
+// (paper face, ink rim, ledge) but not one: no tap, and touches go through.
+export const WAYFINDER_KEY = { width: 92, height: 38 + LEDGE }
+
+export function WayfinderKey({ wf }: { wf: Wayfinder }) {
+  return (
+    <View
+      pointerEvents="none"
+      accessible
+      accessibilityLabel={`Your ball, ${wf.distance} from the pin`}
+      style={{
+        position: 'absolute',
+        left: wf.x - WAYFINDER_KEY.width / 2,
+        top: wf.y - WAYFINDER_KEY.height / 2,
+        width: WAYFINDER_KEY.width,
+        height: WAYFINDER_KEY.height,
+      }}
+    >
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: LEDGE, backgroundColor: P.ink, borderRadius: R }} />
+      <View
+        style={{
+          height: WAYFINDER_KEY.height - LEDGE,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          backgroundColor: P.raised,
+          borderWidth: 1,
+          borderColor: P.ink,
+          borderRadius: R,
+        }}
+      >
+        <Svg width={22} height={22} viewBox="-11 -11 22 22">
+          <G rotation={wf.rotate} origin="0,0">
+            <Path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" fill={P.ink} />
+          </G>
+        </Svg>
+        <KeyText size={13}>{wf.distance}</KeyText>
+      </View>
+    </View>
   )
 }

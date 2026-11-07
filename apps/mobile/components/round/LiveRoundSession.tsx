@@ -694,6 +694,7 @@ export default function LiveRoundSession({
           lefty={lefty}
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
+          wayfinderBottom={dockHeight ? dockHeight + 6 : undefined}
           tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
