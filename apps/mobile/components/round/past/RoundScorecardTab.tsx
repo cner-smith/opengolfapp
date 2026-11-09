@@ -10,6 +10,7 @@ import {
   scoredTotals,
   type ResolvedHole,
   type RoundFocus,
+  type ScoredTotals,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { TYPE } from '../../../lib/typography'
@@ -57,7 +58,7 @@ export function RoundScorecardTab({
   /** Par for the tee played with the round's override folded in (resolveHole). */
   resolvedHoleByNumber: Map<number, ResolvedHole>
   /** scoredTotals over the round's holes. */
-  totals: { score: number; par: number; toPar: number; holesPlayed: number }
+  totals: ScoredTotals
   /** The player's handicap index, for the "vs a N handicap" caption. */
   handicap: number | null
   focus: RoundFocus | null

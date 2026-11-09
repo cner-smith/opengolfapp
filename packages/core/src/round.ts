@@ -243,9 +243,16 @@ export function roundHolesPlayed(
 // resolveHole: the round's override, then the tee played, then the course
 // hole. An unplayed hole adds nothing to par either, so a partial round reads
 // against the par of the holes it played.
+export interface ScoredTotals {
+  score: number
+  par: number
+  toPar: number
+  holesPlayed: number
+}
+
 export function scoredTotals(
   holes: readonly { score: number | null | undefined; par: number }[],
-): { score: number; par: number; toPar: number; holesPlayed: number } {
+): ScoredTotals {
   let score = 0
   let par = 0
   let holesPlayed = 0

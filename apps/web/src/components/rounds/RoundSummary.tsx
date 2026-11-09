@@ -4,8 +4,8 @@ import {
   formatSG,
   formatToPar,
   pickRoundFocus,
-  scoredTotals,
   roundFocusHeadline,
+  scoredTotals,
   selectNudgeDrills,
   type RoundFocus,
 } from '@oga/core'
