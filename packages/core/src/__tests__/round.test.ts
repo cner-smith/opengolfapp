@@ -30,7 +30,7 @@ import {
   reviewRowsAfterEdit,
   type PlacedPoint,
   type ReviewTally,
-  type TallyRow,
+  type ReviewTallyRow,
   type ShotSummaryFields,
 } from '../round'
 import { decombinedPuttResult } from '../types'
@@ -762,7 +762,7 @@ describe('wholeRoundWindow', () => {
 // End-of-hole review tickers. Each case is worked by hand from the rule: a row
 // is one stroke, an OB or a Penalty key adds one stroke to Score and Penalties
 // (#839, #1039), a green-lie row is a putt, decrements floor at 0.
-const lie = (lieType: TallyRow['lieType'], flags: Partial<TallyRow> = {}): TallyRow => ({
+const lie = (lieType: ReviewTallyRow['lieType'], flags: Partial<ReviewTallyRow> = {}): ReviewTallyRow => ({
   lieType,
   ...flags,
 })
@@ -773,7 +773,7 @@ const tally = (score: number, putts: number, penalties: number): ReviewTally => 
 })
 
 describe('seedReviewTally', () => {
-  it.each<[string, TallyRow[], ReviewTally]>([
+  it.each<[string, ReviewTallyRow[], ReviewTally]>([
     ['no shots', [], tally(0, 0, 0)],
     // 4 rows, 2 on the green.
     ['plain hole', [lie('tee'), lie('fairway'), lie('green'), lie('green')], tally(4, 2, 0)],
@@ -799,7 +799,7 @@ describe('seedReviewTally', () => {
 })
 
 describe('applyReviewRowEdit', () => {
-  it.each<[string, ReviewTally, TallyRow, TallyRow, ReviewTally]>([
+  it.each<[string, ReviewTally, ReviewTallyRow, ReviewTallyRow, ReviewTally]>([
     // #839: OB on = score 4+1, penalties 0+1.
     ['OB on', tally(4, 1, 0), lie('fairway'), lie('fairway', { shotResult: 'ob' }), tally(5, 1, 1)],
     // #839: a seeded OB cleared = score 5-1, penalties 1-1.
@@ -829,7 +829,7 @@ describe('applyReviewRowEdit', () => {
 })
 
 describe('applyReviewRowDelete', () => {
-  it.each<[string, ReviewTally, TallyRow, ReviewTally]>([
+  it.each<[string, ReviewTally, ReviewTallyRow, ReviewTally]>([
     ['plain row', tally(4, 2, 0), lie('fairway'), tally(3, 2, 0)],
     ['putt', tally(4, 2, 0), lie('green'), tally(3, 1, 0)],
     // An OB row is two strokes (#839): 6-2, penalties 1-1.

@@ -545,12 +545,12 @@ export interface ReviewTally {
   penalties: number
 }
 
-export type TallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
+export type ReviewTallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
 
 // Seeds from OB only, not the Penalty flag: no review opens on rows that
 // already carry a stored penalty today (a saved hole can't be re-reviewed,
 // #1042).
-export function seedReviewTally(rows: readonly TallyRow[]): ReviewTally {
+export function seedReviewTally(rows: readonly ReviewTallyRow[]): ReviewTally {
   const obs = obCount(rows)
   return {
     score: rows.length + obs,
@@ -563,8 +563,8 @@ export function seedReviewTally(rows: readonly TallyRow[]): ReviewTally {
 // always applied them (OB, then penalty), so a hand-set 0 behaves as before.
 export function applyReviewRowEdit(
   tally: ReviewTally,
-  before: TallyRow,
-  after: TallyRow,
+  before: ReviewTallyRow,
+  after: ReviewTallyRow,
 ): ReviewTally {
   const ob = Number(after.shotResult === 'ob') - Number(before.shotResult === 'ob')
   const pen = Number(!!after.penalty) - Number(!!before.penalty)
@@ -578,7 +578,7 @@ export function applyReviewRowEdit(
 
 // Matches what the delete_shot RPC re-tallies server-side: the row's stroke,
 // plus its OB and Penalty strokes, plus a putt for a green-lie row.
-export function applyReviewRowDelete(tally: ReviewTally, row: TallyRow): ReviewTally {
+export function applyReviewRowDelete(tally: ReviewTally, row: ReviewTallyRow): ReviewTally {
   const penaltyStrokes = Number(row.shotResult === 'ob') + Number(!!row.penalty)
   return {
     score: floorAdd(tally.score, -1 - penaltyStrokes),
