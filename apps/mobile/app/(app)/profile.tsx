@@ -15,9 +15,11 @@ import * as Sharing from 'expo-sharing'
 import { File, Paths } from 'expo-file-system'
 import {
   FACILITIES,
+  formatHandicapIndex,
   GOALS,
   HANDICAP_PROVENANCE_LABEL,
   handicapProvenance,
+  readHandicapIndexField,
   SKILL_LEVELS,
 } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
@@ -54,6 +56,16 @@ type Goal = Profile['goal']
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
 const USERNAME_HELPER =
   '3–32 characters. Letters, numbers, - and _ only.'
+
+// The handicap field's text for a stored index, so a plus handicap (stored
+// negative) reads back as "+2.0" and saves again as one.
+const handicapText = (index: number | null | undefined) =>
+  index == null ? '' : formatHandicapIndex(index)
+// Edited = it would save something else ("13" and "13.0" are the same).
+const handicapEdited = (text: string, index: number | null | undefined) => {
+  const field = readHandicapIndexField(text)
+  return 'error' in field || field.index !== (index ?? null)
+}
 
 // PostgREST surfaces raw SQL constraint messages on save errors —
 // fine for `console.error` but not for an Alert. Map the common
@@ -204,7 +216,7 @@ export default function ProfileTab() {
       hydratedUserIdRef.current = user.id
       setProfile(data as unknown as Profile)
       setUsername(data.username ?? '')
-      setHandicap(data.handicap_index?.toString() ?? '')
+      setHandicap(handicapText(data.handicap_index))
       setSkill(data.skill_level ?? null)
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
@@ -236,19 +248,15 @@ export default function ProfileTab() {
       Alert.alert('Username invalid', USERNAME_HELPER)
       return
     }
-    const numericHandicap = handicap === '' ? null : Number(handicap)
-    if (handicap !== '' && Number.isNaN(numericHandicap)) {
-      Alert.alert('Handicap must be a number')
-      return
-    }
-    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
-      Alert.alert('Handicap must be between -10 and 54')
+    const handicapField = readHandicapIndexField(handicap)
+    if ('error' in handicapField) {
+      Alert.alert(handicapField.error)
       return
     }
     setSaving(true)
     const { data, error } = await updateProfile(supabase, user.id, {
       username: trimmedUsername || null,
-      handicap_index: numericHandicap,
+      handicap_index: handicapField.index,
       skill_level: skill,
       goal,
       facilities,
@@ -281,7 +289,7 @@ export default function ProfileTab() {
   const dirty =
     !!profile &&
     (trimmedUsername !== (profile.username ?? '') ||
-      handicap !== (profile.handicap_index?.toString() ?? '') ||
+      handicapEdited(handicap, profile.handicap_index) ||
       skill !== (profile.skill_level ?? null) ||
       goal !== (profile.goal ?? null) ||
       [...facilities].sort().join() !== [...(profile.facilities ?? [])].sort().join() ||

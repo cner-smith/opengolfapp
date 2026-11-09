@@ -6,6 +6,7 @@ import {
   formatHandicapIndex,
   handicapProvenance,
   parseHandicapIndex,
+  readHandicapIndexField,
 } from './handicap'
 
 describe('calculateDifferential', () => {
@@ -240,5 +241,27 @@ describe('parseHandicapIndex', () => {
     expect(parseHandicapIndex('abc')).toBeNull()
     expect(parseHandicapIndex('1.2.3')).toBeNull()
     expect(parseHandicapIndex('+')).toBeNull()
+  })
+})
+
+describe('readHandicapIndexField', () => {
+  // The stored range is the 0012 check: -10 (a plus 10) to 54.
+  it('reads the typed field: blank clears, a plus handicap is stored negative', () => {
+    expect(readHandicapIndexField('')).toEqual({ index: null })
+    expect(readHandicapIndexField('   ')).toEqual({ index: null })
+    expect(readHandicapIndexField('15')).toEqual({ index: 15 })
+    // Number('+2') is 2: the old forms saved a plus 2 as a 2.
+    expect(readHandicapIndexField('+2')).toEqual({ index: -2 })
+    // Number('12,4') is NaN: the old forms rejected it.
+    expect(readHandicapIndexField('12,4')).toEqual({ index: 12.4 })
+    expect(readHandicapIndexField('+10')).toEqual({ index: -10 })
+    expect(readHandicapIndexField('54')).toEqual({ index: 54 })
+  })
+
+  it('says why it cannot save', () => {
+    expect(readHandicapIndexField('abc')).toEqual({ error: 'Handicap must be a number' })
+    expect(readHandicapIndexField('54.1')).toEqual({ error: 'Handicap must be between +10 and 54' })
+    // +10.1 is stored -10.1, past the plus end (the old forms saved it as 10.1).
+    expect(readHandicapIndexField('+10.1')).toEqual({ error: 'Handicap must be between +10 and 54' })
   })
 })

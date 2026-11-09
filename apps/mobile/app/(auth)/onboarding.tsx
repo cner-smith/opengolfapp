@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
   GOALS,
+  readHandicapIndexField,
   SKILL_LEVELS,
   type Goal,
   type SkillLevel,
@@ -68,13 +69,9 @@ export default function MobileOnboarding() {
       Alert.alert('Pick a skill level and a goal first')
       return
     }
-    const numericHandicap = handicap === '' ? null : Number(handicap)
-    if (handicap !== '' && Number.isNaN(numericHandicap)) {
-      Alert.alert('Handicap must be a number')
-      return
-    }
-    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
-      Alert.alert('Handicap must be between -10 and 54')
+    const handicapField = readHandicapIndexField(handicap)
+    if ('error' in handicapField) {
+      Alert.alert(handicapField.error)
       return
     }
     setSaving(true)
@@ -103,7 +100,7 @@ export default function MobileOnboarding() {
     // gate still flips so the user isn't trapped on /onboarding.
     const { error } = await updateProfile(supabase, user.id, {
       skill_level: skill,
-      handicap_index: numericHandicap,
+      handicap_index: handicapField.index,
       goal,
       onboarding_completed: true,
     })

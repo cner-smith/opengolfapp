@@ -147,3 +147,16 @@ export function parseHandicapIndex(text: string): number | null {
   const n = Math.round(Math.abs(Number(t)) * 10) / 10
   return t.startsWith('+') || t.startsWith('-') ? -n || 0 : n
 }
+
+// A handicap field as the profile forms save it: blank clears the index,
+// otherwise it must parse and sit in the stored range (-10, a plus 10, to 54:
+// the 0012 check).
+export function readHandicapIndexField(
+  text: string,
+): { index: number | null } | { error: string } {
+  if (text.trim() === '') return { index: null }
+  const index = parseHandicapIndex(text)
+  if (index === null) return { error: 'Handicap must be a number' }
+  if (index < -10 || index > 54) return { error: 'Handicap must be between +10 and 54' }
+  return { index }
+}

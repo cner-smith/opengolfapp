@@ -38,3 +38,30 @@ test.describe('Settings: edit handicap (signed in, mutating)', () => {
     await expect(page.getByRole('button', { name: /^Handicap index/ })).toContainText('13.5')
   })
 })
+
+test.describe('Settings: a plus handicap (signed in, mutating)', () => {
+  test.afterEach(async () => {
+    await admin
+      .from('profiles')
+      .update({ handicap_index: ORIGINAL_HANDICAP })
+      .eq('id', E2E_USER_ID)
+  })
+
+  test('"+2" saves as a plus 2 and reads back as +2.0', async ({ page }) => {
+    await page.goto('/settings')
+    await page.getByRole('button', { name: /^Handicap index/ }).click()
+    await page.getByLabel('Handicap index').fill('+2')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
+
+    const { data } = await admin
+      .from('profiles')
+      .select('handicap_index')
+      .eq('id', E2E_USER_ID)
+      .single()
+    expect(data?.handicap_index).toBe(-2)
+
+    await page.reload()
+    await expect(page.getByRole('button', { name: /^Handicap index/ })).toContainText('+2.0')
+  })
+})
