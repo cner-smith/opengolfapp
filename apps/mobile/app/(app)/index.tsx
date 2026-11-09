@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown, sgFinding } from '@oga/core'
+import { formatSG, homeSummary, isStaleEmptyRound } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -42,13 +42,6 @@ interface RecentRound extends RecentRoundRow {
   sg_around_green: number | null
   sg_putting: number | null
 }
-
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off the tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around the green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
 
 export default function Home() {
   const { user } = useAuth()
@@ -208,48 +201,13 @@ export default function Home() {
       .catch(() => undefined)
   }, [user?.id])
 
-  // Skip rounds with no sg_total — null → 0 would anchor the line
-  // at zero on rounds the user never finalized SG for, and the SG
-  // breakdown averages (which filter nulls) would no longer match.
-  // Use a separate ordinal counter (not the source-array index) so the
-  // x values stay 1..N over the kept rounds — flatMap's `i` runs over
-  // the full reversed array including null-filtered entries, which
-  // would otherwise produce sparse ordinals like [1, 3, 5] and a
-  // visually gapped axis.
-  // Rounds ended early stay out of the per-round numbers below (avg, best,
-  // SG averages, trend) — a 6-hole total isn't comparable to a whole round (#911).
-  // The window is the 20 most recent WHOLE rounds, like Stats' L20 (#935).
-  const wholeRounds = useMemo(
-    () => rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20),
-    [rounds],
-  )
-
-  const trend = useMemo(() => {
-    let seq = 0
-    return [...wholeRounds]
-      .reverse()
-      .flatMap((r) =>
-        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total, date: r.played_at }],
-      )
-  }, [wholeRounds])
-
-  const homeStats = useMemo(() => {
-    const { breakdown } = sgBreakdown(wholeRounds)
-    const avgs = SG_KEYS.map((c) => ({ ...c, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
-    // total_score === 0 is the past-round-logger sentinel for "no score
-    // entered" (map-created rounds), so exclude it from the average —
-    // otherwise an abandoned log skews the average.
-    const realScoreRounds = wholeRounds.filter(
-      (r): r is typeof r & { total_score: number } =>
-        r.total_score != null && r.total_score > 0,
-    )
-    const avgScore = realScoreRounds.length > 0
-      ? realScoreRounds.reduce((s, r) => s + r.total_score, 0) / realScoreRounds.length
-      : null
-    const totalSG = avgs.reduce((s, a) => s + a.value, 0)
-    const sorted = [...avgs].sort((a, b) => b.value - a.value)
-    return { avgScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
-  }, [wholeRounds])
+  // The newest 20 whole rounds' summary, shared with the web Dashboard
+  // (#1427): ended-early rounds stay out (#911), a missing SG category is not
+  // counted, and a round with no SG is not a trend point.
+  const summary = useMemo(() => homeSummary(rounds), [rounds])
+  const wholeRounds = summary.whole
+  // x is an ordinal over the kept rounds, so the points sit evenly spaced.
+  const trend = useMemo(() => summary.trend.map((t, i) => ({ x: i + 1, y: t.sg, date: t.date })), [summary])
 
   const firstName = profile?.username?.split(/\s+/)[0]
   const hour = new Date().getHours()
@@ -294,10 +252,10 @@ export default function Home() {
         </Pressable>
         </Entrance>
 
-        {wholeRounds.length > 0 && (
+        {summary.finding != null && (
           <Entrance index={1}>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 19, lineHeight: 25, marginBottom: 20 }]}>
-              {sgFinding(homeStats.weakest, homeStats.strongest, 'every part')}
+              {summary.finding}
             </Text>
           </Entrance>
         )}
@@ -310,12 +268,12 @@ export default function Home() {
 
         {wholeRounds.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 28 }}>
-            <StatTile style={{ flex: 1 }} label="Average score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
+            <StatTile style={{ flex: 1 }} label="Average score" value={summary.avgScore != null ? summary.avgScore.toFixed(1) : '—'} />
             <StatTile
               style={{ flex: 1 }}
               label="Strokes gained"
-              value={formatSG(homeStats.totalSG)}
-              valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
+              value={formatSG(summary.totalSG)}
+              valueColor={summary.totalSG > 0 ? P.forest : summary.totalSG < 0 ? P.neg : P.ink}
             />
           </View>
         )}
@@ -370,7 +328,7 @@ export default function Home() {
           </PaperTile>
         ) : (
           <View style={{ marginBottom: 28 }}>
-            <SGBreakdown rounds={wholeRounds} />
+            <SGBreakdown areas={summary.areas} maxAbs={summary.maxAbs} count={wholeRounds.length} />
             <SGTrendChart data={trend} />
           </View>
         )}

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { barScale, formatSG, isPartialRound, parseLocalDate, partialRoundLabel, sgBreakdown, sgFinding } from '@oga/core'
+import { barScale, formatSG, homeSummary, parseLocalDate, partialRoundLabel } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 import { useCountUp } from '../../hooks/useCountUp'
@@ -16,13 +16,6 @@ const SGTrendChart = lazy(() =>
   import('./components/SGTrendChart').then((m) => ({ default: m.SGTrendChart })),
 )
 
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off the tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around the green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
-
 const POS = '#1F3D2C'
 const NEG = '#A33A2A'
 
@@ -36,42 +29,19 @@ export function DashboardPage() {
   const firstName = profile.data?.username?.split(/\s+/)[0] ?? null
   const handicap = profile.data?.handicap_index
 
-  // All five reductions over the rounds array share the same dependency
-  // (`rounds`) and run on every render — wrap once so unrelated parent
-  // re-renders don't recompute SG averages, trend coords, and avg score
-  // from scratch. Hook stays above the early returns to keep call order
-  // stable across renders.
-  const stats = useMemo(() => {
-    // Rounds ended early stay out of the per-round numbers (#911).
-    // The newest 20 whole rounds out of 40, as mobile Home does (#1222).
-    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20)
-    const sg = sgBreakdown(whole)
-    const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
-    const maxAbs = barScale(sg.maxAbs)
-    const trendData = [...whole].reverse().map((r) => ({
-      date: parseLocalDate(r.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      sg: r.sg_total ?? 0,
-    }))
-    // total_score 0 = the past-round logger's "no score yet" sentinel (#910).
-    const scored = whole.filter((r) => (r.total_score ?? 0) > 0)
-    const avgScore = scored.length > 0 ? scored.reduce((s, r) => s + (r.total_score ?? 0), 0) / scored.length : 0
-    const totalSG = avgs.reduce((s, a) => s + a.value, 0)
-    const sortedDesc = [...avgs].sort((a, b) => b.value - a.value)
-    return {
-      wholeCount: whole.length,
-      avgs,
-      maxAbs,
-      trendData,
-      avgScore,
-      totalSG,
-      weakest: sortedDesc[sortedDesc.length - 1]!,
-      strongest: sortedDesc[0]!,
-    }
-  }, [rounds])
+  // The newest 20 whole rounds' summary, shared with mobile Home (#1427).
+  const summary = useMemo(() => homeSummary(rounds), [rounds])
 
   if (sg.isLoading) return <DashboardSkeleton />
 
-  const { wholeCount, avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
+  const { areas, totalSG, finding } = summary
+  const wholeCount = summary.whole.length
+  const maxAbs = barScale(summary.maxAbs)
+  const avgScore = summary.avgScore ?? 0
+  const trendData = summary.trend.map((t) => ({
+    date: parseLocalDate(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    sg: t.sg,
+  }))
   // Masthead and SG caption both count whole rounds, as mobile does (SHL-18).
   const subtitle = [
     wholeCount === 0 ? 'No full rounds yet' : `Last ${wholeCount} round${wholeCount === 1 ? '' : 's'}`,
@@ -93,9 +63,9 @@ export function DashboardPage() {
           <Masthead greeting={firstName} subtitle={subtitle} />
         </Block>
         <Block order={2} i={1}>
-          {wholeCount > 0 ? (
-            <Lede text={sgFinding(weakest, strongest, 'every part')} />
-          ) : (
+          {finding ? (
+            <Lede text={finding} />
+          ) : wholeCount > 0 ? null : (
             <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 24, maxWidth: 520 }}>
               {rounds.length === 0
                 ? 'Log a round to start tracking your strokes gained.'
@@ -110,7 +80,7 @@ export function DashboardPage() {
             <section style={{ marginBottom: 36 }}>
               <SectionHead i={3} title="Strokes gained" caption={`Per round, last ${wholeCount} round${wholeCount === 1 ? '' : 's'}.`} />
               <div className="flex flex-col" style={{ gap: 16 }}>
-                {avgs.map((a, d) => (
+                {areas.map((a, d) => (
                   <SGBar key={a.key} label={a.label} value={a.value} max={maxAbs} d={d} />
                 ))}
               </div>
@@ -328,10 +298,12 @@ function StatTile({
   )
 }
 
-function SGBar({ label, value, max, d }: { label: string; value: number; max: number; d: number }) {
-  const pct = Math.min(Math.abs(value) / max, 1) * 50
-  const isPositive = value > 0
-  const color = value > 0 ? POS : value < 0 ? NEG : '#8A8B7E'
+// value null = no round in the window has this category: no bar, "—".
+function SGBar({ label, value, max, d }: { label: string; value: number | null; max: number; d: number }) {
+  const v = value ?? 0
+  const pct = Math.min(Math.abs(v) / max, 1) * 50
+  const isPositive = v > 0
+  const color = v > 0 ? POS : v < 0 ? NEG : '#8A8B7E'
   return (
     <div className="flex items-center" style={{ gap: 14, '--d': d } as CSSProperties}>
       <div className="text-caddie-ink" style={{ width: 128, fontSize: 14, flexShrink: 0 }}>
@@ -356,7 +328,7 @@ function SGBar({ label, value, max, d }: { label: string; value: number; max: nu
         className="dash-bar-value font-serif tabular text-right"
         style={{ width: 58, fontSize: 18, fontStyle: 'italic', fontWeight: 500, color }}
       >
-        {formatSG(value)}
+        {value == null ? '—' : formatSG(value)}
       </div>
     </div>
   )
