@@ -5,10 +5,14 @@ import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
+  formatToPar,
   pickRoundFocus,
   resolveCourseTee,
+  resolveHole,
+  scoredTotals,
   selectNudgeDrills,
   type CaptureMode,
+  type ResolvedHole,
   parseLocalDate,
 } from '@oga/core'
 import {
@@ -34,7 +38,7 @@ import { ShareableScorecardCard } from '../../../../components/round/ShareableSc
 import { RoundTeeSelector } from '../../../../components/round/RoundTeeSelector'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
 import { PastRoundMap } from '../../../../components/round/PastRoundMap'
-import { RoundScorecardTab, signed } from '../../../../components/round/past/RoundScorecardTab'
+import { RoundScorecardTab } from '../../../../components/round/past/RoundScorecardTab'
 import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../../../../components/help/CoachMarks'
@@ -335,6 +339,17 @@ function RoundScreen() {
         .sort((a, b) => a.number - b.number),
     [holes, storedHoleCount],
   )
+  // Each hole as played: par for the played tee's hole_tees row with the
+  // round's per-hole override (hole_scores.par) on top.
+  const resolvedHoleByNumber = useMemo(() => {
+    const m = new Map<number, ResolvedHole>()
+    for (const h of sortedHoles) {
+      const teeOverride =
+        holeTees.find((ht) => ht.hole_id === h.id && ht.course_tee_id === playedTee?.id) ?? null
+      m.set(h.number, resolveHole(h, teeOverride, { par: scoresByHoleId.get(h.id)?.par }))
+    }
+    return m
+  }, [sortedHoles, holeTees, playedTee?.id, scoresByHoleId])
   // Per-hole shot counts for the scorecard "Shots" affordance. Every row
   // is tappable now that the scorecard is editable (#514) — the count just
   // distinguishes "N shots →" from "+ add →".
@@ -616,11 +631,12 @@ function RoundScreen() {
     // don't move the total, so skip the round write for those.
     if (patch.score !== undefined) {
       const byHole = new Map(nextList.map((hs) => [hs.hole_id, hs]))
-      let total = 0
-      for (const h of sortedHoles) {
-        const s = byHole.get(h.id)?.score
-        if (s != null && s > 0) total += s
-      }
+      const total = scoredTotals(
+        sortedHoles.map((h) => ({
+          score: byHole.get(h.id)?.score,
+          par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+        })),
+      ).score
       // Write first, then reflect locally — an optimistic setRound here left
       // the header total contradicting the DB with no rollback on failure.
       const { error: rErr } = await updateRound(
@@ -639,17 +655,12 @@ function RoundScreen() {
 
   const focus = pickRoundFocus(round)
 
-  let runningScore = 0
-  let runningPar = 0
-  for (const h of sortedHoles) {
-    const hs = scoresByHoleId.get(h.id)
-    if (hs?.score != null && hs.score > 0) {
-      runningScore += hs.score
-      // Per-round par override (#710) — hole_scores.par wins over the
-      // course hole's par when the player corrected it.
-      runningPar += hs.par ?? h.par
-    }
-  }
+  const totals = scoredTotals(
+    sortedHoles.map((h) => ({
+      score: scoresByHoleId.get(h.id)?.score,
+      par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+    })),
+  )
 
   // "Fri 25 Sep".
   const played = parseLocalDate(round.played_at)
@@ -685,10 +696,10 @@ function RoundScreen() {
             <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
               {dateLabel}
               {sortedHoles.length > 0 ? ` · ${sortedHoles.length} holes` : ''}
-              {runningPar > 0 && (
+              {totals.holesPlayed > 0 && (
                 <>
                   {' · '}
-                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{runningScore}</Text> ({signed(runningScore - runningPar)})
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{totals.score}</Text> ({formatToPar(totals.toPar)})
                 </>
               )}
             </Text>
@@ -746,6 +757,7 @@ function RoundScreen() {
             }}
             holes={sortedHoles}
             scoresByHoleId={scoresByHoleId}
+            resolvedHoleByNumber={resolvedHoleByNumber}
             tone={shareTone}
           />
         </View>
@@ -758,8 +770,8 @@ function RoundScreen() {
           scoresByHoleId={scoresByHoleId}
           shotCountByHoleScoreId={holeScoreShotCount}
           shotsByHoleScoreId={shotsByHoleScoreId}
-          runningScore={runningScore}
-          runningPar={runningPar}
+          resolvedHoleByNumber={resolvedHoleByNumber}
+          totals={totals}
           handicap={handicap}
           focus={focus}
           drills={focus ? selectNudgeDrills(nudgeDrills, nudgeFacilities) : []}

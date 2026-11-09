@@ -1,5 +1,12 @@
 import type { Database } from '@oga/supabase'
-import { formatSG, formatToPar, inferHoleCount, roundHoleCount } from '@oga/core'
+import {
+  formatSG,
+  formatToPar,
+  inferHoleCount,
+  roundHoleCount,
+  scoredTotals,
+  type ResolvedHole,
+} from '@oga/core'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -31,6 +38,8 @@ interface ShareableScorecardCardProps {
   round: ShareableRoundData
   holes: HoleRow[]
   scoresByHoleId: Map<string, HoleScoreRow>
+  /** Par for the tee played with the round's override folded in (resolveHole). */
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   tone?: 'light' | 'dark'
 }
 
@@ -76,6 +85,7 @@ export function ShareableScorecardCard({
   round,
   holes,
   scoresByHoleId,
+  resolvedHoleByNumber,
   tone = 'light',
 }: ShareableScorecardCardProps) {
   const c = COLORS[tone]
@@ -86,14 +96,21 @@ export function ShareableScorecardCard({
   const holesByNumber = new Map<number, HoleRow>()
   for (const h of holes) holesByNumber.set(h.number, h)
   const holeCount = roundHoleCount(round.hole_count, inferHoleCount(holes.map((h) => h.number)))
-  const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
-
-  const totalPar = holeNumbers.reduce((sum, n) => {
-    const h = holesByNumber.get(n)
-    return sum + (h?.par ?? 4)
-  }, 0)
-  const total = round.total_score ?? null
-  const toPar = total != null ? total - totalPar : null
+  // A number the course has no row for prints par 4, as the scorecard's
+  // placeholder holes do.
+  const cells: GridCell[] = Array.from({ length: holeCount }, (_, i) => {
+    const h = holesByNumber.get(i + 1)
+    return {
+      number: i + 1,
+      par: resolvedHoleByNumber.get(i + 1)?.par ?? 4,
+      score: h ? scoresByHoleId.get(h.id)?.score : null,
+    }
+  })
+  // Score and to-par over the holes played; a round with no hole scores (a
+  // bare imported total) shows its stored total with no to-par.
+  const totals = scoredTotals(cells)
+  const total = totals.holesPlayed > 0 ? totals.score : round.total_score
+  const toPar = totals.holesPlayed > 0 ? totals.toPar : null
 
   return (
     <div
@@ -165,20 +182,12 @@ export function ShareableScorecardCard({
         </div>
       </section>
 
-      <ScoreGrid
-        holeNumbers={holeNumbers.slice(0, 9)}
-        holesByNumber={holesByNumber}
-        scoresByHoleId={scoresByHoleId}
-        colors={c}
-        rangeLabel="Out"
-      />
-      {holeNumbers.length > 9 && (
+      <ScoreGrid cells={cells.slice(0, 9)} colors={c} rangeLabel="Out" />
+      {cells.length > 9 && (
         <>
           <div style={{ height: 14 }} />
           <ScoreGrid
-            holeNumbers={holeNumbers.slice(9)}
-            holesByNumber={holesByNumber}
-            scoresByHoleId={scoresByHoleId}
+            cells={cells.slice(9)}
             colors={c}
             rangeLabel="In"
           />
@@ -282,36 +291,23 @@ export function ShareableScorecardCard({
 
 type ColorPalette = (typeof COLORS)[keyof typeof COLORS]
 
+interface GridCell {
+  number: number
+  par: number
+  score: number | null | undefined
+}
+
 interface ScoreGridProps {
-  holeNumbers: number[]
-  holesByNumber: Map<number, HoleRow>
-  scoresByHoleId: Map<string, HoleScoreRow>
+  cells: GridCell[]
   colors: ColorPalette
   rangeLabel: string
 }
 
-function ScoreGrid({
-  holeNumbers,
-  holesByNumber,
-  scoresByHoleId,
-  colors,
-  rangeLabel,
-}: ScoreGridProps) {
-  // Sum par + score for the half so the row totals match a paper card.
-  let parSum = 0
-  let scoreSum = 0
-  let anyScore = false
-  for (const n of holeNumbers) {
-    const h = holesByNumber.get(n)
-    parSum += h?.par ?? 4
-    if (h) {
-      const hs = scoresByHoleId.get(h.id)
-      if (hs?.score != null && hs.score > 0) {
-        scoreSum += hs.score
-        anyScore = true
-      }
-    }
-  }
+function ScoreGrid({ cells, colors, rangeLabel }: ScoreGridProps) {
+  // The par row sums every hole in the half, as a paper card does; the score
+  // sums the holes played.
+  const parSum = cells.reduce((s, cell) => s + cell.par, 0)
+  const played = scoredTotals(cells)
 
   const cellStyle: React.CSSProperties = {
     flex: 1,
@@ -360,9 +356,9 @@ function ScoreGrid({
         }}
       >
         <div style={labelStyle}>Hole</div>
-        {holeNumbers.map((n) => (
-          <div key={`h-${n}`} style={{ ...cellStyle, color: colors.inkMute }}>
-            {n}
+        {cells.map(({ number }) => (
+          <div key={`h-${number}`} style={{ ...cellStyle, color: colors.inkMute }}>
+            {number}
           </div>
         ))}
         <div style={{ ...totalCellStyle, color: colors.inkMute, fontStyle: 'normal', fontFamily: '"Inconsolata", monospace', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
@@ -372,14 +368,11 @@ function ScoreGrid({
 
       <div style={{ display: 'flex', borderBottom: `1px solid ${colors.line}` }}>
         <div style={labelStyle}>Par</div>
-        {holeNumbers.map((n) => {
-          const h = holesByNumber.get(n)
-          return (
-            <div key={`p-${n}`} style={{ ...cellStyle, color: colors.inkDim }}>
-              {h?.par ?? 4}
-            </div>
-          )
-        })}
+        {cells.map(({ number, par }) => (
+          <div key={`p-${number}`} style={{ ...cellStyle, color: colors.inkDim }}>
+            {par}
+          </div>
+        ))}
         <div style={{ ...totalCellStyle, color: colors.inkDim, fontStyle: 'normal', fontFamily: '"Inconsolata", monospace', fontSize: 14 }}>
           {parSum}
         </div>
@@ -387,21 +380,16 @@ function ScoreGrid({
 
       <div style={{ display: 'flex' }}>
         <div style={labelStyle}>Score</div>
-        {holeNumbers.map((n) => {
-          const h = holesByNumber.get(n)
-          const hs = h ? scoresByHoleId.get(h.id) : null
-          const score = hs?.score && hs.score > 0 ? hs.score : null
-          return (
-            <ScoreCell
-              key={`s-${n}`}
-              cellStyle={cellStyle}
-              colors={colors}
-              par={h?.par ?? 4}
-              score={score}
-            />
-          )
-        })}
-        <div style={totalCellStyle}>{anyScore ? scoreSum : '—'}</div>
+        {cells.map(({ number, par, score }) => (
+          <ScoreCell
+            key={`s-${number}`}
+            cellStyle={cellStyle}
+            colors={colors}
+            par={par}
+            score={score != null && score > 0 ? score : null}
+          />
+        ))}
+        <div style={totalCellStyle}>{played.holesPlayed > 0 ? played.score : '—'}</div>
       </div>
     </div>
   )

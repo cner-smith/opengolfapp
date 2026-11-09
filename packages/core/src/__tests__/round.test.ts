@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { resolveHole, type HoleBase, type HoleTeeOverride } from '../hole-tees'
 import {
   buildInitialRows,
   inferHoleCount,
@@ -15,6 +16,7 @@ import {
   resumeHoleNumber,
   formatHoleList,
   roundHolesPlayed,
+  scoredTotals,
   isPartialRound,
   wholeRoundWindow,
   isStaleEmptyRound,
@@ -898,5 +900,62 @@ describe('reviewRowsAfterEdit', () => {
     expect(out).toHaveLength(4)
     expect(out[3]!.shotResult).toBe('ob')
     expect(before[3]!.shotResult).toBeUndefined()
+  })
+})
+
+describe('scoredTotals', () => {
+  const base = (par: number): HoleBase => ({ par, yards: null, stroke_index: null, tee_lat: null, tee_lng: null })
+  const tee = (par: number | null): HoleTeeOverride => ({ par, yards: null, stroke_index: null, tee_lat: null, tee_lng: null })
+
+  it('is all zeros with nothing played', () => {
+    expect(scoredTotals([])).toEqual({ score: 0, par: 0, toPar: 0, holesPlayed: 0 })
+  })
+
+  it('counts only the holes played on a partial round, not the whole course par', () => {
+    // 18 holes, played 1-3 only: score 5+6+3 = 14, par 4+5+3 = 12, +2.
+    // (The old share cards took 14 against all 18 pars, 4·16+5+3 = 72: −58.)
+    const pars = [4, 5, 3, ...Array(15).fill(4)]
+    const scores = [5, 6, 3, ...Array(15).fill(0)]
+    const holes = pars.map((par, i) => ({ score: scores[i], par }))
+    expect(scoredTotals(holes)).toEqual({ score: 14, par: 12, toPar: 2, holesPlayed: 3 })
+  })
+
+  it('skips unplayed holes, whether their score is 0, null or missing', () => {
+    // Only the first: 5 on a par 4 = +1.
+    const holes = [
+      { score: 5, par: 4 },
+      { score: 0, par: 4 },
+      { score: null, par: 3 },
+      { score: undefined, par: 5 },
+    ]
+    expect(scoredTotals(holes)).toEqual({ score: 5, par: 4, toPar: 1, holesPlayed: 1 })
+  })
+
+  it('sums a 9-hole round', () => {
+    // Pars 4+4+3+5+4+4+3+5+4 = 36; scores 5+4+3+6+4+5+3+5+4 = 39; +3.
+    const pars = [4, 4, 3, 5, 4, 4, 3, 5, 4]
+    const scores = [5, 4, 3, 6, 4, 5, 3, 5, 4]
+    const holes = pars.map((par, i) => ({ score: scores[i], par }))
+    expect(scoredTotals(holes)).toEqual({ score: 39, par: 36, toPar: 3, holesPlayed: 9 })
+  })
+
+  it('goes under par', () => {
+    // 3 on a par 5 + 3 on a par 4 = 6 against 9: −3.
+    expect(scoredTotals([{ score: 3, par: 5 }, { score: 3, par: 4 }]).toPar).toBe(-3)
+  })
+
+  it('takes par from the round override, then the tee played, then the course hole', () => {
+    // Hole 1: course 4, tee 5, round override 3 → par 3; scored 4 → +1.
+    // Hole 2: course 4, tee 5, no override → par 5; scored 5 → E.
+    // Hole 3: course 4, tee row with no par → falls to the course's 4; scored 6 → +2.
+    // Hole 4: course 3, no tee row → 3; scored 3 → E.
+    // Score 4+5+6+3 = 18, par 3+5+4+3 = 15, +3.
+    const holes = [
+      { score: 4, par: resolveHole(base(4), tee(5), { par: 3 }).par },
+      { score: 5, par: resolveHole(base(4), tee(5), { par: null }).par },
+      { score: 6, par: resolveHole(base(4), tee(null), {}).par },
+      { score: 3, par: resolveHole(base(3), null).par },
+    ]
+    expect(scoredTotals(holes)).toEqual({ score: 18, par: 15, toPar: 3, holesPlayed: 4 })
   })
 })

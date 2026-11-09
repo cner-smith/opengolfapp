@@ -17,6 +17,7 @@ import {
   isFinishedRound,
   projectShotMove,
   resolveCourseTee,
+  scoredTotals,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
@@ -132,7 +133,6 @@ export function RoundDetailPage() {
     holesQuery,
     teesQuery,
     holes,
-    holeScores,
     scoresByHoleId,
     shotCountByHoleScore,
     activeHole,
@@ -220,7 +220,6 @@ export function RoundDetailPage() {
     return <div style={{ fontSize: 13 }}>Round not found.</div>
   }
 
-  const holesPlayed = holeScores.length
   const holeCount = roundHoleCount(round.data.hole_count, inferHoleCount(holes.map((h) => h.number)))
   // Scored holes with their tee-resolved par: the header's running total,
   // the totals block and the best / worst line all read from these.
@@ -228,10 +227,10 @@ export function RoundDetailPage() {
   for (const h of holes) {
     const hs = scoresByHoleId.get(h.id)
     if (hs?.score != null && hs.score > 0)
-      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par })
+      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? h.par })
   }
-  const runningScore = scored.reduce((t, h) => t + h.score, 0)
-  const runningPar = scored.reduce((t, h) => t + h.par, 0)
+  const totals = scoredTotals(scored)
+  const holesPlayed = totals.holesPlayed
   const finalized = isFinishedRound(round.data)
   // Save / Recalculate SG and Delete: under the card, and under the map so a
   // live round on a phone (which opens on the map) can still be finished.
@@ -285,8 +284,8 @@ export function RoundDetailPage() {
         tees={teesQuery.data ?? []}
         holesPlayed={holesPlayed}
         holeCount={holeCount}
-        score={runningScore}
-        toPar={runningPar > 0 ? runningScore - runningPar : null}
+        score={totals.score}
+        toPar={totals.holesPlayed > 0 ? totals.toPar : null}
         shareTone={shareTone}
         sharing={sharing}
         completePending={completeMutation.isPending}
@@ -325,6 +324,7 @@ export function RoundDetailPage() {
             }}
             holes={holes}
             scoresByHoleId={scoresByHoleId}
+            resolvedHoleByNumber={resolvedHoleByNumber}
             tone={shareTone}
           />
         </div>

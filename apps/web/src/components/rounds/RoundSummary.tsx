@@ -4,6 +4,7 @@ import {
   formatSG,
   formatToPar,
   pickRoundFocus,
+  scoredTotals,
   roundFocusHeadline,
   selectNudgeDrills,
   type RoundFocus,
@@ -46,8 +47,7 @@ export function RoundTotals({
   scored: ScoredHole[]
   handicap: number | null
 }) {
-  const score = scored.reduce((s, h) => s + h.score, 0)
-  const par = scored.reduce((s, h) => s + h.par, 0)
+  const { score, par } = scoredTotals(scored)
   let best: ScoredHole | undefined
   let worst: ScoredHole | undefined
   for (const h of scored) {
