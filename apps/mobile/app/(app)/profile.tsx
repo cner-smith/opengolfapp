@@ -15,7 +15,8 @@ import * as Sharing from 'expo-sharing'
 import { File, Paths } from 'expo-file-system'
 import {
   FACILITIES,
-  formatHandicapIndex,
+  handicapIndexEdited,
+  handicapIndexFieldText,
   GOALS,
   HANDICAP_PROVENANCE_LABEL,
   handicapProvenance,
@@ -56,16 +57,6 @@ type Goal = Profile['goal']
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
 const USERNAME_HELPER =
   '3–32 characters. Letters, numbers, - and _ only.'
-
-// The handicap field's text for a stored index, so a plus handicap (stored
-// negative) reads back as "+2.0" and saves again as one.
-const handicapText = (index: number | null | undefined) =>
-  index == null ? '' : formatHandicapIndex(index)
-// Edited = it would save something else ("13" and "13.0" are the same).
-const handicapEdited = (text: string, index: number | null | undefined) => {
-  const field = readHandicapIndexField(text)
-  return 'error' in field || field.index !== (index ?? null)
-}
 
 // PostgREST surfaces raw SQL constraint messages on save errors —
 // fine for `console.error` but not for an Alert. Map the common
@@ -216,7 +207,7 @@ export default function ProfileTab() {
       hydratedUserIdRef.current = user.id
       setProfile(data as unknown as Profile)
       setUsername(data.username ?? '')
-      setHandicap(handicapText(data.handicap_index))
+      setHandicap(handicapIndexFieldText(data.handicap_index))
       setSkill(data.skill_level ?? null)
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
@@ -289,7 +280,7 @@ export default function ProfileTab() {
   const dirty =
     !!profile &&
     (trimmedUsername !== (profile.username ?? '') ||
-      handicapEdited(handicap, profile.handicap_index) ||
+      handicapIndexEdited(handicap, profile.handicap_index) ||
       skill !== (profile.skill_level ?? null) ||
       goal !== (profile.goal ?? null) ||
       [...facilities].sort().join() !== [...(profile.facilities ?? [])].sort().join() ||

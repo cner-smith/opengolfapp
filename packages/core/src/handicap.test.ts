@@ -4,6 +4,8 @@ import {
   calculateDifferential,
   calculateHandicapIndex,
   formatHandicapIndex,
+  handicapIndexEdited,
+  handicapIndexFieldText,
   handicapProvenance,
   parseHandicapIndex,
   readHandicapIndexField,
@@ -263,5 +265,36 @@ describe('readHandicapIndexField', () => {
     expect(readHandicapIndexField('54.1')).toEqual({ error: 'Handicap must be between +10 and 54' })
     // +10.1 is stored -10.1, past the plus end (the old forms saved it as 10.1).
     expect(readHandicapIndexField('+10.1')).toEqual({ error: 'Handicap must be between +10 and 54' })
+  })
+})
+
+describe('handicapIndexFieldText', () => {
+  it('pre-fills blank for none and a plus handicap with its plus', () => {
+    expect(handicapIndexFieldText(null)).toBe('')
+    expect(handicapIndexFieldText(undefined)).toBe('')
+    expect(handicapIndexFieldText(-2)).toBe('+2.0')
+    expect(handicapIndexFieldText(13)).toBe('13.0')
+  })
+
+  it('round-trips through the field reader', () => {
+    for (const index of [-10, -2, 0, 12.4, 54]) {
+      expect(readHandicapIndexField(handicapIndexFieldText(index))).toEqual({ index })
+    }
+  })
+})
+
+describe('handicapIndexEdited', () => {
+  it('is an edit only when the field would save a different index', () => {
+    expect(handicapIndexEdited('13', 13)).toBe(false)
+    expect(handicapIndexEdited('13.0', 13)).toBe(false)
+    expect(handicapIndexEdited('+2', -2)).toBe(false)
+    expect(handicapIndexEdited('', null)).toBe(false)
+    expect(handicapIndexEdited('', undefined)).toBe(false)
+    // "2" over a plus 2 flips the sign: that is an edit.
+    expect(handicapIndexEdited('2', -2)).toBe(true)
+    expect(handicapIndexEdited('', 13)).toBe(true)
+    expect(handicapIndexEdited('13', null)).toBe(true)
+    // Text that can't save still counts, so Save stays on and shows the error.
+    expect(handicapIndexEdited('abc', 13)).toBe(true)
   })
 })

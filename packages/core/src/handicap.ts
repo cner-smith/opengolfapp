@@ -160,3 +160,18 @@ export function readHandicapIndexField(
   if (index < -10 || index > 54) return { error: 'Handicap must be between +10 and 54' }
   return { index }
 }
+
+// The field's text for a stored index: blank for none, "+2.0" for a plus 2.
+export function handicapIndexFieldText(index: number | null | undefined): string {
+  return index == null ? '' : formatHandicapIndex(index)
+}
+
+// Whether the field would save something other than the stored index
+// ("13" over a stored 13 is not an edit; text that can't save is).
+export function handicapIndexEdited(
+  text: string,
+  index: number | null | undefined,
+): boolean {
+  const field = readHandicapIndexField(text)
+  return 'error' in field || field.index !== (index ?? null)
+}

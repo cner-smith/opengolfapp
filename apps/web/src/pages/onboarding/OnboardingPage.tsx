@@ -87,10 +87,6 @@ export function OnboardingPage() {
   // picks where the user lands.
   async function saveProfile() {
     setError(null)
-    if (draft.handicap < -10 || draft.handicap > 54) {
-      setError('Handicap must be between +10 and 54')
-      return
-    }
     try {
       await updateProfile.mutateAsync({
         skill_level: draft.skillLevel,
