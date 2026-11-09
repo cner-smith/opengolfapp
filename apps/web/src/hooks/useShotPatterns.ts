@@ -14,7 +14,6 @@ import {
   type LieType,
   type PuttDirectionResult,
   type PuttDistanceResult,
-  type PatternShotRow,
   type ShotContact,
   type ShotExtras,
 } from '@oga/core'
@@ -59,7 +58,7 @@ export function useShotPatterns({ club, lieType, lieSlopeForward, lieSlopeSide }
           roundId: hs?.round_id ?? null,
         }
       }
-      const points = computeDispersion((rows as unknown as PatternShotRow[]).map(patternRowToShot))
+      const points = computeDispersion((data ?? []).map(patternRowToShot))
       return { points, stats: computeDispersionStats(points), extras }
     },
   })
@@ -101,8 +100,8 @@ export function useClubLadder() {
       const { data, error } = await getShotsForUser(supabase, user!.id)
       if (error) throw error
       const byClub = new Map<Club, { aimed: number; distances: number[] }>()
-      for (const r of (data ?? []) as Row[]) {
-        const s = patternRowToShot(r as unknown as PatternShotRow)
+      for (const r of data ?? []) {
+        const s = patternRowToShot(r)
         if (!s.club || !aimRelativeOffsets(s)) continue
         const c = byClub.get(s.club) ?? { aimed: 0, distances: [] }
         c.aimed++
