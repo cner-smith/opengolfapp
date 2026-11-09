@@ -8,6 +8,7 @@ import {
   SHOT_START_LINE_LABELS,
   clubNoun,
   type Club,
+  type LieType,
   type ShotContact,
   type ShotStartLine,
 } from './constants'
@@ -36,6 +37,17 @@ export interface ShotExtras {
   hole: number | null
   roundId: string | null
   course: string | null
+}
+
+/** A lie in a sentence: "from the rough", "from a recovery lie". */
+export const LIE_PHRASE: Record<LieType, string> = {
+  tee: 'the tee',
+  fairway: 'the fairway',
+  rough: 'the rough',
+  sand: 'sand',
+  fringe: 'the fringe',
+  recovery: 'a recovery lie',
+  green: 'the green',
 }
 
 export const capFirst = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s)

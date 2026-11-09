@@ -9,6 +9,7 @@ import type {
 } from './constants'
 import { SHOT_SHAPES, SHOT_START_LINES } from './constants'
 import type { Shot } from './types'
+import { legacySlopeToAxes } from './round'
 import { bearingDegrees, toRadians } from './units'
 
 export interface DispersionPoint {
@@ -113,6 +114,65 @@ function rotateAroundAim(
   return {
     alongYards: north * Math.cos(θ) + east * Math.sin(θ),
     perpYards: -north * Math.sin(θ) + east * Math.cos(θ),
+  }
+}
+
+/** A shots row as the Shot patterns queries return it. The club ladder's
+ *  query carries only the geometry and club, so the rest is optional. */
+export interface PatternShotRow {
+  id: string
+  hole_score_id: string
+  user_id: string
+  shot_number: number
+  start_lat: number | null
+  start_lng: number | null
+  aim_lat: number | null
+  aim_lng: number | null
+  end_lat: number | null
+  end_lng: number | null
+  club: string | null
+  distance_to_target?: number | null
+  lie_type?: string | null
+  lie_slope?: string | null
+  lie_slope_forward?: string | null
+  lie_slope_side?: string | null
+  shot_result?: string | null
+  shape?: string | null
+  start_line?: string | null
+  penalty?: boolean
+  ob?: boolean
+  hole_scores?: { rounds?: { played_at?: string | null } | null } | null
+}
+
+/** One shots row → the Shot computeDispersion reads. Most stored shots predate
+ *  the two slope axes and carry only the legacy `lie_slope`; it fills the axis
+ *  it belongs to when that axis is empty, so slope filters keep older shots. A
+ *  legacy shot recorded one axis, so it never matches a forward AND a side filter. */
+export function patternRowToShot(r: PatternShotRow): Shot {
+  const legacy = legacySlopeToAxes((r.lie_slope as LieSlope | null) ?? null)
+  return {
+    id: r.id,
+    holeScoreId: r.hole_score_id,
+    userId: r.user_id,
+    shotNumber: r.shot_number,
+    startLat: r.start_lat ?? undefined,
+    startLng: r.start_lng ?? undefined,
+    aimLat: r.aim_lat ?? undefined,
+    aimLng: r.aim_lng ?? undefined,
+    endLat: r.end_lat ?? undefined,
+    endLng: r.end_lng ?? undefined,
+    distanceToTarget: r.distance_to_target ?? undefined,
+    club: (r.club as Shot['club']) ?? undefined,
+    lieType: (r.lie_type as LieType | null) ?? undefined,
+    lieSlope: (r.lie_slope as LieSlope | null) ?? undefined,
+    lieSlopeForward: (r.lie_slope_forward as LieSlopeForward | null) ?? legacy.forward,
+    lieSlopeSide: (r.lie_slope_side as LieSlopeSide | null) ?? legacy.side,
+    shotResult: (r.shot_result as ShotResult | null) ?? undefined,
+    shape: (r.shape as ShotShape | null) ?? null,
+    startLine: (r.start_line as ShotStartLine | null) ?? null,
+    penalty: r.penalty ?? false,
+    ob: r.ob ?? false,
+    playedAt: r.hole_scores?.rounds?.played_at ?? undefined,
   }
 }
 
