@@ -272,8 +272,8 @@ export default function Home() {
             <StatTile
               style={{ flex: 1 }}
               label="Strokes gained"
-              value={formatSG(summary.totalSG)}
-              valueColor={summary.totalSG > 0 ? P.forest : summary.totalSG < 0 ? P.neg : P.ink}
+              value={summary.totalSG == null ? '—' : formatSG(summary.totalSG)}
+              valueColor={summary.totalSG == null ? P.ink : summary.totalSG > 0 ? P.forest : summary.totalSG < 0 ? P.neg : P.ink}
             />
           </View>
         )}

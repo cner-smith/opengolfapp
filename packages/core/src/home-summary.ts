@@ -27,8 +27,8 @@ export interface HomeSummary<T> {
   areas: HomeSummaryArea[]
   /** Peak |average| over the areas, for the bar scale. */
   maxAbs: number
-  /** Sum of the counted areas' averages. */
-  totalSG: number
+  /** Sum of the counted areas' averages; null when none is counted. */
+  totalSG: number | null
   /** Over rounds with a real score; total_score 0 is the "no score yet" sentinel. */
   avgScore: number | null
   /** Total SG per round, oldest to newest; a round with no SG is not a point. */
@@ -65,7 +65,7 @@ export function homeSummary<T extends HomeSummaryRound>(rounds: readonly T[]): H
     whole,
     areas,
     maxAbs: Math.max(0, ...counted.map((a) => Math.abs(a.value))),
-    totalSG: counted.reduce((s, a) => s + a.value, 0),
+    totalSG: counted.length > 0 ? counted.reduce((s, a) => s + a.value, 0) : null,
     avgScore: scored.length > 0 ? scored.reduce((s, r) => s + r.total_score!, 0) / scored.length : null,
     trend: [...whole].reverse().flatMap((r) => (r.sg_total == null ? [] : [{ date: r.played_at, sg: r.sg_total }])),
     finding: counted.length > 0 ? sgFinding(counted[counted.length - 1]!, counted[0]!, 'every part') : null,

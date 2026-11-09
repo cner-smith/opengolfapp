@@ -89,7 +89,7 @@ describe('homeSummary', () => {
     expect(r.areas.map((a) => a.value)).toEqual([null, null, null, null])
     expect(r.finding).toBeNull()
     expect(r.trend).toEqual([])
-    expect(r.totalSG).toBe(0)
+    expect(r.totalSG).toBeNull()
     expect(r.avgScore).toBe(88)
   })
 

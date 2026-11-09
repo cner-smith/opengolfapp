@@ -450,12 +450,12 @@ export default function Stats() {
                 {chartSeries.map(
                   (s) =>
                     s.data.length >= 2 &&
-                    s.runs.map((run) => {
+                    s.runs.map((run, i) => {
                       const opacity = focus == null || focus === s.key ? 1 : 0.15
                       // A value with a gap on both sides is a dot.
                       return run.length === 1 ? (
                         <Circle
-                          key={`${s.key}-${run[0]!.x}`}
+                          key={`${s.key}-${i}`}
                           cx={chartPx(run[0]!.x)}
                           cy={chartPy(run[0]!.y)}
                           r={2.5}
@@ -464,7 +464,7 @@ export default function Stats() {
                         />
                       ) : (
                         <Polyline
-                          key={`${s.key}-${run[0]!.x}`}
+                          key={`${s.key}-${i}`}
                           points={run.map((d) => `${chartPx(d.x)},${chartPy(d.y)}`).join(' ')}
                           fill="none"
                           stroke={s.color}

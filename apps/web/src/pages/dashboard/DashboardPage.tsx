@@ -120,9 +120,9 @@ export function DashboardPage() {
               <StatTile label="Average score" value={avgScore} format={(v) => (v > 0 ? v.toFixed(1) : '—')} />
               <StatTile
                 label="Strokes gained"
-                value={totalSG}
-                format={formatSG}
-                color={totalSG > 0 ? POS : totalSG < 0 ? NEG : '#1C211C'}
+                value={totalSG ?? 0}
+                format={(v) => (totalSG == null ? '—' : formatSG(v))}
+                color={totalSG == null ? '#1C211C' : totalSG > 0 ? POS : totalSG < 0 ? NEG : '#1C211C'}
               />
             </div>
           </Block>
