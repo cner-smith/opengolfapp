@@ -30,6 +30,7 @@ import {
   reviewRowsAfterEdit,
   type PlacedPoint,
   type ReviewTally,
+  type TallyRow,
   type ShotSummaryFields,
 } from '../round'
 import { decombinedPuttResult } from '../types'
@@ -761,7 +762,6 @@ describe('wholeRoundWindow', () => {
 // End-of-hole review tickers. Each case is worked by hand from the rule: a row
 // is one stroke, an OB or a Penalty key adds one stroke to Score and Penalties
 // (#839, #1039), a green-lie row is a putt, decrements floor at 0.
-type TallyRow = Parameters<typeof applyReviewRowDelete>[1]
 const lie = (lieType: TallyRow['lieType'], flags: Partial<TallyRow> = {}): TallyRow => ({
   lieType,
   ...flags,

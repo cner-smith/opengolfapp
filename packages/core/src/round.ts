@@ -545,10 +545,11 @@ export interface ReviewTally {
   penalties: number
 }
 
-type TallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
+export type TallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
 
 // Seeds from OB only, not the Penalty flag: no review opens on rows that
-// already carry a stored penalty today (a saved hole can't be re-reviewed).
+// already carry a stored penalty today (a saved hole can't be re-reviewed,
+// #1042).
 export function seedReviewTally(rows: readonly TallyRow[]): ReviewTally {
   const obs = obCount(rows)
   return {
@@ -593,7 +594,9 @@ function floorAdd(n: number, delta: number): number {
 // Puts an edited row in place. When the edit newly flags the row OB or
 // penalty, the next row is re-checked as its replay, which keeps this row's
 // lie (#1098). The seed runs withReplayLies over the whole hole; this is the
-// same test for a flag set in the review.
+// same test for a flag set in the review. Nothing re-pairs ends: a row's end
+// is the next row's start by construction (ADR 0001) and no review control
+// moves a start. A control that does must re-pair the previous row's end.
 export function reviewRowsAfterEdit<R extends ReviewedShotRow>(
   rows: readonly R[],
   idx: number,
