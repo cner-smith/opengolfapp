@@ -617,13 +617,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           // A stroke-and-distance OB has no shot row of its own (the re-hit
           // is just the next struck shot number), so the struck-row count
           // alone undercounts the hole by one stroke per OB. `summary.score`
-          // is the ticker the player edited on the review sheet — left alone
-          // here NOT because it's re-seeded OB-aware (it isn't: web has no
-          // live capture, so obCount is always 0 at the sheet's hydration
-          // time), but because the sheet bumps that ticker ±1 itself the
-          // moment a row's result flips to/from 'ob' via the chip — the only
-          // path that can set shotResult 'ob' on web (see HoleReviewSheet's
-          // ShotRow onChange). This fallback term (rows.length +
+          // is the ticker the player edited on the review sheet, left alone:
+          // the sheet seeds it with the stored OB rows and moves it as a
+          // row's OB / Penalty flips (core seedReviewTally /
+          // applyReviewRowEdit). This fallback term (rows.length +
           // obCount(rows)) only fires when the sheet didn't pass a summary
           // at all.
           score: summary?.score ?? rows.length + obCount(rows),
