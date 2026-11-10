@@ -39,7 +39,8 @@ export interface HomeSummary<T> {
 
 const WINDOW = 20
 
-const AREAS: readonly { key: SGBreakdownKey; label: string }[] = [
+// The four strokes-gained categories as every screen names them.
+export const SG_AREAS: readonly { key: SGBreakdownKey; label: string }[] = [
   { key: 'sg_off_tee', label: 'Off the tee' },
   { key: 'sg_approach', label: 'Approach' },
   { key: 'sg_around_green', label: 'Around the green' },
@@ -52,7 +53,7 @@ export function homeSummary<T extends HomeSummaryRound>(rounds: readonly T[]): H
   const { breakdown } = sgBreakdown(whole)
   // A category no round has is not counted (owner ruling, 2026-11-09):
   // sgBreakdown reads it as 0, so it is nulled here.
-  const areas = AREAS.map(({ key, label }) => ({
+  const areas = SG_AREAS.map(({ key, label }) => ({
     key,
     label,
     value: whole.some((r) => r[key] != null) ? breakdown.find((b) => b.key === key)!.value : null,

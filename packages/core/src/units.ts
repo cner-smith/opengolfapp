@@ -51,14 +51,15 @@ export function bearingDegrees(
   return ((θ * 180) / Math.PI + 360) % 360
 }
 
-export function formatSG(n: number): string {
-  // Round to 2dp BEFORE picking the sign so a value that rounds to zero
+// The share card prints tenths (decimals = 1).
+export function formatSG(n: number, decimals = 2): string {
+  // Round BEFORE picking the sign so a value that rounds to zero
   // (e.g. -0.004) renders "0.00", not a signed "-0.00" (#672). Number()
   // collapses the rounded -0.00 to 0, and (-0).toFixed(2) drops the sign.
-  const rounded = Number(n.toFixed(2))
+  const rounded = Number(n.toFixed(decimals))
   // U+2212, the typographic minus, as formatToPar prints.
   const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : ''
-  return `${sign}${Math.abs(rounded).toFixed(2)}`
+  return `${sign}${Math.abs(rounded).toFixed(decimals)}`
 }
 
 // A true minus sign (U+2212), not a hyphen, as the scorecard prints it.
