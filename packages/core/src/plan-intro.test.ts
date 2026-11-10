@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupPlayedCourses, planIntroHole, planIntroLine, shortPlayedDate, type IntroPart, type PlayedRound } from './plan-intro'
+import { groupPlayedCourses, ordinal, planIntroHole, planIntroLine, shortPlayedDate, type IntroPart, type PlayedRound } from './plan-intro'
 
 const course = (name: string, city = 'Wentzville', state = 'MO') => ({ name, city, state })
 // 18 scored holes = a whole 18-hole round.
@@ -141,5 +141,13 @@ describe('planIntroLine', () => {
     const line = planIntroLine({ last: { courseName: 'Bear Creek Golf Club', playedAt: '2026-10-26' }, holes: bearCreek, clubYards: none, clubFor: () => null, today })
     expect(text(line)).toBe('Pick a course, then walk it hole by hole with the distances your clubs really go.')
     expect(planIntroLine({ last: null, holes: [], clubYards: none, clubFor: () => null, today })).toEqual(line)
+  })
+})
+
+describe('ordinal', () => {
+  it('1st 2nd 3rd 4th, the teens are th, then 21st 22nd 23rd', () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 111, 112].map(ordinal)).toEqual([
+      '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '111th', '112th',
+    ])
   })
 })
