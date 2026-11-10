@@ -123,6 +123,17 @@ test.describe('Onboarding step 2 (signed in)', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: /^Handicap index \+3\.0/ })).toBeVisible()
   })
+
+  test('turning plus on over the 28 start lands on +1.0, and Continue waits for the answer', async ({ page }) => {
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: 'Plus handicap' }).click()
+    await expect(page.getByRole('button', { name: /Continue/ })).toBeDisabled()
+    await page.getByRole('group', { name: 'Turn on plus handicap?' }).getByRole('button', { name: 'Turn on' }).click()
+    await expect(page.getByRole('button', { name: /^Handicap index \+1\.0/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Continue/ })).toBeEnabled()
+  })
 })
 
 test.describe('Onboarding step 5 (signed in)', () => {

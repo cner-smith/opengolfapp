@@ -8,6 +8,8 @@ import {
   handicapIndexEdited,
   handicapIndexField,
   plusHandicapToggle,
+  plusStartNumber,
+  plusStartText,
   stepPlusHandicap,
   typedHandicapSign,
   handicapProvenance,
@@ -363,5 +365,20 @@ describe('stepPlusHandicap', () => {
   it('leaves the toggle alone when it is already on', () => {
     const on = plusHandicapToggle(-2)
     expect(stepPlusHandicap(on, 'on')).toBe(on)
+  })
+})
+
+describe('plusStartNumber / plusStartText', () => {
+  it('keeps a number a plus can have, and lands past the plus end on a plus 1', () => {
+    expect(plusStartNumber(28)).toBe(1)
+    expect(plusStartNumber(10.1)).toBe(1)
+    expect(plusStartNumber(10)).toBe(10)
+    expect(plusStartNumber(3)).toBe(3)
+    expect(plusStartNumber(0)).toBe(0)
+    expect(plusStartText('15')).toBe('1.0')
+    expect(plusStartText('12,4')).toBe('1.0')
+    expect(plusStartText('3')).toBe('3')
+    expect(plusStartText('')).toBe('')
+    expect(plusStartText('abc')).toBe('abc')
   })
 })

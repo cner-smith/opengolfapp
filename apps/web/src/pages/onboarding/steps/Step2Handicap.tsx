@@ -6,6 +6,7 @@ import {
   PLUS_HANDICAP_EXPLAINER,
   PLUS_HANDICAP_QUESTION,
   plusHandicapToggle,
+  plusStartNumber,
   stepPlusHandicap,
   typedHandicapSign,
   type PlusHandicapToggle,
@@ -55,7 +56,8 @@ export function Step2Handicap({
   const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
     const next: PlusHandicapToggle = stepPlusHandicap(plusToggle, action)
     setPlusToggle(next)
-    if (next.plus !== plusToggle.plus) onChange(signedIndex(Math.abs(value), next.plus))
+    // Turning plus on over a number past the plus end lands on a plus 1.
+    if (next.plus !== plusToggle.plus) onChange(next.plus ? signedIndex(plusStartNumber(value), true) : Math.abs(value))
   }
   // The big number is a button until pressed, then a text field.
   const [typing, setTyping] = useState<string | null>(null)
@@ -210,7 +212,7 @@ export function Step2Handicap({
           className="onb-ruler"
         />
       </div>
-      <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />
+      <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={!plusToggle.asking} />
     </div>
   )
 }

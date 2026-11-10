@@ -24,6 +24,7 @@ import {
   PLUS_HANDICAP_EXPLAINER,
   PLUS_HANDICAP_QUESTION,
   plusHandicapToggle,
+  plusStartText,
   readHandicapIndexField,
   SKILL_LEVELS,
   stepPlusHandicap,
@@ -107,6 +108,12 @@ export default function ProfileTab() {
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
   const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
+  // Turning plus on over a number past the plus end lands on a plus 1.
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next = stepPlusHandicap(plusToggle, action)
+    if (next.plus && !plusToggle.plus) setHandicap((t) => plusStartText(t))
+    setPlusToggle(next)
+  }
   const [skill, setSkill] = useState<SkillLevel>(null)
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
@@ -366,14 +373,14 @@ export default function ProfileTab() {
                 onChangeText={(v) => {
                   const typed = typedHandicapSign(v)
                   setHandicap(typed.text)
-                  if (typed.plus) setPlusToggle((t) => stepPlusHandicap(t, 'on'))
+                  if (typed.plus) stepPlus('on')
                 }}
                 style={{ ...inputStyle, width: 120 }}
               />
               <Chip
                 label="Plus handicap"
                 active={plusToggle.plus}
-                onPress={() => setPlusToggle((t) => stepPlusHandicap(t, t.plus ? 'off' : 'on'))}
+                onPress={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
               />
             </View>
             {plusToggle.asking ? (
@@ -387,10 +394,10 @@ export default function ProfileTab() {
                   {PLUS_HANDICAP_EXPLAINER}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                  <Key accessibilityLabel="Turn on plus handicap" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'confirm'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                  <Key accessibilityLabel="Turn on plus handicap" onPress={() => stepPlus('confirm')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
                     <KeyText size={13}>Turn on</KeyText>
                   </Key>
-                  <Key accessibilityLabel="Cancel" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'cancel'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                  <Key accessibilityLabel="Cancel" onPress={() => stepPlus('cancel')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
                     <KeyText size={13}>Cancel</KeyText>
                   </Key>
                 </View>
@@ -453,11 +460,12 @@ export default function ProfileTab() {
             accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
             tone="primary"
             onPress={save}
-            disabled={saving || usernameInvalid}
+            // An open plus-handicap question must be answered first.
+            disabled={saving || usernameInvalid || plusToggle.asking}
             style={{ marginTop: -8, marginBottom: 28 }}
             faceStyle={{ minHeight: 50 }}
           >
-            <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
+            <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid || plusToggle.asking}>
               {saving ? 'Saving…' : 'Save changes'}
             </KeyText>
           </Key>

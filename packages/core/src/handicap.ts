@@ -222,6 +222,20 @@ export function stepPlusHandicap(
   }
 }
 
+// The number when the plus toggle turns on. A number past the plus end
+// (the 28 a casual golfer starts on) lands on 1, a plus 1, not the +10 cap:
+// plus handicaps are mostly low, and 1 keeps the sign where 0 would be scratch.
+export function plusStartNumber(n: number): number {
+  const m = Math.abs(n)
+  return m > 10 ? 1 : m
+}
+
+// The same for the typed field; text that isn't a number is left alone.
+export function plusStartText(text: string): string {
+  const n = parseHandicapIndex(text)
+  return n !== null && Math.abs(n) > 10 ? plusStartNumber(n).toFixed(1) : text
+}
+
 export const PLUS_HANDICAP_QUESTION = 'Turn on plus handicap?'
 export const PLUS_HANDICAP_EXPLAINER =
   'A plus handicap is better than scratch: a +2 shoots about 2 under par on a good day. Most golfers have a regular handicap.'

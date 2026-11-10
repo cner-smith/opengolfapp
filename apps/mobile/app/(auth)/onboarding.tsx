@@ -8,6 +8,7 @@ import {
   PLUS_HANDICAP_EXPLAINER,
   PLUS_HANDICAP_QUESTION,
   plusHandicapToggle,
+  plusStartText,
   readHandicapIndexField,
   SKILL_LEVELS,
   stepPlusHandicap,
@@ -46,6 +47,12 @@ export default function MobileOnboarding() {
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [handicap, setHandicap] = useState('15')
   const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
+  // Turning plus on over a number past the plus end lands on a plus 1.
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next = stepPlusHandicap(plusToggle, action)
+    if (next.plus && !plusToggle.plus) setHandicap((t) => plusStartText(t))
+    setPlusToggle(next)
+  }
   const [goal, setGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
   // The import offer comes after the profile save, so the onboarding gate
@@ -202,7 +209,7 @@ export default function MobileOnboarding() {
             onChangeText={(v) => {
               const typed = typedHandicapSign(v)
               setHandicap(typed.text)
-              if (typed.plus) setPlusToggle((t) => stepPlusHandicap(t, 'on'))
+              if (typed.plus) stepPlus('on')
             }}
             maxFontSizeMultiplier={FONT_CAP}
             style={{
@@ -221,7 +228,7 @@ export default function MobileOnboarding() {
           <Chip
             label="Plus handicap"
             active={plusToggle.plus}
-            onPress={() => setPlusToggle((t) => stepPlusHandicap(t, t.plus ? 'off' : 'on'))}
+            onPress={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
           />
         </View>
         {plusToggle.asking ? (
@@ -235,10 +242,10 @@ export default function MobileOnboarding() {
               {PLUS_HANDICAP_EXPLAINER}
             </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-              <Key accessibilityLabel="Turn on plus handicap" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'confirm'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+              <Key accessibilityLabel="Turn on plus handicap" onPress={() => stepPlus('confirm')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
                 <KeyText size={13}>Turn on</KeyText>
               </Key>
-              <Key accessibilityLabel="Cancel" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'cancel'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+              <Key accessibilityLabel="Cancel" onPress={() => stepPlus('cancel')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
                 <KeyText size={13}>Cancel</KeyText>
               </Key>
             </View>
@@ -284,11 +291,11 @@ export default function MobileOnboarding() {
         tone="primary"
         accessibilityLabel="Start tracking"
         onPress={() => save({ seedBag: true })}
-        disabled={saving}
+        disabled={saving || plusToggle.asking}
         style={{ marginTop: 8 }}
         faceStyle={{ minHeight: 50 }}
       >
-        <KeyText tone="primary" bold size={15} disabled={saving}>
+        <KeyText tone="primary" bold size={15} disabled={saving || plusToggle.asking}>
           {saving ? 'Saving…' : 'Start tracking'}
         </KeyText>
       </Key>
@@ -296,11 +303,11 @@ export default function MobileOnboarding() {
       <Key
         accessibilityLabel="Set up bag later"
         onPress={() => save({ seedBag: false })}
-        disabled={saving}
+        disabled={saving || plusToggle.asking}
         style={{ marginTop: 12 }}
         faceStyle={{ minHeight: 46 }}
       >
-        <KeyText size={14} disabled={saving}>
+        <KeyText size={14} disabled={saving || plusToggle.asking}>
           Set up later →
         </KeyText>
       </Key>

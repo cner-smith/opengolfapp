@@ -15,6 +15,17 @@ test.describe('Settings form (signed in, validation)', () => {
     await expect(page.getByRole('alert')).toHaveText(/Handicap must be between \+10 and 54/i)
   })
 
+  // Answering nothing must not save: a typed "+3" would otherwise go in as 3.
+  test('Save waits for the plus-handicap question', async ({ page }) => {
+    await page.goto('/settings')
+    await page.getByRole('button', { name: /^Handicap index/ }).click()
+    await page.getByLabel('Handicap index').fill('+3')
+    const save = page.getByRole('button', { name: 'Save changes' })
+    await expect(save).toBeDisabled()
+    await page.getByRole('group', { name: 'Turn on plus handicap?' }).getByRole('button', { name: 'Cancel' }).click()
+    await expect(save).toBeEnabled()
+  })
+
   test('invalid username disables Save button', async ({ page }) => {
     await page.goto('/settings')
     await page.getByRole('button', { name: /^Username/ }).click()

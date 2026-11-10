@@ -8,6 +8,7 @@ import {
   PLUS_HANDICAP_EXPLAINER,
   PLUS_HANDICAP_QUESTION,
   plusHandicapToggle,
+  plusStartText,
   GOALS,
   HANDICAP_PROVENANCE_LABEL,
   readHandicapIndexField,
@@ -85,6 +86,12 @@ export function SettingsPage() {
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
   const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
+  // Turning plus on over a number past the plus end lands on a plus 1.
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next = stepPlusHandicap(plusToggle, action)
+    if (next.plus && !plusToggle.plus) setHandicap((t) => plusStartText(t))
+    setPlusToggle(next)
+  }
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [goal, setGoal] = useState<Goal | null>(null)
   const [facilities, setFacilities] = useState<Facility[]>([])
@@ -307,14 +314,14 @@ export function SettingsPage() {
               onChange={(e) => {
                 const typed = typedHandicapSign(e.target.value)
                 setHandicap(typed.text)
-                if (typed.plus) setPlusToggle((t) => stepPlusHandicap(t, 'on'))
+                if (typed.plus) stepPlus('on')
               }}
               style={{ ...inputStyle, width: 140 }}
             />
             <Chip
               label="Plus handicap"
               active={plusToggle.plus}
-              onClick={() => setPlusToggle((t) => stepPlusHandicap(t, t.plus ? 'off' : 'on'))}
+              onClick={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
             />
           </div>
           {plusToggle.asking ? (
@@ -328,10 +335,10 @@ export function SettingsPage() {
                 {PLUS_HANDICAP_EXPLAINER}
               </p>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button type="button" className="key set-key" onClick={() => setPlusToggle((t) => stepPlusHandicap(t, 'confirm'))}>
+                <button type="button" className="key set-key" onClick={() => stepPlus('confirm')}>
                   Turn on
                 </button>
-                <button type="button" className="key set-key" onClick={() => setPlusToggle((t) => stepPlusHandicap(t, 'cancel'))}>
+                <button type="button" className="key set-key" onClick={() => stepPlus('cancel')}>
                   Cancel
                 </button>
               </div>
@@ -381,7 +388,8 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={saveProfile}
-                disabled={updateProfile.isPending || usernameInvalid}
+                // An open plus-handicap question must be answered first.
+                disabled={updateProfile.isPending || usernameInvalid || plusToggle.asking}
                 className="key key-primary"
                 style={{
                   fontSize: 14,
