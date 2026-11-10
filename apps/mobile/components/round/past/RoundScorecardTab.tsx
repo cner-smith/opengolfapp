@@ -3,6 +3,7 @@ import { ScrollView, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
+  formatHandicapIndex,
   formatSG,
   formatToPar,
   inferHoleStats,
@@ -107,7 +108,7 @@ export function RoundScorecardTab({
             {round.sg_total == null ? '—' : sg(round.sg_total)}
           </Text>
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, textAlign: 'right' }]}>
-            strokes gained{handicap != null ? `\nvs a ${handicap} handicap` : ''}
+            strokes gained{handicap != null ? `\nvs a ${formatHandicapIndex(handicap)} handicap` : ''}
           </Text>
         </View>
       </View>

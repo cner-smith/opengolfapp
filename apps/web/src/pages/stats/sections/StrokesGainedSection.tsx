@@ -13,6 +13,7 @@ import {
   DEFAULT_HANDICAP,
   formatBandLabel,
   formatSG,
+  formatWholeHandicap,
   sgFinding,
   sgStandouts,
   type DetailedStats,
@@ -100,7 +101,7 @@ export function StrokesGainedSection({ data, wholeCount }: { data: DetailedStats
   const { unit, toDisplay } = useUnits()
   // The trend opens on all four; picking one brings it forward.
   const [focus, setFocus] = useState<SeriesKey | null>(null)
-  const handicap = Math.round(profile?.handicap_index ?? DEFAULT_HANDICAP)
+  const handicap = formatWholeHandicap(profile?.handicap_index ?? DEFAULT_HANDICAP)
   const standouts = sgStandouts(data.sg)
   const sgLabel = (key: keyof SGAverages) => SG_SERIES.find((s) => s.key === key)?.label ?? key
   const weakest = standouts.weakest

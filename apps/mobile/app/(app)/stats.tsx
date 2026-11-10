@@ -12,6 +12,7 @@ import {
   roundHolesPlayed,
   sgBreakdown,
   sgFinding,
+  formatWholeHandicap,
   sgStandouts,
   sgTrend,
   symmetricNiceTicks,
@@ -294,7 +295,7 @@ export default function Stats() {
               {stats && <StandoutCallout sg={stats.sg} />}
               <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, marginBottom: 12 }]}>
                 Per round, last {wholeRounds.length} round{wholeRounds.length === 1 ? '' : 's'}, against a{' '}
-                {Math.round(handicap ?? DEFAULT_HANDICAP)}-handicap.
+                {formatWholeHandicap(handicap ?? DEFAULT_HANDICAP)}-handicap.
               </Text>
               <View
                 style={{

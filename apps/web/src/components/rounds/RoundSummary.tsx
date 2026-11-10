@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  formatHandicapIndex,
   formatSG,
   formatToPar,
   pickRoundFocus,
@@ -108,7 +109,7 @@ export function RoundTotals({
               {handicap != null && (
                 <>
                   <br />
-                  vs a {handicap} handicap
+                  vs a {formatHandicapIndex(handicap)} handicap
                 </>
               )}
             </div>
