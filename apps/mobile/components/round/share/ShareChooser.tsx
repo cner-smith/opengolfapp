@@ -64,16 +64,20 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
   const [tone, setTone] = useState<ShareTone>(DEFAULT.tone)
   const [pageW, setPageW] = useState(0)
   const [sharing, setSharing] = useState(false)
+  // Share waits for the remembered choice, or it could capture the default.
+  const [loaded, setLoaded] = useState(false)
   const scroller = useRef<ScrollView>(null)
   const captureTarget = useRef<View>(null)
 
   useEffect(() => {
     if (!visible) return
     let active = true
+    setLoaded(false)
     readChoice().then((saved) => {
       if (!active) return
       setStyle(saved.style)
       setTone(saved.tone)
+      setLoaded(true)
     })
     return () => {
       active = false
@@ -89,10 +93,14 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
     if (pageW > 0) scroller.current?.scrollTo({ x: index * pageW, animated: false })
   }, [pageW, index])
 
+  // Nothing changes the card while it's being captured.
   function choose(next: StyleId, nextTone: ShareTone = tone) {
+    if (sharing) return
     setStyle(next)
     setTone(nextTone)
-    saveChoice(next, nextTone)
+  }
+  function close() {
+    if (!sharing) onClose()
   }
 
   function step(by: number) {
@@ -101,7 +109,7 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
   }
 
   async function share() {
-    if (sharing || !captureTarget.current) return
+    if (sharing || !loaded || !captureTarget.current) return
     setSharing(true)
     try {
       const k = Platform.OS === 'ios' ? PixelRatio.get() : 1
@@ -117,7 +125,9 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
         return
       }
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share round' })
+      saveChoice(current.id, tone)
     } catch (err) {
+      // console.error is what reaches logcat on a device build.
       // eslint-disable-next-line no-console
       console.error('[round/share]', err)
       Alert.alert('Share failed', (err as Error).message)
@@ -144,12 +154,12 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
         navigationBarTranslucent
         animationType="slide"
         visible={visible}
-        onRequestClose={onClose}
+        onRequestClose={close}
       >
         <View style={{ flex: 1, backgroundColor: P.scrim, justifyContent: 'flex-end' }}>
           <Pressable
             accessibilityLabel="Close"
-            onPress={sharing ? undefined : onClose}
+            onPress={close}
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           />
           <PaperSurface
@@ -179,6 +189,7 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
                   ref={scroller}
                   horizontal
                   pagingEnabled
+                  scrollEnabled={!sharing}
                   showsHorizontalScrollIndicator={false}
                   contentOffset={{ x: index * pageW, y: 0 }}
                   onMomentumScrollEnd={(e) => {
@@ -204,7 +215,7 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-              <Key accessibilityLabel="Previous style" onPress={() => step(-1)} disabled={index === 0} faceStyle={{ width: 44, minHeight: 44 }}>
+              <Key accessibilityLabel="Previous style" onPress={() => step(-1)} disabled={sharing || index === 0} faceStyle={{ width: 44, minHeight: 44 }}>
                 <Icon.prev size={22} color={index === 0 ? P.ink35 : P.ink} />
               </Key>
               <View style={{ flex: 1, alignItems: 'center' }}>
@@ -219,6 +230,7 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
                       accessibilityLabel={`${s.name} style`}
                       accessibilityState={{ selected: s.id === current.id }}
                       onPress={() => choose(s.id)}
+                      disabled={sharing}
                       hitSlop={6}
                       style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}
                     >
@@ -239,7 +251,7 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
               <Key
                 accessibilityLabel="Next style"
                 onPress={() => step(1)}
-                disabled={index === styles.length - 1}
+                disabled={sharing || index === styles.length - 1}
                 faceStyle={{ width: 44, minHeight: 44 }}
               >
                 <Icon.next size={22} color={index === styles.length - 1 ? P.ink35 : P.ink} />
@@ -260,12 +272,12 @@ export function ShareChooser({ model, visible, onClose }: { model: ShareCardMode
               accessibilityLabel="Share"
               tone="primary"
               onPress={share}
-              disabled={sharing}
+              disabled={sharing || !loaded}
               style={{ marginTop: 14 }}
               faceStyle={{ minHeight: 50, paddingHorizontal: 12, flexDirection: 'row', gap: 8 }}
             >
-              <Icon.share size={18} color={sharing ? P.ink35 : P.raised} />
-              <KeyText tone="primary" bold size={16} disabled={sharing}>
+              <Icon.share size={18} color={sharing || !loaded ? P.ink35 : P.raised} />
+              <KeyText tone="primary" bold size={16} disabled={sharing || !loaded}>
                 {sharing ? 'Rendering…' : 'Share'}
               </KeyText>
             </Key>

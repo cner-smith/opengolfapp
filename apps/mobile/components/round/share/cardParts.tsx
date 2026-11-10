@@ -6,7 +6,7 @@ import { FONT } from '../../../lib/typography'
 
 // Pieces every round share card style (#1437) shares: the 540 × 675 frame
 // (4:5, captured at 1080 × 1350), the two inks, the header and the footer.
-// Layout numbers follow the mocks (docs: share-card/work/build.mjs).
+// Layout numbers follow the design mocks.
 
 export const CARD_W = 540
 export const CARD_H = 675
