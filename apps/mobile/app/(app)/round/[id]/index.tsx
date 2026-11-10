@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, StatusBar, Text, View } from 'react-native'
-import { captureRef } from 'react-native-view-shot'
-import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -11,6 +9,7 @@ import {
   resolveHole,
   scoredTotals,
   selectNudgeDrills,
+  shareCardModel,
   type CaptureMode,
   type ResolvedHole,
   parseLocalDate,
@@ -34,7 +33,7 @@ import {
   getCached,
   setCached,
 } from '../../../../lib/screenCache'
-import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
+import { ShareChooser } from '../../../../components/round/share/ShareChooser'
 import { RoundTeeSelector } from '../../../../components/round/RoundTeeSelector'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
 import { PastRoundMap } from '../../../../components/round/PastRoundMap'
@@ -58,12 +57,14 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 type DrillRow = Database['public']['Tables']['drills']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
+type CoursePlace = { city: string | null; state: string | null }
 
 // Everything the summary view needs for a first paint, bundled under one
 // `round:${id}` screen-cache key (#599).
 interface RoundDetailCache {
   round: RoundRow
   courseName: string
+  coursePlace: CoursePlace
   courseCenter: LatLng | null
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
@@ -107,6 +108,8 @@ function RoundScreen() {
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
   const [shots, setShots] = useState<ShotRow[]>([])
   const [courseName, setCourseName] = useState<string>('Round')
+  // The share card's dateline place (#1437).
+  const [coursePlace, setCoursePlace] = useState<CoursePlace>({ city: null, state: null })
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   // Played-tee detail for the share card (#562): rating/slope/yardage, matched
   // by tee id then colour (same match the web card uses) — resolveCourseTee
@@ -149,10 +152,8 @@ function RoundScreen() {
   // Bumped when the live session finalizes the round: re-runs the loader,
   // which now finds completed_at set and renders the summary (#909).
   const [loadSeq, setLoadSeq] = useState(0)
-  const [sharing, setSharing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [savingSG, setSavingSG] = useState(false)
-  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
   // Selected hole for the read-only shots sheet. The sheet is the
   // entire past-round drill-down — we deliberately do NOT navigate
   // back into the live HoleScreen route on tap (mode=past would drop
@@ -162,7 +163,6 @@ function RoundScreen() {
   // jumps it straight into that shot's editor (vs the shot list). Cleared on
   // close so the scorecard drill-down still opens to the list.
   const [editShotId, setEditShotId] = useState<string | null>(null)
-  const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
   const { user, offline } = useAuth()
   // "Today's focus" nudge data — fetched lazily, only when the round has a leak.
@@ -171,7 +171,7 @@ function RoundScreen() {
   // Captions the SG total ("vs a 14 handicap"); read off the same profile fetch.
   const [handicap, setHandicap] = useState<number | null>(null)
   // One paper confirm at a time — iOS presents one modal per presenter (#293).
-  const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null)
+  const [dialog, setDialog] = useState<'leave' | 'delete' | 'share' | null>(null)
   // Coach marks (#900), one set per tab: first-time tips open on their own,
   // "?" shows them all. Nothing while the shot sheet or a dialog is up.
   const coach = useCoach(shotsForHole || dialog ? null : view === 'map' ? PAST_STEPS : PAST_CARD_STEPS)
@@ -190,6 +190,7 @@ function RoundScreen() {
     if (cached) {
       setRound(cached.round)
       setCourseName(cached.courseName)
+      setCoursePlace(cached.coursePlace)
       setCourseCenter(cached.courseCenter)
       setHoles(cached.holes)
       setHoleScores(cached.holeScores)
@@ -220,7 +221,7 @@ function RoundScreen() {
         // coerce the result to a single JSON object".
         const { data: r, error: rErr, status: rStatus } = await supabase
           .from('rounds')
-          .select('*, courses(name, lat, lng, facilities(name))')
+          .select('*, courses(name, city, state, lat, lng, facilities(name))')
           .eq('id', id)
           .maybeSingle()
         status = rStatus
@@ -229,6 +230,8 @@ function RoundScreen() {
         const row = r as RoundRow & {
           courses?: {
             name: string | null
+            city: string | null
+            state: string | null
             lat: number | null
             lng: number | null
             facilities?: { name: string | null } | null
@@ -240,6 +243,7 @@ function RoundScreen() {
             ? `${row.courses.facilities.name} — ${row.courses.name}`
             : (row.courses?.name ?? 'Round'),
         )
+        setCoursePlace({ city: row.courses?.city ?? null, state: row.courses?.state ?? null })
         setCourseCenter(
           row.courses?.lat != null && row.courses?.lng != null
             ? { lat: row.courses.lat, lng: row.courses.lng }
@@ -407,6 +411,7 @@ function RoundScreen() {
     setCached(`round:${id}`, {
       round,
       courseName,
+      coursePlace,
       courseCenter,
       holes,
       holeScores,
@@ -419,6 +424,7 @@ function RoundScreen() {
     redirectToLive,
     round,
     courseName,
+    coursePlace,
     courseCenter,
     holes,
     holeScores,
@@ -483,40 +489,6 @@ function RoundScreen() {
         </Text>
       </PaperSurface>
     )
-  }
-
-  // Captures the off-screen ShareableScorecardCard via
-  // react-native-view-shot, then hands the resulting tmpfile URI to
-  // expo-sharing's native share sheet. Falls back to an alert if
-  // sharing isn't available on this device (rare — Android always has
-  // it, iOS always has it). The capture happens against the off-screen
-  // wrapper a few hundred pixels off the left edge so the user never
-  // sees the card flicker into view.
-  async function handleShare() {
-    if (sharing || !shareCardRef.current) return
-    setSharing(true)
-    try {
-      const uri = await captureRef(shareCardRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-      })
-      const available = await Sharing.isAvailableAsync()
-      if (!available) {
-        Alert.alert('Sharing unavailable', 'This device cannot share files.')
-        return
-      }
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Share scorecard',
-      })
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('[round/share]', err)
-      Alert.alert('Share failed', (err as Error).message)
-    } finally {
-      setSharing(false)
-    }
   }
 
   // Leaving a not-yet-finalized round (completed_at null) warns first and
@@ -654,6 +626,18 @@ function RoundScreen() {
   }
 
   const focus = pickRoundFocus(round)
+  // null when no hole is scored: then there's nothing to share.
+  const shareModel = shareCardModel({
+    round,
+    course: { name: courseName, ...coursePlace },
+    tee: playedTee,
+    handicapIndex: handicap,
+    holes: sortedHoles.map((h) => ({
+      number: h.number,
+      par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+      score: scoresByHoleId.get(h.id) ?? null,
+    })),
+  })
 
   const totals = scoredTotals(
     sortedHoles.map((h) => ({
@@ -712,15 +696,16 @@ function RoundScreen() {
               </Text>
             )}
           </View>
-          <Key
-            accessibilityLabel="Share scorecard"
-            onPress={handleShare}
-            disabled={sharing}
-            faceStyle={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 6 }}
-          >
-            <Icon.share size={18} color={sharing ? P.ink35 : P.ink} />
-            <KeyText disabled={sharing}>{sharing ? 'Rendering…' : 'Share'}</KeyText>
-          </Key>
+          {shareModel && (
+            <Key
+              accessibilityLabel="Share round"
+              onPress={() => setDialog('share')}
+              faceStyle={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 6 }}
+            >
+              <Icon.share size={18} color={P.ink} />
+              <KeyText>Share</KeyText>
+            </Key>
+          )}
           <Key accessibilityLabel="What's on this screen" onPress={coach.openHelp} style={{ marginLeft: 8 }} faceStyle={{ width: 44, minHeight: 44 }}>
             <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>{'?\u2009'}</Text>
           </Key>
@@ -735,40 +720,6 @@ function RoundScreen() {
             onChange={(v) => v && setView(v)}
           />
         </CoachTarget>
-      </View>
-
-      {/* Off-screen render target for react-native-view-shot. The View
-          is laid out far off the left edge so it's never visible to
-          the player; collapsable={false} keeps RN from optimising
-          out an "empty" subtree the rasteriser still needs to read. */}
-      <View
-        pointerEvents="none"
-        collapsable={false}
-        style={{ position: 'absolute', left: -10000, top: 0 }}
-      >
-        <View ref={shareCardRef} collapsable={false}>
-          <ShareableScorecardCard
-            round={{
-              played_at: round.played_at,
-              tee_color: round.tee_color,
-              total_score: round.total_score,
-              sg_off_tee: round.sg_off_tee,
-              sg_approach: round.sg_approach,
-              sg_around_green: round.sg_around_green,
-              sg_putting: round.sg_putting,
-              sg_total: round.sg_total,
-              hole_count: round.hole_count,
-              courseName,
-              course_rating: playedTee?.course_rating ?? null,
-              slope_rating: playedTee?.slope_rating ?? null,
-              total_yards: playedTee?.total_yards ?? null,
-            }}
-            holes={sortedHoles}
-            scoresByHoleId={scoresByHoleId}
-            resolvedHoleByNumber={resolvedHoleByNumber}
-            tone={shareTone}
-          />
-        </View>
       </View>
 
       {view === 'scorecard' && (
@@ -911,6 +862,7 @@ function RoundScreen() {
         onConfirm={confirmDelete}
         onCancel={() => setDialog(null)}
       />
+      {shareModel && <ShareChooser model={shareModel} visible={dialog === 'share'} onClose={() => setDialog(null)} />}
       <CoachOverlay steps={coach.steps} onClose={coach.close} />
     </PaperSurface>
     </CoachProvider>
