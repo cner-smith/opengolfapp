@@ -7,6 +7,7 @@ import type { Database } from '@oga/supabase'
 import type { GeoPoint } from '@oga/core'
 
 import { rejectNonLocalRequest } from './dev-local-only'
+import { greenReviewRoute } from './dev-green-review'
 
 type OgaSupabaseModule = typeof import('@oga/supabase')
 type OgaSupabaseClient = ReturnType<OgaSupabaseModule['createOgaServiceClient']>
@@ -801,6 +802,11 @@ export function devAdminApi(): Plugin {
               return sendJson(res, 500, { error: 'ANTHROPIC_API_KEY not set on the dev server' })
             }
             return sendJson(res, 200, await suggestVerdict(await readJson(req)))
+          }
+
+          const core = await loadCore(server)
+          if (await greenReviewRoute(client, core, segments, parsedUrl, method, req, res, sendJson, readJson)) {
+            return
           }
 
           next()

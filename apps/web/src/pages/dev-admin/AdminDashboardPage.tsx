@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // Declared here, not imported from vite-plugins/dev-admin-api: that file lives
@@ -369,6 +370,9 @@ export default function AdminDashboardPage() {
       <h1 className="font-serif text-caddie-ink" style={{ fontSize: 24, fontWeight: 500 }}>
         Ops Dashboard
       </h1>
+      <Link to="/dev/admin/greens" className="text-caddie-ink-dim" style={{ fontSize: 14 }}>
+        Flagged green outlines →
+      </Link>
 
       <Card title="Pending courses">
         <PanelBody<PendingPanel>

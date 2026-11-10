@@ -155,10 +155,12 @@ const routes: RouteObject[] = [
             )
             const CourseEditorPage = lazy(() => import('./pages/dev-editor/CourseEditorPage'))
             const AdminDashboardPage = lazy(() => import('./pages/dev-admin/AdminDashboardPage'))
+            const GreenReviewPage = lazy(() => import('./pages/dev-admin/GreenReviewPage'))
             return [
               { path: '/dev/courses', element: <CourseEditorIndexPage />, errorElement },
               { path: '/dev/courses/:id/edit', element: <CourseEditorPage />, errorElement },
               { path: '/dev/admin', element: <AdminDashboardPage />, errorElement },
+              { path: '/dev/admin/greens', element: <GreenReviewPage />, errorElement },
             ]
           })()
         : []),
