@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { barScale, formatSG, homeSummary, parseLocalDate, partialRoundLabel } from '@oga/core'
+import { barScale, formatHandicapIndex, formatSG, homeSummary, parseLocalDate, partialRoundLabel } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 import { useCountUp } from '../../hooks/useCountUp'
@@ -45,7 +45,7 @@ export function DashboardPage() {
   // Masthead and SG caption both count whole rounds, as mobile does (SHL-18).
   const subtitle = [
     wholeCount === 0 ? 'No full rounds yet' : `Last ${wholeCount} round${wholeCount === 1 ? '' : 's'}`,
-    handicap != null ? `Handicap ${handicap}` : null,
+    handicap != null ? `Handicap ${formatHandicapIndex(handicap)}` : null,
   ]
     .filter(Boolean)
     .join(' · ')

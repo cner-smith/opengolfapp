@@ -15,13 +15,19 @@ import * as Sharing from 'expo-sharing'
 import { File, Paths } from 'expo-file-system'
 import {
   FACILITIES,
+  formatHandicapIndex,
   handicapIndexEdited,
-  handicapIndexFieldText,
+  handicapIndexField,
   GOALS,
   HANDICAP_PROVENANCE_LABEL,
   handicapProvenance,
+  PLUS_HANDICAP_EXPLAINER,
+  PLUS_HANDICAP_QUESTION,
+  plusHandicapToggle,
   readHandicapIndexField,
   SKILL_LEVELS,
+  stepPlusHandicap,
+  typedHandicapSign,
 } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -100,6 +106,7 @@ export default function ProfileTab() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
+  const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
   const [skill, setSkill] = useState<SkillLevel>(null)
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
@@ -207,7 +214,8 @@ export default function ProfileTab() {
       hydratedUserIdRef.current = user.id
       setProfile(data as unknown as Profile)
       setUsername(data.username ?? '')
-      setHandicap(handicapIndexFieldText(data.handicap_index))
+      setHandicap(handicapIndexField(data.handicap_index).text)
+      setPlusToggle(plusHandicapToggle(data.handicap_index))
       setSkill(data.skill_level ?? null)
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
@@ -239,7 +247,7 @@ export default function ProfileTab() {
       Alert.alert('Username invalid', USERNAME_HELPER)
       return
     }
-    const handicapField = readHandicapIndexField(handicap)
+    const handicapField = readHandicapIndexField({ text: handicap, plus: plusToggle.plus })
     if ('error' in handicapField) {
       Alert.alert(handicapField.error)
       return
@@ -280,7 +288,7 @@ export default function ProfileTab() {
   const dirty =
     !!profile &&
     (trimmedUsername !== (profile.username ?? '') ||
-      handicapIndexEdited(handicap, profile.handicap_index) ||
+      handicapIndexEdited({ text: handicap, plus: plusToggle.plus }, profile.handicap_index) ||
       skill !== (profile.skill_level ?? null) ||
       goal !== (profile.goal ?? null) ||
       [...facilities].sort().join() !== [...(profile.facilities ?? [])].sort().join() ||
@@ -301,7 +309,7 @@ export default function ProfileTab() {
         {/* The one headline number: no tile, just the figure and what it is. */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14, marginBottom: 6 }}>
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 48, lineHeight: 54 }]}>
-            {profile?.handicap_index ?? '—'}
+            {profile?.handicap_index != null ? formatHandicapIndex(profile.handicap_index) : '—'}
           </Text>
           <View style={{ paddingBottom: 8, flex: 1 }}>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]}>
@@ -345,18 +353,49 @@ export default function ProfileTab() {
           </Row>
           <Row
             label="Handicap index"
-            value={handicap === '' ? 'Not set' : handicap}
+            value={handicap === '' ? 'Not set' : `${plusToggle.plus ? '+' : ''}${handicap}`}
             serifValue={handicap !== ''}
             open={openRow === 'handicap'}
             onToggle={() => toggleRow('handicap')}
           >
-            <TextInput
-              keyboardType="decimal-pad"
-              value={handicap}
-              accessibilityLabel="Handicap index"
-              onChangeText={setHandicap}
-              style={{ ...inputStyle, width: 120 }}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TextInput
+                keyboardType="decimal-pad"
+                value={handicap}
+                accessibilityLabel="Handicap index"
+                onChangeText={(v) => {
+                  const typed = typedHandicapSign(v)
+                  setHandicap(typed.text)
+                  if (typed.plus) setPlusToggle((t) => stepPlusHandicap(t, 'on'))
+                }}
+                style={{ ...inputStyle, width: 120 }}
+              />
+              <Chip
+                label="Plus handicap"
+                active={plusToggle.plus}
+                onPress={() => setPlusToggle((t) => stepPlusHandicap(t, t.plus ? 'off' : 'on'))}
+              />
+            </View>
+            {plusToggle.asking ? (
+              // Asked in place, not in a modal, and neither key is the forest
+              // primary: an amateur shouldn't turn this on by accident.
+              <View style={{ marginTop: 12 }}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 17, lineHeight: 22 }]}>
+                  {PLUS_HANDICAP_QUESTION}
+                </Text>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+                  {PLUS_HANDICAP_EXPLAINER}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <Key accessibilityLabel="Turn on plus handicap" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'confirm'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                    <KeyText size={13}>Turn on</KeyText>
+                  </Key>
+                  <Key accessibilityLabel="Cancel" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'cancel'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                    <KeyText size={13}>Cancel</KeyText>
+                  </Key>
+                </View>
+              </View>
+            ) : null}
           </Row>
           <Row label="Skill level" value={skill ? SKILL_LABEL[skill] ?? skill : 'Not set'} open={openRow === 'skill'} onToggle={() => toggleRow('skill')}>
             <Chips>

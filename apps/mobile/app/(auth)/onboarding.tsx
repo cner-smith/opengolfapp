@@ -5,8 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
   GOALS,
+  PLUS_HANDICAP_EXPLAINER,
+  PLUS_HANDICAP_QUESTION,
+  plusHandicapToggle,
   readHandicapIndexField,
   SKILL_LEVELS,
+  stepPlusHandicap,
+  typedHandicapSign,
   type Goal,
   type SkillLevel,
 } from '@oga/core'
@@ -40,6 +45,7 @@ export default function MobileOnboarding() {
   const insets = useSafeAreaInsets()
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [handicap, setHandicap] = useState('15')
+  const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
   const [goal, setGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
   // The import offer comes after the profile save, so the onboarding gate
@@ -69,7 +75,7 @@ export default function MobileOnboarding() {
       Alert.alert('Pick a skill level and a goal first')
       return
     }
-    const handicapField = readHandicapIndexField(handicap)
+    const handicapField = readHandicapIndexField({ text: handicap, plus: plusToggle.plus })
     if ('error' in handicapField) {
       Alert.alert(handicapField.error)
       return
@@ -188,23 +194,56 @@ export default function MobileOnboarding() {
       </Field>
 
       <Field label="Handicap index">
-        <TextInput
-          keyboardType="decimal-pad"
-          value={handicap}
-          onChangeText={setHandicap}
-          maxFontSizeMultiplier={FONT_CAP}
-          style={{
-            backgroundColor: P.raised,
-            borderWidth: 1,
-            borderColor: P.ink,
-            borderRadius: R,
-            paddingHorizontal: 12,
-            paddingVertical: 11,
-            fontSize: 15,
-            color: P.ink,
-            fontFamily: FONT.body,
-          }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TextInput
+            keyboardType="decimal-pad"
+            value={handicap}
+            accessibilityLabel="Handicap index"
+            onChangeText={(v) => {
+              const typed = typedHandicapSign(v)
+              setHandicap(typed.text)
+              if (typed.plus) setPlusToggle((t) => stepPlusHandicap(t, 'on'))
+            }}
+            maxFontSizeMultiplier={FONT_CAP}
+            style={{
+              flex: 1,
+              backgroundColor: P.raised,
+              borderWidth: 1,
+              borderColor: P.ink,
+              borderRadius: R,
+              paddingHorizontal: 12,
+              paddingVertical: 11,
+              fontSize: 15,
+              color: P.ink,
+              fontFamily: FONT.body,
+            }}
+          />
+          <Chip
+            label="Plus handicap"
+            active={plusToggle.plus}
+            onPress={() => setPlusToggle((t) => stepPlusHandicap(t, t.plus ? 'off' : 'on'))}
+          />
+        </View>
+        {plusToggle.asking ? (
+          // Asked in place, and neither key is the forest primary: an
+          // amateur shouldn't turn this on by accident.
+          <View style={{ marginTop: 12 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 17, lineHeight: 22 }]}>
+              {PLUS_HANDICAP_QUESTION}
+            </Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+              {PLUS_HANDICAP_EXPLAINER}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <Key accessibilityLabel="Turn on plus handicap" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'confirm'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                <KeyText size={13}>Turn on</KeyText>
+              </Key>
+              <Key accessibilityLabel="Cancel" onPress={() => setPlusToggle((t) => stepPlusHandicap(t, 'cancel'))} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                <KeyText size={13}>Cancel</KeyText>
+              </Key>
+            </View>
+          </View>
+        ) : null}
       </Field>
 
       <Field label="Goal">

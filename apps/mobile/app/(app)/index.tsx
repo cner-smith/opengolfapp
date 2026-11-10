@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, homeSummary, isStaleEmptyRound } from '@oga/core'
+import { formatHandicapIndex, formatSG, homeSummary, isStaleEmptyRound } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -243,7 +243,7 @@ export default function Home() {
           {wholeRounds.length === 0
             ? 'No full rounds yet'
             : `Last ${wholeRounds.length} round${wholeRounds.length === 1 ? '' : 's'}`}
-          {profile?.handicap_index != null ? ` · Handicap ${profile.handicap_index}` : ''}
+          {profile?.handicap_index != null ? ` · Handicap ${formatHandicapIndex(profile.handicap_index)}` : ''}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
           <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13 }]}>
