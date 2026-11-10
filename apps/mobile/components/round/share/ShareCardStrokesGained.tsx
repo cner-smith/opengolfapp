@@ -53,10 +53,11 @@ export function ShareCardStrokesGained({ model, tone }: ShareCardProps) {
           <CourseName model={model} c={c} size={27} />
           <TeeLine model={model} c={c} />
         </View>
-        <T style={{ lineHeight: 50 }}>
-          <T style={[NUM_IT, { fontSize: 44, lineHeight: 50, paddingRight: 4, color: c.ink }]}>{totals.score}</T>
-          <T style={[NUM, { fontSize: 18, lineHeight: 50, color: c.dim }]}>{`  ${formatToPar(totals.toPar)}`}</T>
-        </T>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+          {/* Trailing space: Android clips the italic overhang at the advance width. */}
+          <T style={[NUM_IT, { fontSize: 44, lineHeight: 50, color: c.ink }]}>{`${totals.score} `}</T>
+          <T style={[NUM, { fontSize: 18, lineHeight: 50, color: c.dim }]}>{formatToPar(totals.toPar)}</T>
+        </View>
       </View>
       <View style={{ marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderColor: c.line }}>
         <T style={[NUM_IT, { fontSize: 23, lineHeight: 28, color: c.ink }]}>{sg.headline}</T>

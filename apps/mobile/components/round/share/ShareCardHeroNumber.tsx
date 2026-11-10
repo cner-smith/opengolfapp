@@ -40,9 +40,10 @@ export function ShareCardHeroNumber({ model, tone }: ShareCardProps) {
       <CourseName model={model} c={c} size={26} />
       <TeeLine model={model} c={c} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, marginTop: 14 }}>
-        {/* Android trims an italic's overhang at the Text's box: pad the right. */}
-        <T style={[NUM_IT, { fontSize: 176, lineHeight: 150, letterSpacing: -3.5, paddingRight: 24, marginRight: -24, color: c.ink }]}>
-          {totals.score}
+        {/* Android clips an italic's overhang at the text's advance width (padding doesn't help):
+            a trailing space widens the advance, the negative margin takes the space back out. */}
+        <T style={[NUM_IT, { fontSize: 176, lineHeight: 150, letterSpacing: -3.5, marginRight: -36, color: c.ink }]}>
+          {`${totals.score} `}
         </T>
         <View style={{ paddingBottom: 6 }}>
           <T style={[NUM, { fontSize: 40, lineHeight: 44, color: c.ink }]}>{formatToPar(totals.toPar)}</T>
