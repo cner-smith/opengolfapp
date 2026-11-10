@@ -695,7 +695,11 @@ function RoundScreen() {
             </Text>
             <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
               {dateLabel}
-              {sortedHoles.length > 0 ? ` · ${sortedHoles.length} holes` : ''}
+              {sortedHoles.length > 0
+                ? totals.holesPlayed === sortedHoles.length
+                  ? ` · ${sortedHoles.length} holes`
+                  : ` · ${totals.holesPlayed} of ${sortedHoles.length} holes`
+                : ''}
               {totals.holesPlayed > 0 && (
                 <>
                   {' · '}

@@ -298,9 +298,7 @@ interface ScoreGridProps {
 }
 
 function ScoreGrid({ cells, colors, rangeLabel }: ScoreGridProps) {
-  // The par row sums every hole in the half, as a paper card does; the score
-  // sums the holes played.
-  const parSum = cells.reduce((s, cell) => s + cell.par, 0)
+  // Par, score and to-par all count the holes played only.
   const played = scoredTotals(cells)
 
   const cellNum: import('react-native').TextStyle = {
@@ -387,7 +385,7 @@ function ScoreGrid({ cells, colors, rangeLabel }: ScoreGridProps) {
             fontSize: 11,
           }}
         >
-          {parSum}
+          {played.holesPlayed > 0 ? played.par : '—'}
         </Text>
       </View>
 
