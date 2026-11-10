@@ -693,20 +693,24 @@ function RoundScreen() {
             <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 25, color: P.ink }]}>
               {courseName}
             </Text>
+            {/* Date on its own line: at 360 dp the text column beside Share and ?
+                is ~155 dp, which "Mon 9 Nov · 3 of 18 holes · 14 (+2)" overran. */}
             <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
               {dateLabel}
-              {sortedHoles.length > 0
-                ? totals.holesPlayed === sortedHoles.length
-                  ? ` · ${sortedHoles.length} holes`
-                  : ` · ${totals.holesPlayed} of ${sortedHoles.length} holes`
-                : ''}
-              {totals.holesPlayed > 0 && (
-                <>
-                  {' · '}
-                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{totals.score}</Text> ({formatToPar(totals.toPar)})
-                </>
-              )}
             </Text>
+            {sortedHoles.length > 0 && (
+              <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+                {totals.holesPlayed === sortedHoles.length
+                  ? `${sortedHoles.length} holes`
+                  : `${totals.holesPlayed} of ${sortedHoles.length} holes`}
+                {totals.holesPlayed > 0 && (
+                  <>
+                    {' · '}
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{totals.score}</Text> ({formatToPar(totals.toPar)})
+                  </>
+                )}
+              </Text>
+            )}
           </View>
           <Key
             accessibilityLabel="Share scorecard"
