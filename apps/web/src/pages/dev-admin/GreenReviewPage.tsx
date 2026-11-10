@@ -37,6 +37,7 @@ const REASONS: Record<string, string> = {
   start_unchecked: 'No tee or hole line to check the direction against.',
   solidity: 'Ragged shape, or bites out of it.',
   shade_edge: 'Shade or trees along more than a fifth of the edge; a shadow may cut it.',
+  lidar_shade_overrun: 'The ground stays green-flat past the edge under shade (lidar); a shadow may have cut the outline short.',
   area_small: 'Under 150 m², small for a green.',
   area_large: 'Over 1,500 m², big for a green.',
   trace_disagree: 'Disagrees with the OSM trace (overlap under 70%).',
