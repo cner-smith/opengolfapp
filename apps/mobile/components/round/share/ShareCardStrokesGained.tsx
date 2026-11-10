@@ -4,11 +4,17 @@ import { formatSG, formatToPar, type ShareCardNote } from '@oga/core'
 import { FONT } from '../../../lib/typography'
 import { CardFrame, CourseName, Foot, INNER_W, Kicker, NUM, NUM_IT, T, TeeLine, TONES, type ShareCardProps } from './cardParts'
 
-const PH = 230
-const MID = 104
+// Height budget (dp, line heights from T): the card's inner 621 = 675 − 30 − 24.
+//   kicker 14 · header row 63 (course 10 + 29, tee 7 + 17) · headline 18 + 14 + 1 + 28 = 61
+//   · basis 5 + 15 = 20 · chart 24 + PH = 220 · categories 4 + 1 + 10 + 4 × 30 = 135
+//   · facts 17 · footer 26 + 1 + 12 + 21 = 60
+//   = 590, leaving 31 above the footer (a two-line headline still fits).
+const PH = 196
+const MID = 92
 // Tallest bar, dp; a round whose biggest hole is under 1.5 strokes keeps the
-// 1.5 scale so small swings don't fill the chart.
-const BAR_MAX = 96
+// 1.5 scale so small swings don't fill the chart. Hole numbers sit under the
+// lowest bar: MID + BAR_MAX + 6, 13 tall, inside PH.
+const BAR_MAX = 80
 const BAR_FLOOR = 1.5
 const NOTE_W = 220
 const CAT_W = 250
@@ -47,19 +53,19 @@ export function ShareCardStrokesGained({ model, tone }: ShareCardProps) {
           <CourseName model={model} c={c} size={27} />
           <TeeLine model={model} c={c} />
         </View>
-        <T>
-          <T style={[NUM_IT, { fontSize: 44, color: c.ink }]}>{totals.score}</T>
-          <T style={[NUM, { fontSize: 18, color: c.dim }]}>{`  ${formatToPar(totals.toPar)}`}</T>
+        <T style={{ lineHeight: 50 }}>
+          <T style={[NUM_IT, { fontSize: 44, lineHeight: 50, paddingRight: 4, color: c.ink }]}>{totals.score}</T>
+          <T style={[NUM, { fontSize: 18, lineHeight: 50, color: c.dim }]}>{`  ${formatToPar(totals.toPar)}`}</T>
         </T>
       </View>
-      <View style={{ marginTop: 22, paddingTop: 16, borderTopWidth: 1, borderColor: c.line }}>
+      <View style={{ marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderColor: c.line }}>
         <T style={[NUM_IT, { fontSize: 23, lineHeight: 28, color: c.ink }]}>{sg.headline}</T>
       </View>
       <T style={{ fontFamily: FONT.body, fontSize: 12, color: c.dim, marginTop: 5 }}>
         {sg.basis}
         {partialLabel ? ` · ${partialLabel}` : ''}
       </T>
-      <View style={{ width: INNER_W, height: PH, marginTop: 26 }}>
+      <View style={{ width: INNER_W, height: PH, marginTop: 24 }}>
         <Svg width={INNER_W} height={PH}>
           <Line x1={0} x2={INNER_W} y1={MID} y2={MID} stroke={c.strong} />
           {holes.map((h, i) => {
@@ -80,7 +86,7 @@ export function ShareCardStrokesGained({ model, tone }: ShareCardProps) {
         {holes.map((h, i) => (
           <T
             key={h.number}
-            style={{ position: 'absolute', left: centre(i) - 12, width: 24, top: MID + 106, textAlign: 'center', fontFamily: FONT.body, fontSize: 10, color: c.mute }}
+            style={{ position: 'absolute', left: centre(i) - 12, width: 24, top: MID + BAR_MAX + 6, textAlign: 'center', fontFamily: FONT.body, fontSize: 10, color: c.mute }}
           >
             {h.number}
           </T>

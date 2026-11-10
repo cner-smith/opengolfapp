@@ -22,7 +22,7 @@ type StyleId = 1 | 2 | 3 | 4 | 5
 const STYLES: { id: StyleId; name: string; Card: ComponentType<ShareCardProps> }[] = [
   { id: 1, name: 'Scorecard', Card: ShareCardScorecard },
   { id: 2, name: 'Yardage book', Card: ShareCardYardageBook },
-  { id: 3, name: 'Against par', Card: ShareCardAgainstPar },
+  { id: 3, name: 'Par line', Card: ShareCardAgainstPar },
   { id: 4, name: 'Big number', Card: ShareCardHeroNumber },
   { id: 5, name: 'Strokes gained', Card: ShareCardStrokesGained },
 ]

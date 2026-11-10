@@ -19,6 +19,9 @@ import {
 } from './cardParts'
 
 const LABEL_W = 54
+// Height budget (dp, line heights from T), inner 621: kicker 14 · course 10 + 32
+// · tee 7 + 17 · gap 20 · two panels 2 × 128 + 12 = 268 · total column 110 + 6
+// + 8 + 24 = 148 (taller than four 31.5 notes) · footer 60 = 576, 45 to spare.
 const COL_W = 40
 
 // Style 2: yardage-book card, pencilled in Kalam on a grey panel per nine,
@@ -54,8 +57,8 @@ export function ShareCardYardageBook({ model, tone }: ShareCardProps) {
           <Svg width={120} height={14} style={{ marginTop: -8 }}>
             <Path d={underline} fill={c.pencil} transform="translate(64 6) scale(2.6 1.6)" />
           </Svg>
-          <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim, marginTop: 8 }}>
-            <T style={[NUM, { fontSize: 18, color: c.ink }]}>{formatToPar(totals.toPar)}</T> on par {totals.par}
+          <T style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 24, color: c.dim, marginTop: 8 }}>
+            <T style={[NUM, { fontSize: 18, lineHeight: 24, color: c.ink }]}>{formatToPar(totals.toPar)}</T> on par {totals.par}
           </T>
         </View>
       </View>

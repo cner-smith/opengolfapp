@@ -19,6 +19,9 @@ import {
 } from './cardParts'
 
 const LABEL_W = 52
+// Height budget (dp, line heights from T), inner 621: kicker 14 · course 10 + 32
+// · tee 7 + 17 · gap 22 · two nines 2 × (22 + 30 + 34 + 26) = 224 · totals row
+// 143 (the fact list: 4 × 35 + 3 rules) · footer 60 = 529, 92 to spare.
 const COL_W = 41
 
 // Style 1: clean paper scorecard, each nine as a printed grid with pencil
@@ -51,7 +54,7 @@ export function ShareCardScorecard({ model, tone }: ShareCardProps) {
         <View>
           <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim }}>{sub}</T>
           <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <T style={[NUM_IT, { fontSize: 84, lineHeight: 92, color: c.ink }]}>{totals.score}</T>
+            <T style={[NUM_IT, { fontSize: 84, lineHeight: 92, paddingRight: 6, color: c.ink }]}>{totals.score}</T>
             <T style={[NUM, { fontSize: 24, color: c.dim, marginLeft: 10 }]}>{formatToPar(totals.toPar)}</T>
           </View>
           <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim }}>par {totals.par}</T>
@@ -109,7 +112,7 @@ function Nine({ nine, c }: { nine: ShareCardNine; c: Ink }) {
         {nine.holes.map((h) => (
           <T key={h.number} style={[cell, NUM, { fontSize: 20, color: c.ink }]}>{h.score}</T>
         ))}
-        <T style={[NUM_IT, { flex: 1, textAlign: 'right', fontSize: 20, color: c.ink }]}>{nine.score}</T>
+        <T style={[NUM_IT, { flex: 1, textAlign: 'right', fontSize: 20, paddingRight: 3, color: c.ink }]}>{nine.score}</T>
         <MarksOverlay
           marks={nine.holes.map((h, i) => ({ x: LABEL_W + i * COL_W + COL_W / 2, toPar: h.toPar, seed: h.number }))}
           width={INNER_W}

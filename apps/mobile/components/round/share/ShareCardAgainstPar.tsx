@@ -10,7 +10,13 @@ import { CardFrame, CourseName, Foot, INNER_W, Kicker, NUM, NUM_IT, T, TeeLine, 
 const PX = 34
 const PW = INNER_W - PX - 46
 const PY = 22
-const PH = 300
+// Height budget (dp, line heights from T): the card's inner 621 = 675 − 30 − 24.
+//   kicker 14 · header row 79 (score column: 10 + 48 + 4 + 17)
+//   · subtitle 16 + 17 = 33 · chart 6 + PY + PH + 26 = 304
+//   · "Score, with par beneath" 10 + 15 + 6 = 31 · strip 1 + 5 + 20 + 14 + 5 + 1 = 46
+//   · facts 24 · footer 26 + 1 + 12 + 21 = 60
+//   = 591, leaving 30 above the footer.
+const PH = 250
 const NOTE_W = 200
 
 // Style 3: the running score against par as a line, hole by hole, with the
@@ -49,11 +55,11 @@ export function ShareCardAgainstPar({ model, tone }: ShareCardProps) {
           <TeeLine model={model} c={c} />
         </View>
         <View style={{ alignItems: 'flex-end', marginTop: 10 }}>
-          <T style={[NUM_IT, { fontSize: 46, lineHeight: 52, color: c.ink }]}>{totals.score}</T>
+          <T style={[NUM_IT, { fontSize: 46, lineHeight: 48, paddingRight: 4, color: c.ink }]}>{totals.score}</T>
           <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim, marginTop: 4 }}>{corner}</T>
         </View>
       </View>
-      <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim, marginTop: 20 }}>
+      <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim, marginTop: 16 }}>
         Score against par, hole by hole{partialLabel ? ` · ${partialLabel}` : ''}
       </T>
       <View style={{ width: INNER_W, height: PY + PH + 26, marginTop: 6 }}>
@@ -115,7 +121,7 @@ export function ShareCardAgainstPar({ model, tone }: ShareCardProps) {
             </T>
           )
         })}
-        <T style={[NUM_IT, { position: 'absolute', left: x(n) + 8, top: y(totals.toPar) - 20, fontSize: 20, color: c.ink }]}>
+        <T style={[NUM_IT, { position: 'absolute', left: x(n) + 8, top: y(totals.toPar) - 18, fontSize: 20, paddingRight: 4, color: c.ink }]}>
           {formatToPar(totals.toPar)}
         </T>
         {holes.map((h, k) => (
@@ -145,8 +151,8 @@ export function ShareCardAgainstPar({ model, tone }: ShareCardProps) {
 
 function Fact({ c, value, rest }: { c: Ink; value: number; rest: string }) {
   return (
-    <T style={{ fontFamily: FONT.body, fontSize: 13, color: c.dim }}>
-      <T style={[NUM, { fontSize: 19, color: c.ink }]}>{value}</T>
+    <T style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 24, color: c.dim }}>
+      <T style={[NUM, { fontSize: 19, lineHeight: 24, color: c.ink }]}>{value}</T>
       {rest}
     </T>
   )

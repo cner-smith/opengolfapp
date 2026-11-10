@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import { Text, View, type TextProps, type TextStyle } from 'react-native'
+import { StyleSheet, Text, View, type TextProps, type TextStyle } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { marksFor, marksPath, type ShareCardModel } from '@oga/core'
 import { FONT } from '../../../lib/typography'
@@ -37,9 +37,15 @@ export interface ShareCardProps {
 export const NUM: TextStyle = { fontFamily: FONT.serif, fontVariant: ['lining-nums', 'tabular-nums'] }
 export const NUM_IT: TextStyle = { fontFamily: FONT.serifItalic, fontVariant: ['lining-nums', 'tabular-nums'] }
 
-// The card is a fixed-size image: the system font size must not reflow it.
-export function T(props: TextProps) {
-  return <Text allowFontScaling={false} {...props} />
+// The card is a fixed-size image: the system font size must not reflow it,
+// and every line gets an explicit height (Android's default line box for
+// these fonts runs taller than the mock's, which pushed the footer off the
+// card). Kalam's tall loops need more room than the type fonts.
+export function T({ style, ...rest }: TextProps) {
+  const flat = StyleSheet.flatten(style) ?? {}
+  const lineHeight =
+    flat.lineHeight ?? Math.ceil((flat.fontSize ?? 14) * (flat.fontFamily === FONT.hand ? 1.45 : 1.25))
+  return <Text allowFontScaling={false} {...rest} style={[style, { lineHeight }]} />
 }
 
 export const NINE_NAME = { front: 'Front nine', back: 'Back nine' } as const
@@ -102,7 +108,7 @@ export function Foot({ c }: { c: Ink }) {
     >
       <T style={{ fontFamily: FONT.body, fontSize: 12, color: c.mute }}>Free, open source golf tracking</T>
       <T style={{ fontFamily: FONT.serifItalic, fontSize: 17, color: c.ink }}>
-        oga<T style={{ fontFamily: FONT.serif, color: c.accent }}>.</T>golf
+        oga<T style={{ fontFamily: FONT.serif, fontSize: 17, color: c.accent }}>.</T>golf
       </T>
     </View>
   )

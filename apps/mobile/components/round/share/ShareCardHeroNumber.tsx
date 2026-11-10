@@ -18,6 +18,9 @@ import {
 } from './cardParts'
 
 const CELL_W = 44
+// Height budget (dp, line heights from T), inner 621: kicker 14 · course 10 + 28
+// · tee 7 + 17 · hero 14 + 150 · marks 34 + 1 + 14 + 2 × 58 + 4 + 14 = 183
+// · facts 1 + 14 + 34 + 5 + 15 = 69 · footer 60 = 552, 69 to spare.
 const ROW_W = CELL_W * 9
 // Marks and dots sit on this line; the hole number hangs beneath.
 const MARK_Y = 20
@@ -37,7 +40,10 @@ export function ShareCardHeroNumber({ model, tone }: ShareCardProps) {
       <CourseName model={model} c={c} size={26} />
       <TeeLine model={model} c={c} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, marginTop: 14 }}>
-        <T style={[NUM_IT, { fontSize: 176, lineHeight: 150, letterSpacing: -3.5, color: c.ink }]}>{totals.score}</T>
+        {/* Android trims an italic's overhang at the Text's box: pad the right. */}
+        <T style={[NUM_IT, { fontSize: 176, lineHeight: 150, letterSpacing: -3.5, paddingRight: 24, marginRight: -24, color: c.ink }]}>
+          {totals.score}
+        </T>
         <View style={{ paddingBottom: 6 }}>
           <T style={[NUM, { fontSize: 40, lineHeight: 44, color: c.ink }]}>{formatToPar(totals.toPar)}</T>
           <T style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 18, color: c.dim, marginTop: 6 }}>{caption}</T>
@@ -87,7 +93,7 @@ function MarkRow({ nine, c }: { nine: ShareCardNine; c: Ink }) {
         ))}
       </View>
       <View style={{ alignItems: 'flex-end', paddingBottom: 16 }}>
-        <T style={[NUM_IT, { fontSize: 22, color: c.ink }]}>{nine.score}</T>
+        <T style={[NUM_IT, { fontSize: 22, paddingRight: 3, color: c.ink }]}>{nine.score}</T>
         <T style={{ fontFamily: FONT.body, fontSize: 11, color: c.mute }}>{nine.label}</T>
       </View>
     </View>
@@ -99,7 +105,7 @@ function Fact({ c, value, of, label }: { c: Ink; value: number; of?: number; lab
     <View>
       <T style={[NUM, { fontSize: 30, lineHeight: 34, color: c.ink }]}>
         {value}
-        {of != null && <T style={{ fontSize: 17, color: c.dim }}> of {of}</T>}
+        {of != null && <T style={{ fontSize: 17, lineHeight: 34, color: c.dim }}> of {of}</T>}
       </T>
       <T style={{ fontFamily: FONT.body, fontSize: 12, color: c.dim, marginTop: 5 }}>{label}</T>
     </View>
