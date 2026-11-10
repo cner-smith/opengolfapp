@@ -61,6 +61,7 @@ describe('@oga/core barrel', () => {
     ['aimAdvice'],
     ['toRadians'],
     ['formatSG'],
+    ['shareCardModel'],
     ['interpolateBaseline'],
     ['getHandicapBracket'],
     ['calculateHandicapIndex'],

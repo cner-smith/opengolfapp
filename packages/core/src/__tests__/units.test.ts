@@ -109,6 +109,13 @@ describe('formatSG', () => {
     expect(formatSG(0)).toBe('0.00')
   })
 
+  it('prints tenths when asked (the share card)', () => {
+    expect(formatSG(3.11, 1)).toBe('+3.1')
+    expect(formatSG(-0.07, 1)).toBe('−0.1')
+    // −0.04 rounds to 0.0: unsigned
+    expect(formatSG(-0.04, 1)).toBe('0.0')
+  })
+
   it('rounds to two decimals', () => {
     expect(formatSG(1.23456)).toBe('+1.23')
     expect(formatSG(-1.23999)).toBe('−1.24')
