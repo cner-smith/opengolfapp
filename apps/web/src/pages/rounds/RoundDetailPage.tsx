@@ -1,5 +1,7 @@
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -7,7 +9,7 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSide, RoundTotals, type ScoredHole } from '../../components/rounds/RoundSummary'
-import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
+import { ShareCardChooser } from '../../components/round/share/ShareCardChooser'
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
@@ -18,6 +20,7 @@ import {
   projectShotMove,
   resolveCourseTee,
   scoredTotals,
+  shareCardModel,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
@@ -56,9 +59,7 @@ export function RoundDetailPage() {
   // localStorage so it appears once per device and auto-dismisses after
   // 3s or on tap.
   const [aimHintVisible, setAimHintVisible] = useState(false)
-  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
-  const [sharing, setSharing] = useState(false)
-  const shareCardRef = useRef<HTMLDivElement | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
     holeNumber: number
@@ -162,15 +163,11 @@ export function RoundDetailPage() {
     placedAims,
     placedAimAuto,
     shotDragUndo,
-    shareCardRef,
-    sharing,
-    shareTone,
     dispatchHoleView,
     setShotDragUndo,
     setSavingHole,
     setConfirmDelete,
     setCompleteError,
-    setSharing,
     setAimPromptOpen,
   })
   const {
@@ -182,10 +179,27 @@ export function RoundDetailPage() {
     saveReviewedHole,
     handleDelete,
     handleComplete,
-    handleShare,
     completeMutation,
     deleteMutation,
   } = actions
+
+  // Everything the share card styles print (#1437); null with no hole scored.
+  const handicapIndex = profile.data?.handicap_index ?? null
+  const shareModel = useMemo(() => {
+    if (!round.data) return null
+    return shareCardModel({
+      round: round.data,
+      course: round.data.courses ?? null,
+      tee: resolveCourseTee(teesQuery.data ?? [], round.data.course_tee_id, round.data.tee_color),
+      handicapIndex,
+      holes: holes.map((h) => ({
+        number: h.number,
+        par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+        score: scoresByHoleId.get(h.id) ?? null,
+      })),
+    })
+  }, [round.data, teesQuery.data, handicapIndex, holes, resolvedHoleByNumber, scoresByHoleId])
+  const closeShare = useCallback(() => setShareOpen(false), [])
 
   // The round map's Remove and + Add shot (#1239). Failures show where the
   // hole save's do.
@@ -267,13 +281,6 @@ export function RoundDetailPage() {
       </button>
     </div>
   )
-  // The played tee (by id, then by colour) supplies rating/slope/yardage for
-  // the share card — same match RoundHeader uses.
-  const playedTee = resolveCourseTee(
-    teesQuery.data ?? [],
-    round.data.course_tee_id,
-    round.data.tee_color,
-  )
   const switchHole = (n: number) =>
     dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
 
@@ -286,14 +293,9 @@ export function RoundDetailPage() {
         holeCount={holeCount}
         score={totals.score}
         toPar={totals.holesPlayed > 0 ? totals.toPar : null}
-        shareTone={shareTone}
-        sharing={sharing}
         completePending={completeMutation.isPending}
         onBack={() => navigate('/rounds')}
-        onShare={handleShare}
-        onToggleShareTone={() =>
-          setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
-        }
+        onShare={shareModel ? () => setShareOpen(true) : undefined}
         onComplete={handleComplete}
       />
 
@@ -301,34 +303,14 @@ export function RoundDetailPage() {
         <Rocker tabs options={VIEWS} value={view} onChange={setView} label="Round view" className="sm:max-w-[420px]" />
       </div>
 
-      {/* Off-screen render target for html-to-image. Position fixed
-          left:-99999px keeps the rasteriser-visible DOM out of the
-          user's view; pointerEvents none so it can never intercept
-          clicks while the card is mounted. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed',
-          left: -99999,
-          top: 0,
-          pointerEvents: 'none',
-        }}
-      >
-        <div ref={shareCardRef}>
-          <ShareableScorecardCard
-            round={{
-              ...round.data,
-              course_rating: playedTee?.course_rating ?? null,
-              slope_rating: playedTee?.slope_rating ?? null,
-              total_yards: playedTee?.total_yards ?? null,
-            }}
-            holes={holes}
-            scoresByHoleId={scoresByHoleId}
-            resolvedHoleByNumber={resolvedHoleByNumber}
-            tone={shareTone}
-          />
-        </div>
-      </div>
+      {shareModel && (
+        <ShareCardChooser
+          open={shareOpen}
+          model={shareModel}
+          filename={shareFilename(round.data.courses?.name, round.data.played_at)}
+          onClose={closeShare}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmDelete}
@@ -538,6 +520,12 @@ export function RoundDetailPage() {
       })()}
     </div>
   )
+}
+
+// "bear-creek-golf-club-2026-10-31"; the chooser adds the style.
+function shareFilename(course: string | null | undefined, playedAt: string) {
+  const slug = (course ?? 'round').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  return `${slug}-${playedAt}`
 }
 
 // Scorecard | Map as the paper rocker (mobile Paper.tsx Rocker, §19.1).
