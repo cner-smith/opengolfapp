@@ -4,7 +4,7 @@ import { GestureDetector } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Database } from '@oga/supabase'
-import type { ResolvedHole } from '@oga/core'
+import { formatToPar, scoredTotals, type ResolvedHole } from '@oga/core'
 import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import { TYPE } from '../../lib/typography'
 import { PaperSurface, Rocker } from '../paper/Paper'
@@ -57,8 +57,6 @@ function useFreshScores(
   }, [roundId, holes, scoresByHoleId])
 }
 
-const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
-
 // Live scorecard sheet (#611 §10): paper, square top corners, golf marks
 // around the scores, the current hole on raised paper with a brass bar.
 // Close with ✕, a scrim tap, a swipe down, or Back.
@@ -81,9 +79,8 @@ export function ScorecardModal({
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
   const insets = useSafeAreaInsets()
 
-  // Every hole's par / score, and the running to-par over the whole round.
+  // Every hole's par / score, and the running to-par down the card.
   let run = 0
-  let played = false
   const rows = sorted.map((h) => {
     const hs = scoresByHoleId.get(h.id)
     // 0 = pre-created, unplayed (counting it pulled the running total to -71).
@@ -95,17 +92,19 @@ export function ScorecardModal({
     const score = inProgress ? null : raw
     // Per-round par override (#710), then tee-resolved par.
     const par = resolvedHoleByNumber.get(h.number)?.par ?? hs?.par ?? h.par
-    if (score != null) {
-      run += score - par
-      played = true
-    }
+    if (score != null) run += score - par
     return { h, par, score, running: inProgress ? raw : null, run: score != null ? run : null }
   })
   const shown = eighteen ? rows.filter((r) => (nine === 'front' ? r.h.number <= 9 : r.h.number > 9)) : rows
+  const whole = scoredTotals(rows)
+  const shownTotals = scoredTotals(shown)
   const sumPar = shown.reduce((a, r) => a + r.par, 0)
-  const sumScore = shown.reduce((a, r) => a + (r.score ?? 0), 0)
-  const sumToPar = shown.reduce((a, r) => a + (r.score != null ? r.score - r.par : 0), 0)
-  const sub = !played ? 'No holes scored yet' : run === 0 ? 'Even so far' : `${Math.abs(run)} ${run < 0 ? 'under' : 'over'} so far`
+  const sub =
+    whole.holesPlayed === 0
+      ? 'No holes scored yet'
+      : whole.toPar === 0
+        ? 'Even so far'
+        : `${Math.abs(whole.toPar)} ${whole.toPar < 0 ? 'under' : 'over'} so far`
 
   return (
     <View style={{ flex: 1, backgroundColor: P.scrim }}>
@@ -231,7 +230,7 @@ export function ScorecardModal({
                       },
                     ]}
                   >
-                    {runAt == null ? '—' : signed(runAt)}
+                    {runAt == null ? '—' : formatToPar(runAt)}
                   </Text>
                 </Pressable>
               )
@@ -243,15 +242,15 @@ export function ScorecardModal({
             </Text>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{sumPar}</Text>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.hand, { width: COL.score, textAlign: 'center', fontSize: 28, lineHeight: 36, color: P.graphite }]}>
-              {sumScore > 0 ? sumScore : '—'}
+              {shownTotals.holesPlayed > 0 ? shownTotals.score : '—'}
             </Text>
             <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.kicker,
-                { width: COL.toPar, textAlign: 'right', fontSize: 15, color: sumScore === 0 ? P.ink35 : sumToPar < 0 ? P.neg : P.ink },
+                { width: COL.toPar, textAlign: 'right', fontSize: 15, color: shownTotals.holesPlayed === 0 ? P.ink35 : shownTotals.toPar < 0 ? P.neg : P.ink },
               ]}
             >
-              {sumScore > 0 ? signed(sumToPar) : '—'}
+              {shownTotals.holesPlayed > 0 ? formatToPar(shownTotals.toPar) : '—'}
             </Text>
           </View>
         </PaperSurface>

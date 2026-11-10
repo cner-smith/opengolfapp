@@ -238,6 +238,33 @@ export function roundHolesPlayed(
   }
 }
 
+// Score, par and to-par over the holes actually played (score > 0; 0 is the
+// not-played sentinel). Callers pass each hole's par already resolved by
+// resolveHole: the round's override, then the tee played, then the course
+// hole. An unplayed hole adds nothing to par either, so a partial round reads
+// against the par of the holes it played.
+export interface ScoredTotals {
+  score: number
+  par: number
+  toPar: number
+  holesPlayed: number
+}
+
+export function scoredTotals(
+  holes: readonly { score: number | null | undefined; par: number }[],
+): ScoredTotals {
+  let score = 0
+  let par = 0
+  let holesPlayed = 0
+  for (const h of holes) {
+    if (h.score == null || h.score <= 0) continue
+    score += h.score
+    par += h.par
+    holesPlayed++
+  }
+  return { score, par, toPar: score - par, holesPlayed }
+}
+
 // Ended early — kept out of round-level stats (avg / best / SG per round),
 // whose values only compare across whole rounds.
 export function isPartialRound(

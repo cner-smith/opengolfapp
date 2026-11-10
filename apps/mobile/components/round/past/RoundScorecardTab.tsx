@@ -2,7 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ScrollView, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { formatSG, inferHoleStats, roundFocusHeadline, type RoundFocus } from '@oga/core'
+import {
+  formatSG,
+  formatToPar,
+  inferHoleStats,
+  roundFocusHeadline,
+  scoredTotals,
+  type ResolvedHole,
+  type RoundFocus,
+  type ScoredTotals,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { TYPE } from '../../../lib/typography'
 import { Key, KeyText } from '../../paper/Paper'
@@ -21,7 +30,6 @@ type DrillRow = Database['public']['Tables']['drills']['Row']
 // it under the 1000-line limit: totals with a hero-size score, the SG rows,
 // the focus lede + drills, and the editable hole table ("Your card").
 
-export const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
 const sg = (n: number) => formatSG(n)
 
 const COL = { hole: 34, par: 34, score: 56, putts: 44, fwy: 36, green: 46 }
@@ -32,8 +40,8 @@ export function RoundScorecardTab({
   scoresByHoleId,
   shotCountByHoleScoreId,
   shotsByHoleScoreId,
-  runningScore,
-  runningPar,
+  resolvedHoleByNumber,
+  totals,
   handicap,
   focus,
   drills,
@@ -47,8 +55,10 @@ export function RoundScorecardTab({
   scoresByHoleId: Map<string, HoleScoreRow>
   shotCountByHoleScoreId: Map<string, number>
   shotsByHoleScoreId: Map<string, ShotRow[]>
-  runningScore: number
-  runningPar: number
+  /** Par for the tee played with the round's override folded in (resolveHole). */
+  resolvedHoleByNumber: Map<number, ResolvedHole>
+  /** scoredTotals over the round's holes. */
+  totals: ScoredTotals
   /** The player's handicap index, for the "vs a N handicap" caption. */
   handicap: number | null
   focus: RoundFocus | null
@@ -58,7 +68,6 @@ export function RoundScorecardTab({
   /** Tee selector + Save SG + Delete, below the card. */
   children: ReactNode
 }) {
-  const diff = runningScore - runningPar
   // Edge-to-edge: the system nav bar sits over the end of the scroll.
   const insets = useSafeAreaInsets()
   const sgRows: { label: string; value: number | null }[] = [
@@ -73,14 +82,14 @@ export function RoundScorecardTab({
       {/* Totals: the score at hero size, to-par beside it, SG on the right. */}
       <CoachTarget id="past.totals">
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 18 }}>
-        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: runningPar === 0 ? P.ink35 : P.ink }]}>
-          {runningPar === 0 ? '—' : runningScore}
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: totals.holesPlayed === 0 ? P.ink35 : P.ink }]}>
+          {totals.holesPlayed === 0 ? '—' : totals.score}
         </Text>
         <View style={{ flex: 1, paddingLeft: 10, paddingBottom: 8 }}>
-          {runningPar > 0 && (
+          {totals.holesPlayed > 0 && (
             <>
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, lineHeight: 26, color: P.ink }]}>{signed(diff)}</Text>
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.ink }]}>to par · {runningPar}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, lineHeight: 26, color: P.ink }]}>{formatToPar(totals.toPar)}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.ink }]}>to par · {totals.par}</Text>
             </>
           )}
         </View>
@@ -135,6 +144,7 @@ export function RoundScorecardTab({
       <HoleTable
         holes={holes}
         scoresByHoleId={scoresByHoleId}
+        resolvedHoleByNumber={resolvedHoleByNumber}
         shotCountByHoleScoreId={shotCountByHoleScoreId}
         shotsByHoleScoreId={shotsByHoleScoreId}
         onCommit={onCommit}
@@ -187,6 +197,7 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
 function HoleTable({
   holes,
   scoresByHoleId,
+  resolvedHoleByNumber,
   shotCountByHoleScoreId,
   shotsByHoleScoreId,
   onCommit,
@@ -194,6 +205,7 @@ function HoleTable({
 }: {
   holes: HoleRow[]
   scoresByHoleId: Map<string, HoleScoreRow>
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   shotCountByHoleScoreId: Map<string, number>
   shotsByHoleScoreId: Map<string, ShotRow[]>
   onCommit: (holeId: string, patch: { score?: number; putts?: number | null }) => void
@@ -201,17 +213,15 @@ function HoleTable({
 }) {
   // Per-nine totals for the title's right side ("Front nine · 47 (+11)").
   const nine = (lo: number, hi: number) => {
-    let score = 0
-    let par = 0
-    for (const h of holes) {
-      if (h.number < lo || h.number > hi) continue
-      const hs = scoresByHoleId.get(h.id)
-      if (hs?.score != null && hs.score > 0) {
-        score += hs.score
-        par += hs.par ?? h.par
-      }
-    }
-    return score > 0 ? { score, toPar: score - par } : null
+    const t = scoredTotals(
+      holes
+        .filter((h) => h.number >= lo && h.number <= hi)
+        .map((h) => ({
+          score: scoresByHoleId.get(h.id)?.score,
+          par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+        })),
+    )
+    return t.holesPlayed > 0 ? t : null
   }
   const front = nine(1, 9)
   const back = holes.length > 9 ? nine(10, 99) : null
@@ -232,7 +242,7 @@ function HoleTable({
           {parts.map((p, i) => (
             <Text maxFontSizeMultiplier={FONT_CAP} key={p.label}>
               {i > 0 ? '  ·  ' : ''}
-              {p.label} · <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{p.t.score}</Text> ({signed(p.t.toPar)})
+              {p.label} · <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{p.t.score}</Text> ({formatToPar(p.t.toPar)})
             </Text>
           ))}
         </Text>
@@ -259,9 +269,8 @@ function HoleTable({
       {holes.map((h) => {
         const hs = scoresByHoleId.get(h.id)
         const score = hs?.score ?? 0
-        // Per-round par override (#710) — hole_scores.par wins over the
-        // course hole's par when the player corrected it.
-        const par = hs?.par ?? h.par
+        // Par for the tee played, with the round's override (#710) on top.
+        const par = resolvedHoleByNumber.get(h.number)?.par ?? h.par
         const shotCount = hs ? shotCountByHoleScoreId.get(hs.id) ?? 0 : 0
         // FIR/GIR: prefer the persisted hole_scores columns — web parity,
         // a manual/web-set value wins (apps/web useRoundActions) — else
