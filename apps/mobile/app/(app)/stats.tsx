@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Linking, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import Svg, { Line as SvgLine, Polyline, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, Line as SvgLine, Polyline, Text as SvgText } from 'react-native-svg'
 import {
   clubDistanceStats,
   computeDetailedStats,
@@ -13,6 +13,7 @@ import {
   sgBreakdown,
   sgFinding,
   sgStandouts,
+  sgTrend,
   symmetricNiceTicks,
   YARDS_TO_METERS,
   type ApproachBandStat,
@@ -55,10 +56,10 @@ const CHART_BOTTOM = 28
 const TILE = { width: '47%' } as const
 
 const SERIES = [
-  { key: 'sg_off_tee', label: 'Off the tee', color: '#1F3D2C', dash: '0' },
-  { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: '6,3' },
-  { key: 'sg_around_green', label: 'Around the green', color: '#A66A1F', dash: '2,3' },
-  { key: 'sg_putting', label: 'Putting', color: '#1C211C', dash: '6,3,2,3' },
+  { key: 'sg_off_tee', trend: 'offTee', label: 'Off the tee', color: '#1F3D2C', dash: '0' },
+  { key: 'sg_approach', trend: 'approach', label: 'Approach', color: '#A33A2A', dash: '6,3' },
+  { key: 'sg_around_green', trend: 'aroundGreen', label: 'Around the green', color: '#A66A1F', dash: '2,3' },
+  { key: 'sg_putting', trend: 'putting', label: 'Putting', color: '#1C211C', dash: '6,3,2,3' },
 ] as const
 
 export default function Stats() {
@@ -141,28 +142,27 @@ export default function Stats() {
     return SERIES.map((s) => ({ ...s, value: breakdown.find((b) => b.key === s.key)?.value ?? 0 }))
   }, [wholeRounds])
 
-  // Pre-build the chart series once per rounds change. The inline
-  // ordered.map(...) inside <VictoryLine> previously rebuilt every
-  // chart-data array on every parent render (window resize, focus,
-  // etc.) and Victory then re-tessellated the lines.
-  // Skip rounds with null SG for a category — coercing null → 0
-  // here would anchor the line at zero on rounds where that
-  // category wasn't logged, and the by-the-numbers averages
-  // (which filter nulls) would no longer match what's drawn.
-  // Cumulative running average per category. Each point = average of all
-  // rounds up to and including that date, so the rightmost point matches
-  // the card value exactly.
+  // Each category's line is its raw per-round SG from core sgTrend, built once
+  // per rounds change. A round with no value in a category is a gap in that
+  // line, never a 0 (owner ruling, 2026-11-09), so a series is a list of
+  // unbroken runs; `data` is every point, for the axes.
   const chartSeries = useMemo(() => {
-    const ordered = [...wholeRounds].reverse()
-    return SERIES.map((s) => ({
-      key: s.key,
-      color: s.color,
-      dash: s.dash,
-      data: ordered.flatMap((r) => {
-        const v = r[s.key]
-        return v == null ? [] : [{ x: parseLocalDate(r.played_at).getTime(), y: v }]
-      }),
-    }))
+    const points = sgTrend(wholeRounds)
+    return SERIES.map((s) => {
+      const runs: { x: number; y: number }[][] = []
+      let run: { x: number; y: number }[] = []
+      for (const p of points) {
+        const y = p[s.trend]
+        if (y == null) {
+          if (run.length > 0) runs.push(run)
+          run = []
+        } else {
+          run.push({ x: parseLocalDate(p.date).getTime(), y })
+        }
+      }
+      if (run.length > 0) runs.push(run)
+      return { key: s.key, color: s.color, dash: s.dash, runs, data: runs.flat() }
+    })
   }, [wholeRounds])
 
   // Symmetric Y domain + ticks scaled to the actual data peak, so the axis
@@ -173,9 +173,9 @@ export default function Stats() {
     [chartSeries],
   )
 
-  // Chart plot geometry. X domain spans every series' data — series skip
-  // null rounds, so first/last x differ per series and a single-series
-  // domain would clip the others.
+  // Chart plot geometry. X domain spans every series' data — a series has
+  // gaps where a round lacks its category, so first/last x differ per series
+  // and a single-series domain would clip the others.
   const chartWidth = screenWidth - 36
   const chartPad = { top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }
   const chartPlotW = chartWidth - chartPad.left - chartPad.right
@@ -449,17 +449,31 @@ export default function Stats() {
                 {/* SG lines, one per category */}
                 {chartSeries.map(
                   (s) =>
-                    s.data.length >= 2 && (
-                      <Polyline
-                        key={s.key}
-                        points={s.data.map((d) => `${chartPx(d.x)},${chartPy(d.y)}`).join(' ')}
-                        fill="none"
-                        stroke={s.color}
-                        strokeOpacity={focus == null || focus === s.key ? 1 : 0.15}
-                        strokeWidth={focus === s.key ? 2.5 : 1.5}
-                        strokeDasharray={focus === s.key ? undefined : s.dash}
-                      />
-                    ),
+                    s.data.length >= 2 &&
+                    s.runs.map((run, i) => {
+                      const opacity = focus == null || focus === s.key ? 1 : 0.15
+                      // A value with a gap on both sides is a dot.
+                      return run.length === 1 ? (
+                        <Circle
+                          key={`${s.key}-${i}`}
+                          cx={chartPx(run[0]!.x)}
+                          cy={chartPy(run[0]!.y)}
+                          r={2.5}
+                          fill={s.color}
+                          fillOpacity={opacity}
+                        />
+                      ) : (
+                        <Polyline
+                          key={`${s.key}-${i}`}
+                          points={run.map((d) => `${chartPx(d.x)},${chartPy(d.y)}`).join(' ')}
+                          fill="none"
+                          stroke={s.color}
+                          strokeOpacity={opacity}
+                          strokeWidth={focus === s.key ? 2.5 : 1.5}
+                          strokeDasharray={focus === s.key ? undefined : s.dash}
+                        />
+                      )
+                    }),
                 )}
               </Svg>
               {focus == null && (
@@ -698,7 +712,7 @@ export default function Stats() {
                     marginBottom: 12,
                   }]}
                 >
-                  Total distance, not carry · avg (min–max)
+                  Total distance, to where the ball finished · avg (min–max)
                 </Text>
                 <View style={{ gap: 10 }}>
                   {clubDistances.map((c) => {

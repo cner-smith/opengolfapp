@@ -228,24 +228,27 @@ export function barScale(maxAbs: number): number {
   return Math.max(maxAbs, 0.5)
 }
 
+// null = the round has no value in that category: a gap in the line, never a
+// 0 (owner ruling, 2026-11-09).
 export interface SGTrendPoint {
   date: string
-  offTee: number
-  approach: number
-  aroundGreen: number
-  putting: number
+  offTee: number | null
+  approach: number | null
+  aroundGreen: number | null
+  putting: number | null
 }
 
+// Oldest to newest. A round with no SG at all is not a point.
 export function sgTrend(rounds: DetailedRound[]): SGTrendPoint[] {
   return wholeRounds(rounds)
     .reverse()
     .filter((r) => r.sg_total != null)
     .map((r) => ({
       date: r.played_at,
-      offTee: r.sg_off_tee ?? 0,
-      approach: r.sg_approach ?? 0,
-      aroundGreen: r.sg_around_green ?? 0,
-      putting: r.sg_putting ?? 0,
+      offTee: r.sg_off_tee,
+      approach: r.sg_approach,
+      aroundGreen: r.sg_around_green,
+      putting: r.sg_putting,
     }))
 }
 
