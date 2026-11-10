@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import type { Database } from '@oga/supabase'
 import { formatToPar, isFinishedRound, resolveCourseTee } from '@oga/core'
 
@@ -18,12 +17,10 @@ interface RoundHeaderProps {
   /** The running total and its to-par, for the subtitle. */
   score?: number
   toPar?: number | null
-  shareTone: 'light' | 'dark'
-  sharing: boolean
   completePending: boolean
   onBack: () => void
-  onShare: () => void
-  onToggleShareTone: () => void
+  /** Opens the share card chooser; no Share key when undefined (nothing scored). */
+  onShare?: () => void
   onComplete: () => void
 }
 
@@ -34,29 +31,11 @@ export function RoundHeader({
   holeCount,
   score,
   toPar,
-  shareTone,
-  sharing,
   completePending,
   onBack,
   onShare,
-  onToggleShareTone,
   onComplete,
 }: RoundHeaderProps) {
-  const [shareOpen, setShareOpen] = useState(false)
-  const shareRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!shareOpen) return
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !shareRef.current?.contains(e.target as Node))
-        setShareOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', close)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', close)
-    }
-  }, [shareOpen])
 
   const finalized = isFinishedRound(round)
   const name = round.courses?.facilities?.name ?? round.courses?.name ?? 'Round'
@@ -116,12 +95,10 @@ export function RoundHeader({
             {completePending ? 'Saving…' : 'Save SG'}
           </button>
         )}
-        <div ref={shareRef} className="relative">
+        {onShare && (
           <button
             type="button"
-            onClick={() => setShareOpen((o) => !o)}
-            disabled={holesPlayed === 0}
-            aria-expanded={shareOpen}
+            onClick={onShare}
             aria-haspopup="dialog"
             className="key"
             style={{ padding: '0 12px', gap: 6 }}
@@ -131,66 +108,7 @@ export function RoundHeader({
             </svg>
             Share
           </button>
-          {shareOpen && (
-            <div
-              role="dialog"
-              aria-label="Share your card"
-              className="paper-tile absolute right-0 z-20"
-              style={{ top: 'calc(100% + 12px)', width: 248, padding: 14 }}
-            >
-              <div className="font-serif italic text-caddie-ink" style={{ fontSize: 18, fontWeight: 500 }}>
-                Share your card
-              </div>
-              <div className="text-caddie-ink-dim" style={{ fontSize: 13, margin: '2px 0 12px' }}>
-                An image of the card, ready for the group chat.
-              </div>
-              <div
-                role="radiogroup"
-                aria-label="Card paper"
-                className="flex overflow-hidden"
-                style={{ border: '1px solid #1C211C', borderRadius: 3 }}
-              >
-                {(['light', 'dark'] as const).map((tone, i) => {
-                  const on = tone === shareTone
-                  return (
-                    <button
-                      key={tone}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      onClick={() => !on && onToggleShareTone()}
-                      className="relative flex-1 text-caddie-ink"
-                      style={{
-                        minHeight: 40,
-                        fontSize: 14,
-                        fontWeight: on ? 600 : 400,
-                        background: on ? '#E4DCCA' : '#FBF8F1',
-                        borderLeft: i ? '1px solid #1C211C' : 'none',
-                        boxShadow: on
-                          ? 'inset 0 0 0 2px #1C211C, inset 0 5px 0 0 rgba(28,33,28,.28)'
-                          : 'inset 0 -3px 0 0 #1C211C',
-                      }}
-                    >
-                      {tone === 'light' ? 'Light' : 'Dark'}
-                    </button>
-                  )
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onShare()
-                  setShareOpen(false)
-                }}
-                disabled={sharing}
-                className="key"
-                style={{ width: '100%', marginTop: 14 }}
-              >
-                {sharing ? 'Rendering…' : 'Share image'}
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </header>
   )
