@@ -522,10 +522,10 @@ export function RoundDetailPage() {
   )
 }
 
-// "bear-creek-golf-club-2026-10-31-scorecard.png"
+// "bear-creek-golf-club-2026-10-31"; the chooser adds the style.
 function shareFilename(course: string | null | undefined, playedAt: string) {
   const slug = (course ?? 'round').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-  return `${slug}-${playedAt}-scorecard.png`
+  return `${slug}-${playedAt}`
 }
 
 // Scorecard | Map as the paper rocker (mobile Paper.tsx Rocker, §19.1).

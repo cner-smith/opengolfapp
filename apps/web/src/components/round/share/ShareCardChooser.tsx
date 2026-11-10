@@ -77,7 +77,7 @@ function capture(node: HTMLElement, tone: ShareTone) {
 interface ShareCardChooserProps {
   open: boolean
   model: ShareCardModel
-  /** The PNG's file name, "bear-creek-2026-10-31-scorecard.png". */
+  /** The PNG's name before the style, "bear-creek-golf-club-2026-10-31". */
   filename: string
   onClose: () => void
 }
@@ -123,6 +123,15 @@ export function ShareCardChooser({ open, model, filename, onClose }: ShareCardCh
     }
   }, [open, key, tone, model])
 
+  // Focus moves into the dialog on open and back to Share on close.
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const back = document.activeElement as HTMLElement | null
+    panelRef.current?.focus()
+    return () => back?.focus()
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     setError(null)
@@ -148,7 +157,8 @@ export function ShareCardChooser({ open, model, filename, onClose }: ShareCardCh
       let blob = held && held.key === key && held.model === model ? held.blob : null
       if (!blob && nodeRef.current) blob = await capture(nodeRef.current, tone)
       if (!blob) throw new Error('Could not render the card image.')
-      const file = new File([blob], filename, { type: 'image/png' })
+      const name = `${filename}-${style}.png`
+      const file = new File([blob], name, { type: 'image/png' })
       if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: 'OGA Scorecard' })
@@ -160,7 +170,7 @@ export function ShareCardChooser({ open, model, filename, onClose }: ShareCardCh
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = filename
+      link.download = name
       // Firefox and older Safari only honour downloads from an attached anchor.
       document.body.appendChild(link)
       link.click()
@@ -192,7 +202,9 @@ export function ShareCardChooser({ open, model, filename, onClose }: ShareCardCh
         </div>
       </div>
       <div
-        className="paper-tile w-full"
+        ref={panelRef}
+        tabIndex={-1}
+        className="paper-tile w-full outline-none"
         style={{ maxWidth: 560, padding: 22, boxShadow: '3px 3px 0 rgba(28,33,28,0.55)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -285,6 +297,7 @@ function usePreviewScale(ref: React.RefObject<HTMLDivElement | null>, open: bool
     if (!open || !el) return
     const fit = () => {
       const byWidth = el.clientWidth / CARD_W
+      // 330 px: the dialog's title, thumbnails, paper switch and keys.
       const byHeight = (window.innerHeight - 330) / CARD_H
       setScale(Math.max(0.3, Math.min(0.6, byWidth, byHeight)))
     }
