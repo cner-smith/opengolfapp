@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   CLUBS,
   DEFAULT_BAG,
+  LIE_PHRASE,
   LIE_TYPES,
   MIN_SAMPLES_FOR_STATS,
   NOT_RECORDED,
@@ -62,16 +63,6 @@ const VIEWS: { value: View; label: string }[] = [
   { value: 'aim', label: 'Around the aim' },
   { value: 'tee', label: 'From the tee' },
 ]
-
-const LIE_PHRASE: Record<LieType, string> = {
-  tee: 'the tee',
-  fairway: 'the fairway',
-  rough: 'the rough',
-  sand: 'sand',
-  fringe: 'the fringe',
-  recovery: 'a recovery lie',
-  green: 'the green',
-}
 
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()

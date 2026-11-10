@@ -24,8 +24,9 @@ import {
   findingLine,
   puttMissHeadline,
   puttMissTally,
-  legacySlopeToAxes,
   mostlyTeeShots,
+  patternRowToShot,
+  LIE_PHRASE,
   readQuality,
   recentPoints,
   recentVsAll,
@@ -42,7 +43,6 @@ import {
   type LieSlopeSide,
   type LieType,
   type PlanCategory,
-  type Shot,
   type ShotContact,
   type ShotExtras,
   type ShotShape,
@@ -103,48 +103,6 @@ interface ShotRow {
   } | null
 }
 
-function rowToShot(r: ShotRow): Shot {
-  // Most stored shots predate the two-axis slope columns and only carry the
-  // legacy single-select `lie_slope`. Fall back to it so the slope filter
-  // matches whichever axis those shots recorded — otherwise every selection
-  // filters to zero. (A legacy shot only ever recorded one axis, so it can
-  // never match a forward AND a side selection at once — that's unrecoverable.)
-  const legacy = legacySlopeToAxes(r.lie_slope ?? null)
-  return {
-    id: r.id,
-    holeScoreId: r.hole_score_id,
-    userId: r.user_id,
-    shotNumber: r.shot_number,
-    aimLat: r.aim_lat ?? undefined,
-    aimLng: r.aim_lng ?? undefined,
-    endLat: r.end_lat ?? undefined,
-    endLng: r.end_lng ?? undefined,
-    startLat: r.start_lat ?? undefined,
-    startLng: r.start_lng ?? undefined,
-    distanceToTarget: r.distance_to_target ?? undefined,
-    club: (r.club as Shot['club']) ?? undefined,
-    lieType: r.lie_type ?? undefined,
-    lieSlope: r.lie_slope ?? undefined,
-    lieSlopeForward: r.lie_slope_forward ?? legacy.forward,
-    lieSlopeSide: r.lie_slope_side ?? legacy.side,
-    shotResult: (r.shot_result as Shot['shotResult']) ?? undefined,
-    shape: r.shape,
-    startLine: r.start_line,
-    playedAt: r.hole_scores?.rounds?.played_at,
-    penalty: r.penalty,
-    ob: r.ob,
-  }
-}
-
-const LIE_PHRASE: Record<LieType, string> = {
-  tee: 'the tee',
-  fairway: 'the fairway',
-  rough: 'the rough',
-  sand: 'sand',
-  fringe: 'the fringe',
-  recovery: 'a recovery lie',
-  green: 'the green',
-}
 const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
 const RECENT = 20
 const NO_ROWS: ShotRow[] = []
@@ -270,7 +228,7 @@ export default function Patterns() {
     setAttempt((a) => a + 1)
   }
 
-  const allPoints = useMemo(() => computeDispersion(shots.map(rowToShot)), [shots])
+  const allPoints = useMemo(() => computeDispersion(shots.map(patternRowToShot)), [shots])
   const points = useMemo(
     () => filterDispersionByLie(allPoints, { lieType: lieType ?? undefined, lieSlopeForward: forward ?? undefined, lieSlopeSide: side ?? undefined }),
     [allPoints, lieType, forward, side],

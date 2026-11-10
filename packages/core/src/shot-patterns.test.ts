@@ -19,6 +19,8 @@ import {
   missTally,
   missLean,
   MIN_SAMPLES_FOR_STATS,
+  patternRowToShot,
+  type PatternShotRow,
   recentVsAll,
   shapeTally,
   startLineTally,
@@ -819,5 +821,100 @@ describe('puttMissTally', () => {
     // The no-length miss is in no band; the side-only miss is in 6–15 with no corner.
     expect(t.bands.inside6.misses + t.bands.outside15.misses).toBe(0)
     expect([t.bands.mid.misses, t.bands.mid.right, t.bands.mid.short + t.bands.mid.long]).toEqual([1, 1, 0])
+  })
+})
+
+describe('patternRowToShot', () => {
+  // A 7-iron from (36.0000, -97.0000) aimed due north at (36.0010, -97.0000),
+  // finishing at the aim: enough geometry for computeDispersion to keep it.
+  const base: PatternShotRow = {
+    id: 's1',
+    hole_score_id: 'hs1',
+    user_id: 'u1',
+    shot_number: 2,
+    start_lat: 36,
+    start_lng: -97,
+    aim_lat: 36.001,
+    aim_lng: -97,
+    end_lat: 36.001,
+    end_lng: -97,
+    distance_to_target: 150,
+    club: '7i',
+    lie_type: 'fairway',
+    lie_slope: null,
+    lie_slope_forward: null,
+    lie_slope_side: null,
+    shot_result: null,
+    shape: null,
+    start_line: null,
+    penalty: false,
+    ob: false,
+    hole_scores: { rounds: { played_at: '2026-10-01' } },
+  }
+
+  it('maps a legacy-only row onto the axis its lie_slope belongs to', () => {
+    // lie_slope 'uphill' is a forward value: forward = uphill, side stays empty.
+    const up = patternRowToShot({ ...base, lie_slope: 'uphill' })
+    expect([up.lieSlope, up.lieSlopeForward, up.lieSlopeSide]).toEqual(['uphill', 'uphill', undefined])
+    // 'ball_below' is a side value: side = ball_below, forward stays empty.
+    const below = patternRowToShot({ ...base, lie_slope: 'ball_below' })
+    expect([below.lieSlopeForward, below.lieSlopeSide]).toEqual([undefined, 'ball_below'])
+  })
+
+  it('keeps a two-axis row as recorded', () => {
+    const s = patternRowToShot({ ...base, lie_slope_forward: 'downhill', lie_slope_side: 'ball_above' })
+    expect([s.lieSlope, s.lieSlopeForward, s.lieSlopeSide]).toEqual([undefined, 'downhill', 'ball_above'])
+  })
+
+  it('lets a recorded axis win over the legacy column, axis by axis', () => {
+    // forward recorded 'level' beats legacy; legacy 'ball_above' only fills the empty side.
+    const s = patternRowToShot({ ...base, lie_slope: 'ball_above', lie_slope_forward: 'level' })
+    expect([s.lieSlopeForward, s.lieSlopeSide]).toEqual(['level', 'ball_above'])
+    // Same axis: recorded forward 'level' beats legacy 'uphill'.
+    expect(patternRowToShot({ ...base, lie_slope: 'uphill', lie_slope_forward: 'level' }).lieSlopeForward).toBe('level')
+  })
+
+  it('leaves both axes empty on a row with neither', () => {
+    const s = patternRowToShot(base)
+    expect([s.lieSlope, s.lieSlopeForward, s.lieSlopeSide]).toEqual([undefined, undefined, undefined])
+  })
+
+  it('maps the rest of the row, and a row without lie columns (the club ladder)', () => {
+    expect(patternRowToShot(base)).toEqual({
+      id: 's1',
+      holeScoreId: 'hs1',
+      userId: 'u1',
+      shotNumber: 2,
+      startLat: 36,
+      startLng: -97,
+      aimLat: 36.001,
+      aimLng: -97,
+      endLat: 36.001,
+      endLng: -97,
+      distanceToTarget: 150,
+      club: '7i',
+      lieType: 'fairway',
+      lieSlope: undefined,
+      lieSlopeForward: undefined,
+      lieSlopeSide: undefined,
+      shotResult: undefined,
+      shape: null,
+      startLine: null,
+      penalty: false,
+      ob: false,
+      playedAt: '2026-10-01',
+    })
+    const ladder = patternRowToShot({
+      id: 's2', hole_score_id: 'hs1', user_id: 'u1', shot_number: 1,
+      start_lat: null, start_lng: null, aim_lat: 1, aim_lng: 1, end_lat: 1, end_lng: 1, club: 'driver',
+    })
+    expect([ladder.club, ladder.startLat, ladder.lieType, ladder.penalty, ladder.ob, ladder.playedAt])
+      .toEqual(['driver', undefined, undefined, false, false, undefined])
+  })
+
+  it('a legacy uphill shot survives the uphill filter', () => {
+    const points = computeDispersion([patternRowToShot({ ...base, lie_slope: 'uphill' })])
+    expect(filterDispersionByLie(points, { lieSlopeForward: 'uphill' })).toHaveLength(1)
+    expect(filterDispersionByLie(points, { lieSlopeSide: 'ball_above' })).toHaveLength(0)
   })
 })
