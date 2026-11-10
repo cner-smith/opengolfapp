@@ -108,20 +108,31 @@ split.
 - No config vars, options, or parameters added "for hypothetical
   future use" — add them when there's a real caller.
 
-### 3-caller rule for extraction
+### Function design
 
-Don't extract a helper, hook, or component into its own function or
-file unless it has three or more callers, or the inline version is
-genuinely unreadable. Two similar lines are fine. Single-caller
-"components" stay co-located in the parent file. If a file becomes a
-merge-conflict pain point, raise it as a separate refactor issue
-rather than splitting under a feature PR.
+- **Honest core, thin shell.** Logic lives in functions whose every
+  read and write is in the signature: arguments in, return value out.
+  State writes, Supabase and other IO, GPS, timers and logging stay in
+  a thin shell (the component, hook or screen) that calls them.
+- **Ask only for what you need.** A signature takes the fields it
+  reads, not the whole object they came from.
+- **One level of abstraction per function.** A long function becomes
+  an outline of named steps.
+- **Extract at one.** A block can become its own named function the
+  first time it's written, for its name, local reasoning or a test,
+  not only for reuse. Only extract honest pieces: don't cut code that
+  reads or writes hidden state into fragments that just move those
+  ties somewhere else.
 
-The one exception: no hand-written source file (logic or UI) goes over
-1,000 lines. A file that gets there qualifies as "genuinely unreadable"
-and should be split. Seed data (`supabase/seed.sql`), generated files
-(`packages/supabase/src/types.ts`, lockfiles) and assets are out of
-scope.
+A new *file* still needs a reason: three or more callers, or the
+1,000-line cap. Single-caller components stay co-located in the
+parent file. If a file becomes a merge-conflict pain point, raise it as
+a separate refactor issue rather than splitting under a feature PR.
+
+No hand-written source file (logic or UI) goes over 1,000 lines; one
+that gets there should be split. Seed data (`supabase/seed.sql`),
+generated files (`packages/supabase/src/types.ts`, lockfiles) and
+assets are out of scope.
 
 ### Pure logic lives in `@oga/core`
 

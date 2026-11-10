@@ -532,6 +532,87 @@ export function withReplayLies<R extends ReviewedShotRow>(rows: R[]): R[] {
   return out
 }
 
+// The end-of-hole review's Score / Putts / Penalties tickers, which become the
+// hole_scores values on save. Both review sheets (web and mobile) keep them
+// in step with the rows through these. A stroke-and-distance OB and a Penalty
+// key stroke have no row of their own, so each is worth one stroke on Score
+// and Penalties beside its shot's row (#839, #1039); Putts counts green-lie
+// rows (isPuttShot). The player can set any ticker by hand, so edits move
+// them by transitions (a re-picked value is a no-op), never by recount.
+export interface ReviewTally {
+  score: number
+  putts: number
+  penalties: number
+}
+
+export type ReviewTallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
+
+// Seeds from OB only, not the Penalty flag: no review opens on rows that
+// already carry a stored penalty today (a saved hole can't be re-reviewed,
+// #1042).
+export function seedReviewTally(rows: readonly ReviewTallyRow[]): ReviewTally {
+  const obs = obCount(rows)
+  return {
+    score: rows.length + obs,
+    putts: rows.filter((r) => isPuttShot(r.lieType)).length,
+    penalties: obs,
+  }
+}
+
+// Steps apply one at a time, each floored at 0, in the order the sheets
+// always applied them (OB, then penalty), so a hand-set 0 behaves as before.
+export function applyReviewRowEdit(
+  tally: ReviewTally,
+  before: ReviewTallyRow,
+  after: ReviewTallyRow,
+): ReviewTally {
+  const ob = Number(after.shotResult === 'ob') - Number(before.shotResult === 'ob')
+  const pen = Number(!!after.penalty) - Number(!!before.penalty)
+  const putt = Number(isPuttShot(after.lieType)) - Number(isPuttShot(before.lieType))
+  return {
+    score: floorAdd(floorAdd(tally.score, ob), pen),
+    putts: floorAdd(tally.putts, putt),
+    penalties: floorAdd(floorAdd(tally.penalties, ob), pen),
+  }
+}
+
+// Matches what the delete_shot RPC re-tallies server-side: the row's stroke,
+// plus its OB and Penalty strokes, plus a putt for a green-lie row.
+export function applyReviewRowDelete(tally: ReviewTally, row: ReviewTallyRow): ReviewTally {
+  const penaltyStrokes = Number(row.shotResult === 'ob') + Number(!!row.penalty)
+  return {
+    score: floorAdd(tally.score, -1 - penaltyStrokes),
+    putts: floorAdd(tally.putts, -Number(isPuttShot(row.lieType))),
+    penalties: floorAdd(tally.penalties, -penaltyStrokes),
+  }
+}
+
+function floorAdd(n: number, delta: number): number {
+  return Math.max(0, n + delta)
+}
+
+// Puts an edited row in place. When the edit newly flags the row OB or
+// penalty, the next row is re-checked as its replay, which keeps this row's
+// lie (#1098). The seed runs withReplayLies over the whole hole; this is the
+// same test for a flag set in the review. Nothing re-pairs ends: a row's end
+// is the next row's start by construction (ADR 0001) and no review control
+// moves a start. A control that does must re-pair the previous row's end.
+export function reviewRowsAfterEdit<R extends ReviewedShotRow>(
+  rows: readonly R[],
+  idx: number,
+  next: R,
+): R[] {
+  const before = rows[idx]
+  const penalized =
+    (next.shotResult === 'ob' && before?.shotResult !== 'ob') ||
+    (!!next.penalty && !before?.penalty)
+  const out = rows.slice()
+  out[idx] = next
+  const following = out[idx + 1]
+  if (penalized && following) out[idx + 1] = withReplayLies([next, following])[1]!
+  return out
+}
+
 // The `shots` columns the end-of-hole review owns. Derived from the insert
 // type, not hand-written: both save paths spread this into their payload, a
 // spread is exempt from excess-property checks, so this type is the only thing

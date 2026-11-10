@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  applyReviewRowEdit,
   buildInitialRows,
   clubTypicalDistance,
   combinedBreakDirection,
   formatToPar,
   haversineYards,
   horizontalBreakFromAim,
-  isPuttShot,
-  obCount,
+  reviewRowsAfterEdit,
+  seedReviewTally,
   withReplayLies,
   type Club,
+  type ReviewTally,
   type ReviewedShotRow,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
@@ -69,9 +71,8 @@ export function HoleReviewSheet({
   // putts pre-fill from the shots you placed (shot count, green-lie shots);
   // penalties is the one number no marker implies. All three become the
   // authoritative hole_scores values on save. #791
-  const [score, setScore] = useState(0)
-  const [putts, setPutts] = useState(0)
-  const [penalties, setPenalties] = useState(0)
+  const [tally, setTally] = useState<ReviewTally>({ score: 0, putts: 0, penalties: 0 })
+  const { score, putts, penalties } = tally
   // Which putt row (by shotNumber) has the on-demand aimer open, if any.
   // The read tool is a full-sheet overlay — never auto-opens. #791
   const [aimingShot, setAimingShot] = useState<number | null>(null)
@@ -165,19 +166,9 @@ export function HoleReviewSheet({
     // A re-tee keeps the OB / penalty shot's lie (#1098): reads the flags seeded above.
     seeded = withReplayLies(seeded)
     setRows(seeded)
-    // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`
-    // the seed above applied, so this is 0 only when the hole has no stored
-    // OB or the count guard rejected the seed. The ±1 bump in the
-    // result-picker's onChange below covers edits made after hydration,
-    // which this effect deliberately does not re-run for (#839).
-    setScore(seeded.length + obCount(seeded))
-    // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
-    // putting engine + putt-count readers — a bladed wedge on the green still
-    // counts as a putt here even though its row shows normal-shot UI (the
-    // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
-    setPutts(baseRows.filter((r) => isPuttShot(r.lieType)).length)
-    // Same OB rows the score just counted (#963).
-    setPenalties(obCount(seeded))
+    // Counts the OB the seed above applied (#839, #963); edits after this move
+    // the tickers through applyReviewRowEdit, since this effect does not re-run.
+    setTally(seedReviewTally(seeded))
   }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
@@ -231,9 +222,14 @@ export function HoleReviewSheet({
           Par {par} · nice — how’d it go?
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Ticker label="Score" value={score} onChange={setScore} vsPar={vsPar} />
-          <Ticker label="Putts" value={putts} onChange={setPutts} />
-          <Ticker label="Penalties" value={penalties} onChange={setPenalties} amber />
+          <Ticker label="Score" value={score} onChange={(n) => setTally((t) => ({ ...t, score: n }))} vsPar={vsPar} />
+          <Ticker label="Putts" value={putts} onChange={(n) => setTally((t) => ({ ...t, putts: n }))} />
+          <Ticker
+            label="Penalties"
+            value={penalties}
+            onChange={(n) => setTally((t) => ({ ...t, penalties: n }))}
+            amber
+          />
         </div>
       </div>
 
@@ -267,84 +263,11 @@ export function HoleReviewSheet({
               row={row}
               onOpenAimer={() => setAimingShot(row.shotNumber)}
               onChange={(next) => {
-                // The score ticker starts at struck-count (obCount is always
-                // 0 at seed time — see the hydration effect above) and stays
-                // accurate from here on by bumping ±1 every time THIS row's
-                // shotResult flips to/from 'ob'. This is the only place
-                // shotResult can become 'ob' on web (the result-picker chip
-                // in ShotRow), so a flip here is the complete signal — no
-                // other write path needs to feed this counter (#839).
-                // Compared here against `row` (this render's rows[idx]) in
-                // the plain event-handler body, deliberately NOT inside the
-                // setRows updater below — a setState call as a side effect
-                // of another state's updater function would double-fire
-                // under dev Strict Mode's intentional double-invocation of
-                // updaters, actually incrementing the score twice.
-                if (next.shotResult !== row.shotResult) {
-                  if (next.shotResult === 'ob' && row.shotResult !== 'ob') {
-                    setScore((s) => s + 1)
-                    setPenalties((n) => n + 1)
-                  } else if (
-                    row.shotResult === 'ob' &&
-                    next.shotResult !== 'ob'
-                  ) {
-                    setScore((s) => Math.max(0, s - 1))
-                    setPenalties((n) => Math.max(0, n - 1))
-                  }
-                }
-                // A penalty stroke has no row of its own either, so the
-                // Penalty key is worth one stroke on both tickers (#1039).
-                const pen = Number(!!next.penalty) - Number(!!row.penalty)
-                if (pen !== 0) {
-                  setScore((s) => Math.max(0, s + pen))
-                  setPenalties((n) => Math.max(0, n + pen))
-                }
-                // Putts follows the rows: a lie moved onto or off the green
-                // is a putt more or fewer.
-                const putt =
-                  Number(isPuttShot(next.lieType)) - Number(isPuttShot(row.lieType))
-                if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
-                const penalized =
-                  (next.shotResult === 'ob' && row.shotResult !== 'ob') ||
-                  (!!next.penalty && !row.penalty)
-                setRows((prev) => {
-                  const copy = prev.slice()
-                  copy[idx] = next
-                  // When start moves, the prior shot's end no longer
-                  // matches — keep them paired so the trajectory line
-                  // and SG distances stay consistent on save. Skip when
-                  // either coord side is null (synthetic-fallback rows
-                  // built without coords); those flows save without
-                  // start/end pairing in the first place.
-                  const prior = idx > 0 ? prev[idx - 1] : null
-                  if (
-                    prior &&
-                    next.startLat != null &&
-                    next.startLng != null &&
-                    prior.startLat != null &&
-                    prior.startLng != null &&
-                    (prior.endLat !== next.startLat ||
-                      prior.endLng !== next.startLng)
-                  ) {
-                    const priorDist = haversineYards(
-                      prior.startLat,
-                      prior.startLng,
-                      next.startLat,
-                      next.startLng,
-                    )
-                    copy[idx - 1] = {
-                      ...prior,
-                      endLat: next.startLat,
-                      endLng: next.startLng,
-                      distanceYards: priorDist,
-                    }
-                  }
-                  // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
-                  if (penalized && copy[idx + 1]) {
-                    copy[idx + 1] = withReplayLies([next, copy[idx + 1]!])[1]!
-                  }
-                  return copy
-                })
+                // `row` is this render's rows[idx]. The tally moves here, not
+                // inside the setRows updater: Strict Mode runs updaters twice
+                // and would count the edit twice (#839).
+                setTally((t) => applyReviewRowEdit(t, row, next))
+                setRows((prev) => reviewRowsAfterEdit(prev, idx, next))
               }}
             />
           ))}
@@ -367,7 +290,7 @@ export function HoleReviewSheet({
         </button>
         <button
           type="button"
-          onClick={() => onSave(rows, { score, putts, penalties })}
+          onClick={() => onSave(rows, tally)}
           disabled={saving || rows.length === 0}
           className="key key-primary flex-1 sm:flex-none"
           style={{ fontSize: 16, fontWeight: 700 }}
