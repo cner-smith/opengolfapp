@@ -33,6 +33,7 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
   const [black, setBlack] = useState(false)
   const [screenReader, setScreenReader] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const blackAt = useRef(0)
   const start = useRef(noop)
   const stop = () => {
     if (timer.current) clearTimeout(timer.current)
@@ -81,7 +82,10 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
       stop()
       timer.current = setTimeout(() => {
         if (draggingRef.current || Keyboard.isVisible()) start.current()
-        else setBlack(true)
+        else {
+          blackAt.current = Date.now()
+          setBlack(true)
+        }
       }, reading ? READING_IDLE_MS : IDLE_MS)
     }
     start.current()
@@ -109,9 +113,14 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
       setBlack(false)
       start.current()
     }, []),
-    // A finger down holds the timer; the last finger up restarts it.
+    // A finger down holds the timer; the last finger up restarts it. A touch
+    // while the overlay is still fading in (it lets touches through then)
+    // cancels the blackout.
     touchProps: {
-      onTouchStartCapture: stop,
+      onTouchStartCapture: () => {
+        stop()
+        if (black && Date.now() - blackAt.current < FADE_IN_MS) setBlack(false)
+      },
       onTouchEnd: (e: GestureResponderEvent) => {
         if (e.nativeEvent.touches.length === 0) start.current()
       },
@@ -126,12 +135,21 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
 export function IdleBlackout({ onWake }: { onWake: () => void }) {
   const opacity = useSharedValue(0)
   const lifting = useRef(false)
+  // While it fades in the screen still looks live, so touches pass through to
+  // the control under them (and the session's touch capture cancels the
+  // blackout) instead of only lifting an overlay nobody saw (#1451).
+  const [catching, setCatching] = useState(false)
   useEffect(() => {
     opacity.value = withTiming(1, { duration: FADE_IN_MS })
+    const t = setTimeout(() => setCatching(true), FADE_IN_MS)
+    return () => clearTimeout(t)
   }, [])
   const faded = useAnimatedStyle(() => ({ opacity: opacity.value }))
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 200 }, faded]}>
+    <Animated.View
+      pointerEvents={catching ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 200 }, faded]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Wake the screen"
