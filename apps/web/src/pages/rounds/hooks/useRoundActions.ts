@@ -626,6 +626,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       activeHoleShots,
       round.data,
       scoresByHoleId,
+      resolvedPar,
       ensureRealHole,
       teeOverride,
       pinOverride,
