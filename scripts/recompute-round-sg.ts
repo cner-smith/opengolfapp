@@ -11,7 +11,7 @@
 // is checked against the ORIGINAL rows; the new SG is computed from the repaired
 // ones.
 // Mirrors the SG step of the finish flow (core finishRoundPlan): per-round par
-// overrides, a category with no valued shot stored as null (#1436), the
+// overrides, a category with no valued shot stored as null (#1436; per hole #1450), the
 // player's handicap (DEFAULT_HANDICAP when unset).
 // Rounds don't record the handicap SG was first computed with, so the current
 // profile value is used.
@@ -33,7 +33,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_HANDICAP, applyParOverrides, computeRoundSG, haversineYards, roundSGPatch } from '@oga/core'
+import { DEFAULT_HANDICAP, applyParOverrides, computeRoundSG, haversineYards, roundSGPatch, sgCategoryColumns } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
@@ -149,7 +149,8 @@ async function main() {
     // every hole with stored SG reproduces (a shot synced after the finish onto
     // a never-stamped hole moves the round total but not any stamped hole); the
     // round total then moves by the stamped holes' changes alone.
-    const stamped = holeScores.filter((h) => SG.every((k) => h[k] != null))
+    // A stamped hole has SG in at least one category; its nulls are the engine's 0 (#1450).
+    const stamped = holeScores.filter((h) => SG.some((k) => h[k] != null))
     const holesFit = (out: ReturnType<typeof computeRoundSG>) =>
       stamped.length > 0 &&
       stamped.every((h) => {
@@ -197,12 +198,13 @@ async function main() {
       const prev = before.perHoleScore[id]
       if (!stored || !prev || !stampedIds.has(id)) return []
       const { sg_total: _p, ...old } = stamp(prev)
-      const { sg_total: _n, ...nextHole } = stamp(sg)
-      if (SG.some((k) => stored[k] !== old[k])) {
+      if (SG.some((k) => (stored[k] ?? 0) !== old[k])) {
         skipped.holesNotReproduced++
         return []
       }
-      return SG.some((k) => old[k] !== nextHole[k]) ? [{ id, old, next: nextHole }] : []
+      const nextHole = sgCategoryColumns(sg, result.perHoleCounted[id]!)
+      const was = Object.fromEntries(SG.map((k) => [k, stored[k]]))
+      return SG.some((k) => stored[k] !== nextHole[k]) ? [{ id, old: was, next: nextHole }] : []
     })
     if (!roundChanged && holesChanged.length === 0 && repaired.fixes.length === 0) continue
     puttFixCount += repaired.fixes.length

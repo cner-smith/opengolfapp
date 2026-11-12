@@ -140,7 +140,8 @@ export default function Stats() {
 
   const avgs = useMemo(() => {
     const { breakdown } = sgBreakdown(wholeRounds)
-    return SERIES.map((s) => ({ ...s, value: breakdown.find((b) => b.key === s.key)?.value ?? 0 }))
+    // null = no round has the category: a gap ("—"), never 0 (#1450).
+    return SERIES.map((s) => ({ ...s, value: breakdown.find((b) => b.key === s.key)?.value ?? null }))
   }, [wholeRounds])
 
   // Each category's line is its raw per-round SG from core sgTrend, built once
@@ -330,15 +331,15 @@ export default function Stats() {
                       style={[TYPE.serif, {
                         fontSize: 26,
                         color:
-                          s.value > 0
+                          s.value != null && s.value > 0
                             ? P.forest
-                            : s.value < 0
+                            : s.value != null && s.value < 0
                               ? P.neg
                               : P.inkDim,
                         fontVariant: ['tabular-nums'],
                       }]}
                     >
-                      {formatSG(s.value)}
+                      {s.value == null ? '—' : formatSG(s.value)}
                     </Text>
                   </PaperTile>
                 ))}

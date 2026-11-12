@@ -14,16 +14,17 @@ const row = (
 })
 
 describe('sgBreakdown', () => {
-  it('returns zeros and maxAbs of 0 for empty rounds', () => {
+  it('returns gaps (null) and maxAbs of 0 for empty rounds', () => {
     const { breakdown, maxAbs } = sgBreakdown([])
-    expect(breakdown.map((b) => b.value)).toEqual([0, 0, 0, 0])
+    expect(breakdown.map((b) => b.value)).toEqual([null, null, null, null])
     expect(maxAbs).toBe(0)
   })
 
-  it('treats all-null categories as 0 (rendered as neutral bar)', () => {
-    const { breakdown, maxAbs } = sgBreakdown([row(null, null, null, null)])
-    expect(breakdown.map((b) => b.value)).toEqual([0, 0, 0, 0])
-    expect(maxAbs).toBe(0)
+  it('a category no round has is a gap (null), never 0 (owner rule, #1450)', () => {
+    // Off the tee: 0.30 and 0.10 → 0.20. Putting: one real 0 → 0. The other two: no round → null.
+    const { breakdown, maxAbs } = sgBreakdown([row(0.3, null, null, 0), row(0.1, null, null, null)])
+    expect(breakdown.map((b) => b.value)).toEqual([0.2, null, null, 0])
+    expect(maxAbs).toBe(0.2)
   })
 
   it('averages non-null values per category, ignoring nulls', () => {

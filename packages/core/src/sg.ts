@@ -13,6 +13,8 @@ export interface RoundSGResult {
   perHoleScore: Record<string, SGBreakdown>
   /** True where at least one shot this round was valued in that category. */
   counted: Record<SGCategoryKey, boolean>
+  /** The same, per hole score id (only holes with shots). */
+  perHoleCounted: Record<string, Record<SGCategoryKey, boolean>>
   totals: {
     totalScore: number
     totalPutts: number
@@ -25,7 +27,7 @@ export interface RoundSGResult {
   }
 }
 
-type SGCategoryKey = Exclude<keyof SGBreakdown, 'total'>
+export type SGCategoryKey = Exclude<keyof SGBreakdown, 'total'>
 
 const CATEGORY_KEY: Record<ShotCategory, SGCategoryKey> = {
   off_tee: 'offTee',
@@ -77,6 +79,7 @@ export function computeRoundSG(args: {
   const { holes, holeScores, shots, handicap } = args
   const holesById = new Map(holes.map((h) => [h.id, h]))
   const perHoleScore: Record<string, SGBreakdown> = {}
+  const perHoleCounted: Record<string, Record<SGCategoryKey, boolean>> = {}
   const round: SGBreakdown = {
     offTee: 0,
     approach: 0,
@@ -105,10 +108,14 @@ export function computeRoundSG(args: {
       isLastShot: idx === holeShots.length - 1,
     }))
     const sg = calculateRoundSG(ctxList, handicap)
+    const holeCounted = { offTee: false, approach: false, aroundGreen: false, putting: false }
     for (const shot of perShotSG(ctxList, handicap)) {
-      if (shot) counted[CATEGORY_KEY[shot.category]] = true
+      if (!shot) continue
+      holeCounted[CATEGORY_KEY[shot.category]] = true
+      counted[CATEGORY_KEY[shot.category]] = true
     }
     perHoleScore[hs.id] = sg
+    perHoleCounted[hs.id] = holeCounted
     round.offTee += sg.offTee
     round.approach += sg.approach
     round.aroundGreen += sg.aroundGreen
@@ -142,6 +149,7 @@ export function computeRoundSG(args: {
     round,
     perHoleScore,
     counted,
+    perHoleCounted,
     totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir, girTotal },
   }
 }

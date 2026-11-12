@@ -124,11 +124,12 @@ Deno.serve(async (req) => {
       courseName: round.courses?.name ?? 'your round',
       totalScore: round.total_score ?? 0,
       par,
+      // null = no valued shot in that category: its bar is left out (#1450).
       sg: {
-        offTee: round.sg_off_tee ?? 0,
-        approach: round.sg_approach ?? 0,
-        aroundGreen: round.sg_around_green ?? 0,
-        putting: round.sg_putting ?? 0,
+        offTee: round.sg_off_tee,
+        approach: round.sg_approach,
+        aroundGreen: round.sg_around_green,
+        putting: round.sg_putting,
       },
     })
 

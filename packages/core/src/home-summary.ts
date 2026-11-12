@@ -51,12 +51,11 @@ export function homeSummary<T extends HomeSummaryRound>(rounds: readonly T[]): H
   // Rounds ended early stay out: their totals don't compare with whole rounds (#911).
   const whole = rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, WINDOW)
   const { breakdown } = sgBreakdown(whole)
-  // A category no round has is not counted (owner ruling, 2026-11-09):
-  // sgBreakdown reads it as 0, so it is nulled here.
+  // A category no round has is a gap, not counted (owner ruling, 2026-11-09).
   const areas = SG_AREAS.map(({ key, label }) => ({
     key,
     label,
-    value: whole.some((r) => r[key] != null) ? breakdown.find((b) => b.key === key)!.value : null,
+    value: breakdown.find((b) => b.key === key)!.value,
   }))
   const counted = areas
     .filter((a): a is HomeSummaryArea & { value: number } => a.value != null)

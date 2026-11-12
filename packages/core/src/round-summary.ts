@@ -8,11 +8,12 @@ export interface RoundSummaryInput {
   courseName: string
   totalScore: number
   par: number
+  /** null = no valued shot in that category: the email leaves its bar out. */
   sg: {
-    offTee: number
-    approach: number
-    aroundGreen: number
-    putting: number
+    offTee: number | null
+    approach: number | null
+    aroundGreen: number | null
+    putting: number | null
   }
 }
 
@@ -63,15 +64,22 @@ export function buildRoundSummary(input: RoundSummaryInput): RoundSummaryContent
   const { courseName, totalScore, par, sg } = input
   const toPar = totalScore - par
   const label = toParLabel(toPar)
+  const categories: [string, number | null][] = [
+    ['Off the tee', sg.offTee],
+    ['Approach', sg.approach],
+    ['Around green', sg.aroundGreen],
+    ['Putting', sg.putting],
+  ]
+  const bars = categories.flatMap(([barLabel, value]) =>
+    value == null ? [] : [{ label: barLabel, value, widthPct: barWidth(value) }],
+  )
   return {
     subject: `Your round at ${courseName}: ${totalScore} (${label} to par)`,
     hero: { score: totalScore, toPar, toParLabel: label },
-    bars: [
-      { label: 'Off the tee', value: sg.offTee, widthPct: barWidth(sg.offTee) },
-      { label: 'Approach', value: sg.approach, widthPct: barWidth(sg.approach) },
-      { label: 'Around green', value: sg.aroundGreen, widthPct: barWidth(sg.aroundGreen) },
-      { label: 'Putting', value: sg.putting, widthPct: barWidth(sg.putting) },
-    ],
-    lede: "Here's how your round broke down.",
+    bars,
+    lede:
+      bars.length > 0
+        ? "Here's how your round broke down."
+        : 'No strokes gained this round: no tracked shots to measure.',
   }
 }

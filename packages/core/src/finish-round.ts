@@ -3,7 +3,8 @@ import { adjustedScore, calculateDifferential } from './handicap'
 import { resolveCourseTee } from './hole-tees'
 import { inferHoleStats } from './holeInference'
 import { handicapHoleCount, obCount, playedRowsForDifferential } from './round'
-import { computeRoundSG, type RoundSGResult } from './sg'
+import { computeRoundSG, type RoundSGResult, type SGCategoryKey } from './sg'
+import type { SGBreakdown } from './types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -28,17 +29,20 @@ export interface HoleSGUpsert {
   round_id: string
   hole_id: string
   score: number
-  sg_off_tee: number
-  sg_approach: number
-  sg_around_green: number
-  sg_putting: number
-}
-
-export interface RoundSGPatch {
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
   sg_putting: number | null
+}
+
+export interface SGCategoryColumns {
+  sg_off_tee: number | null
+  sg_approach: number | null
+  sg_around_green: number | null
+  sg_putting: number | null
+}
+
+export interface RoundSGPatch extends SGCategoryColumns {
   sg_total: number | null
 }
 
@@ -200,14 +204,22 @@ export function roundDifferential(args: {
 // that have shots and is null when none do.
 export function roundSGPatch(result: Pick<RoundSGResult, 'round' | 'counted'>): RoundSGPatch {
   const { round, counted } = result
-  const value = (k: keyof RoundSGResult['counted']) => (counted[k] ? round2(round[k]) : null)
   const any = counted.offTee || counted.approach || counted.aroundGreen || counted.putting
+  return { ...sgCategoryColumns(round, counted), sg_total: any ? round2(round.total) : null }
+}
+
+// The four stored SG columns, rounded to the cent; null where no shot was
+// valued in that category (#1436 for the round, #1450 for each hole).
+export function sgCategoryColumns(
+  sg: SGBreakdown,
+  counted: Record<SGCategoryKey, boolean>,
+): SGCategoryColumns {
+  const value = (k: SGCategoryKey) => (counted[k] ? round2(sg[k]) : null)
   return {
     sg_off_tee: value('offTee'),
     sg_approach: value('approach'),
     sg_around_green: value('aroundGreen'),
     sg_putting: value('putting'),
-    sg_total: any ? round2(round.total) : null,
   }
 }
 
@@ -215,18 +227,10 @@ function holeSGRows(result: RoundSGResult, holeScores: HoleScoreRow[]): HoleSGUp
   const byId = new Map(holeScores.map((hs) => [hs.id, hs]))
   return Object.entries(result.perHoleScore).flatMap(([id, sg]) => {
     const hs = byId.get(id)
-    if (!hs) return []
+    const counted = result.perHoleCounted[id]
+    if (!hs || !counted) return []
     return [
-      {
-        id,
-        round_id: hs.round_id,
-        hole_id: hs.hole_id,
-        score: hs.score,
-        sg_off_tee: round2(sg.offTee),
-        sg_approach: round2(sg.approach),
-        sg_around_green: round2(sg.aroundGreen),
-        sg_putting: round2(sg.putting),
-      },
+      { id, round_id: hs.round_id, hole_id: hs.hole_id, score: hs.score, ...sgCategoryColumns(sg, counted) },
     ]
   })
 }

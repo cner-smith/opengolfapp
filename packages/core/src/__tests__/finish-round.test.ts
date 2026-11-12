@@ -78,7 +78,7 @@ describe('finishRoundPlan', () => {
     expect(plan).toEqual({
       inferUpserts: [{ id: 'a', round_id: 'r', hole_id: 'h1', score: 6, fairway_hit: false, gir: false }],
       sgRows: [
-        { id: 'a', round_id: 'r', hole_id: 'h1', score: 6, sg_off_tee: -1.52, sg_approach: 1.3, sg_around_green: 0, sg_putting: -0.35 },
+        { id: 'a', round_id: 'r', hole_id: 'h1', score: 6, sg_off_tee: -1.52, sg_approach: 1.3, sg_around_green: null, sg_putting: -0.35 },
       ],
       roundPatch: {
         sg_off_tee: -1.52, sg_approach: 1.3, sg_around_green: null, sg_putting: -0.35, sg_total: -0.57,
@@ -108,7 +108,7 @@ describe('finishRoundPlan', () => {
     )
     expect(plan.inferUpserts).toEqual([{ id: 'a', round_id: 'r', hole_id: 'h1', score: 3, fairway_hit: null, gir: true }])
     expect(plan.sgRows).toEqual([
-      { id: 'a', round_id: 'r', hole_id: 'h1', score: 3, sg_off_tee: 0, sg_approach: 1.3, sg_around_green: 0, sg_putting: -0.35 },
+      { id: 'a', round_id: 'r', hole_id: 'h1', score: 3, sg_off_tee: null, sg_approach: 1.3, sg_around_green: null, sg_putting: -0.35 },
     ])
     expect(plan.roundPatch).toEqual({
       sg_off_tee: null, sg_approach: 1.3, sg_around_green: null, sg_putting: -0.35, sg_total: 0.95,
@@ -197,6 +197,40 @@ describe('finishRoundPlan', () => {
     )
     expect(plan.roundPatch).toMatchObject({
       sg_off_tee: null, sg_approach: null, sg_around_green: null, sg_putting: null, sg_total: null,
+    })
+    expect(plan.sgRows).toEqual([
+      { id: 'a', round_id: 'r', hole_id: 'h1', score: 2, sg_off_tee: null, sg_approach: null, sg_around_green: null, sg_putting: null },
+    ])
+  })
+
+  it('per-hole SG: a category with no valued shot on that hole is null, even when the round counts it', () => {
+    // Two par 3s at handicap 15.
+    // Hole 1: 150 yd tee shot to 10 ft, two putts.
+    //   1: 3.95 − 1.65 − 1 = 1.30 (approach) · 2: 1.65 − 1.10 − 1 = −0.45 · 3: 1.10 − 1 = 0.10 → putting −0.35
+    //   around green: no shot on this hole → null (the round counts it from hole 2).
+    // Hole 2: 150 yd tee shot to 10 yd off the green, chipped in.
+    //   1: 3.95 − 2.73 − 1 = 0.22 (approach) · 2: 2.73 − 1 = 1.73 (around green); putting → null.
+    // Off the tee: no shot anywhere → null on both holes and the round.
+    // Round: approach 1.52, around green 1.73, putting −0.35, total 2.90.
+    const plan = finishRoundPlan(
+      input({
+        holes: [hole({ id: 'h1', par: 3 }), hole({ id: 'h2', number: 2, par: 3 })],
+        holeScores: [hs({ id: 'a', hole_id: 'h1', score: 3 }), hs({ id: 'b', hole_id: 'h2', score: 2 })],
+        shots: [
+          shot({ hole_score_id: 'a', shot_number: 1, lie_type: 'tee', distance_to_target: 150 }),
+          shot({ hole_score_id: 'a', shot_number: 2, lie_type: 'green', putt_distance_ft: 10 }),
+          shot({ hole_score_id: 'a', shot_number: 3, lie_type: 'green', putt_distance_ft: 3 }),
+          shot({ hole_score_id: 'b', shot_number: 1, lie_type: 'tee', distance_to_target: 150 }),
+          shot({ hole_score_id: 'b', shot_number: 2, lie_type: 'rough', distance_to_target: 10 }),
+        ],
+      }),
+    )
+    expect(plan.sgRows).toEqual([
+      { id: 'a', round_id: 'r', hole_id: 'h1', score: 3, sg_off_tee: null, sg_approach: 1.3, sg_around_green: null, sg_putting: -0.35 },
+      { id: 'b', round_id: 'r', hole_id: 'h2', score: 2, sg_off_tee: null, sg_approach: 0.22, sg_around_green: 1.73, sg_putting: null },
+    ])
+    expect(plan.roundPatch).toMatchObject({
+      sg_off_tee: null, sg_approach: 1.52, sg_around_green: 1.73, sg_putting: -0.35, sg_total: 2.9,
     })
   })
 
