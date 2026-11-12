@@ -33,6 +33,17 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
   const [black, setBlack] = useState(false)
   const [screenReader, setScreenReader] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The overlay fades in for FADE_IN_MS. One state drives both the overlay's
+  // pass-through and the capture below that cancels the blackout, so the two
+  // can't disagree (#1451).
+  const [fadedIn, setFadedIn] = useState(false)
+  useEffect(() => {
+    setFadedIn(false)
+    if (!black) return
+    const t = setTimeout(() => setFadedIn(true), FADE_IN_MS)
+    return () => clearTimeout(t)
+  }, [black])
+  const fading = black && !fadedIn
   const start = useRef(noop)
   const stop = () => {
     if (timer.current) clearTimeout(timer.current)
@@ -105,13 +116,19 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
 
   return {
     black,
+    catching: black && fadedIn,
     wake: useCallback(() => {
       setBlack(false)
       start.current()
     }, []),
-    // A finger down holds the timer; the last finger up restarts it.
+    // A finger down holds the timer; the last finger up restarts it. A touch
+    // while the overlay is still fading in (it lets touches through then)
+    // cancels the blackout.
     touchProps: {
-      onTouchStartCapture: stop,
+      onTouchStartCapture: () => {
+        stop()
+        if (fading) setBlack(false)
+      },
       onTouchEnd: (e: GestureResponderEvent) => {
         if (e.nativeEvent.touches.length === 0) start.current()
       },
@@ -123,7 +140,10 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
 // Plain black: on OLED those pixels are off, which is the point. Mounted last in
 // the session root, over the review sheet, tips and menu. The first tap only
 // lifts it.
-export function IdleBlackout({ onWake }: { onWake: () => void }) {
+// While it fades in the screen still looks live, so `catching` is false and
+// touches pass through to the control under them (the session's touch capture
+// cancels the blackout) instead of only lifting an overlay nobody saw (#1451).
+export function IdleBlackout({ onWake, catching }: { onWake: () => void; catching: boolean }) {
   const opacity = useSharedValue(0)
   const lifting = useRef(false)
   useEffect(() => {
@@ -131,7 +151,10 @@ export function IdleBlackout({ onWake }: { onWake: () => void }) {
   }, [])
   const faded = useAnimatedStyle(() => ({ opacity: opacity.value }))
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 200 }, faded]}>
+    <Animated.View
+      pointerEvents={catching ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, { backgroundColor: '#000', zIndex: 200 }, faded]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Wake the screen"
