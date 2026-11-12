@@ -252,6 +252,21 @@ describe('shareCardModel — the words', () => {
     expect(m.course).toBe('Round')
   })
 
+  it('fairways and GIR count only the holes where they were recorded', () => {
+    // Three par 4s: fairway recorded on 1 (hit) and 2 (missed), blank on 3 → 1 of 2.
+    // GIR recorded on 1 (hit) and 3 (missed), blank on 2 → 1 of 2.
+    const m = shareCardModel({
+      ...base,
+      holes: [
+        one({ score: 4, fairway_hit: true, gir: true }, 4, 1),
+        one({ score: 5, fairway_hit: false }, 4, 2),
+        one({ score: 5, gir: false }, 4, 3),
+      ],
+    })!
+    expect(m.facts.fairways).toEqual({ hit: 1, of: 2 })
+    expect(m.facts.gir).toEqual({ hit: 1, of: 2 })
+  })
+
   it('facts not recorded are null, not 0', () => {
     const m = shareCardModel({ ...base, holes: [one({ score: 5 }), one({ score: 3 }, 3, 2)] })!
     expect(m.facts).toEqual({ putts: null, fairways: null, gir: null, penalties: 0, penaltyNote: null })

@@ -181,12 +181,13 @@ function SGBarRow({ label, value, max }: { label: string; value: number | null; 
 // the rest of the numbers as a divided list, then the round's actions.
 export function RoundSide({
   round,
-  holesPlayed,
+  girOf,
   totalRoundsLogged,
   children,
 }: {
   round: RoundRow
-  holesPlayed: number
+  /** Played holes with GIR recorded: a blank is not a miss. */
+  girOf: number
   totalRoundsLogged: number
   children: ReactNode
 }) {
@@ -206,9 +207,9 @@ export function RoundSide({
     {
       label: 'Greens in regulation',
       value:
-        round.gir != null ? (
+        round.gir != null && girOf > 0 ? (
           <>
-            {round.gir} <Of n={holesPlayed} />
+            {round.gir} <Of n={girOf} />
           </>
         ) : (
           '—'
