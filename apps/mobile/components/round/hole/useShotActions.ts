@@ -7,6 +7,7 @@ import {
   combinedPuttResult,
   isPuttShot,
   type CaptureMode,
+  type ReviewedRowWithId,
 } from '@oga/core'
 import { supabase, userMessage } from '../../../lib/supabase'
 import {
@@ -22,7 +23,7 @@ import type { LatLng } from '../HoleMap'
 import { PUTTING_RADIUS_YARDS, type ActiveDialog, type PuttingValue, type ShotLoggerValue } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
-import { writeHoleSummary, type ReviewedRowWithId } from './saveHoleSummary'
+import { writeHoleSummary } from './saveHoleSummary'
 import { useRoundEnd, type UseRoundEndResult } from './useRoundEnd'
 import { useShotEdits, type UseShotEditsResult } from './useShotEdits'
 
@@ -692,7 +693,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setSaving(true)
     logDiag('hole_save_start', { hole: currentHole.number, rows: rows.length, score: summary.score })
     try {
-      await writeHoleSummary({ user, currentHoleScore, currentHole, rows, summary, setHoleScores })
+      await writeHoleSummary({
+        user,
+        currentHoleScore,
+        // The par the review sheet shows (LiveRoundSession's HoleReviewSheet).
+        par: data.resolvedHole?.par ?? currentHole.par,
+        rows,
+        summary,
+        setHoleScores,
+      })
       logDiag('hole_save_ok', { hole: currentHole.number })
       setRoundState('PLACE_BALL')
       advanceAfterHole()
