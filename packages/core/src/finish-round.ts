@@ -1,6 +1,6 @@
 import type { Database } from '@oga/supabase'
 import { adjustedScore, calculateDifferential } from './handicap'
-import { resolveCourseTee } from './hole-tees'
+import { resolveCourseTee, resolveHole } from './hole-tees'
 import { inferHoleStats } from './holeInference'
 import { handicapHoleCount, obCount, playedRowsForDifferential } from './round'
 import { computeRoundSG, type RoundSGResult, type SGCategoryKey } from './sg'
@@ -10,6 +10,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 // What finishing a round writes, worked out from what was read. Web and mobile
 // both fetch, call finishRoundPlan, then write inferUpserts → sgRows →
@@ -62,6 +63,8 @@ export interface FinishRoundInput {
   holeScores: HoleScoreRow[]
   shots: ShotRow[]
   tees: CourseTeeRow[]
+  /** The course's hole_tees rows (any tee); the finish keeps the round tee's. */
+  holeTees: HoleTeeRow[]
   courseTeeId: string | null | undefined
   teeColor: string | null | undefined
   /** rounds.hole_count. */
@@ -78,11 +81,12 @@ export interface FinishRoundPlan {
 }
 
 export function finishRoundPlan(input: FinishRoundInput): FinishRoundPlan {
-  const holes = applyParOverrides(input.holes, input.holeScores)
+  const tee = resolveCourseTee(input.tees, input.courseTeeId, input.teeColor)
+  const teeRows = tee ? input.holeTees.filter((ht) => ht.course_tee_id === tee.id) : []
+  const holes = applyParOverrides(input.holes, input.holeScores, teeRows)
   const repaired = repairStampedZeros(input.holeScores, input.shots)
   const { holeScores, upserts } = inferHoleStatUpserts(repaired, holes, input.shots)
   const result = computeRoundSG({ holes, holeScores, shots: input.shots, handicap: input.handicap })
-  const tee = resolveCourseTee(input.tees, input.courseTeeId, input.teeColor)
   const differential = roundDifferential({
     tee,
     roundHoleCount: input.roundHoleCount,
@@ -111,16 +115,20 @@ export function finishRoundPlan(input: FinishRoundInput): FinishRoundPlan {
   }
 }
 
-// Per-round par override (#710): a hole_scores.par set during the round wins
-// over the course hole's par for everything stamped at the finish. Unique
-// (round_id, hole_id) means each hole has at most one override.
-export function applyParOverrides(holes: HoleRow[], holeScores: HoleScoreRow[]): HoleRow[] {
-  const overrides = new Map(
-    holeScores.filter((hs) => hs.par != null).map((hs) => [hs.hole_id, hs.par as number]),
-  )
+// Each hole's par as played, for everything stamped at the finish: the
+// round's hole_scores.par (#710) over the played tee's hole_tees.par over
+// holes.par (owner rule Q4, resolveHole; #1456). `teeRows` are the played
+// tee's hole_tees rows only.
+export function applyParOverrides(
+  holes: HoleRow[],
+  holeScores: HoleScoreRow[],
+  teeRows: HoleTeeRow[],
+): HoleRow[] {
+  const scoreByHole = new Map(holeScores.map((hs) => [hs.hole_id, hs]))
+  const teeRowByHole = new Map(teeRows.map((ht) => [ht.hole_id, ht]))
   return holes.map((h) => {
-    const par = overrides.get(h.id)
-    return par != null && par !== h.par ? { ...h, par } : h
+    const { par } = resolveHole(h, teeRowByHole.get(h.id), { par: scoreByHole.get(h.id)?.par })
+    return par !== h.par ? { ...h, par } : h
   })
 }
 
