@@ -83,10 +83,9 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
       ['golfpad:GPE2E1', 'Whistling Straits'],
       ['golfpad:GPE2E2', 'Pine Ridge Golf Club'],
     ])
-    for (const r of rounds ?? []) {
-      expect(r.completed_at).toEqual(expect.any(String))
-      expect(r.sg_total).toEqual(expect.any(Number))
-    }
+    for (const r of rounds ?? []) expect(r.completed_at).toEqual(expect.any(String))
+    // Pine Ridge has no shots: no SG category is counted, so no total (#1436).
+    expect(rounds?.map((r) => r.sg_total)).toEqual([expect.any(Number), null])
     type Hs = { score: number; holes: { number: number } | null; shots: { shot_number: number; club: string | null; putt_distance_ft: number | null }[] }
     const straitsHoles = (rounds![0]!.hole_scores as Hs[]).sort((a, b) => a.holes!.number - b.holes!.number)
     expect(straitsHoles.map((h) => [h.holes!.number, h.score, h.shots.length])).toEqual([

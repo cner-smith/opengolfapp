@@ -1,5 +1,6 @@
-import { calculateRoundSG } from './sg-calculator'
+import { calculateRoundSG, perShotSG } from './sg-calculator'
 import type { ShotWithContext } from './sg-calculator'
+import type { ShotCategory } from './constants'
 import type { SGBreakdown, Shot } from './types'
 import type { Database } from '@oga/supabase'
 
@@ -10,6 +11,8 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 export interface RoundSGResult {
   round: SGBreakdown
   perHoleScore: Record<string, SGBreakdown>
+  /** True where at least one shot this round was valued in that category. */
+  counted: Record<SGCategoryKey, boolean>
   totals: {
     totalScore: number
     totalPutts: number
@@ -17,6 +20,15 @@ export interface RoundSGResult {
     fairwaysTotal: number
     gir: number
   }
+}
+
+type SGCategoryKey = Exclude<keyof SGBreakdown, 'total'>
+
+const CATEGORY_KEY: Record<ShotCategory, SGCategoryKey> = {
+  off_tee: 'offTee',
+  approach: 'approach',
+  around_green: 'aroundGreen',
+  putting: 'putting',
 }
 
 // DB-string → narrow-union casts. Postgres CHECK constraints (migrations
@@ -69,6 +81,12 @@ export function computeRoundSG(args: {
     putting: 0,
     total: 0,
   }
+  const counted: Record<SGCategoryKey, boolean> = {
+    offTee: false,
+    approach: false,
+    aroundGreen: false,
+    putting: false,
+  }
 
   for (const hs of holeScores) {
     const hole = holesById.get(hs.hole_id)
@@ -84,6 +102,9 @@ export function computeRoundSG(args: {
       isLastShot: idx === holeShots.length - 1,
     }))
     const sg = calculateRoundSG(ctxList, handicap)
+    for (const shot of perShotSG(ctxList, handicap)) {
+      if (shot) counted[CATEGORY_KEY[shot.category]] = true
+    }
     perHoleScore[hs.id] = sg
     round.offTee += sg.offTee
     round.approach += sg.approach
@@ -102,7 +123,8 @@ export function computeRoundSG(args: {
     totalPutts += hs.putts ?? 0
     if (hs.gir === true) gir += 1
     const hole = holesById.get(hs.hole_id)
-    if (hole && hole.par > 3) {
+    // Score 0 = not played: a round ended early counts only its played holes.
+    if (hole && hole.par > 3 && hs.score > 0) {
       fairwaysTotal += 1
       if (hs.fairway_hit === true) fairwaysHit += 1
     }
@@ -111,6 +133,7 @@ export function computeRoundSG(args: {
   return {
     round,
     perHoleScore,
+    counted,
     totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir },
   }
 }

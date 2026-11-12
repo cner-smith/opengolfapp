@@ -270,7 +270,7 @@ function underParName(h: ShareCardHole): string {
 }
 
 // Style 5 needs per-hole SG to draw: a round whose holes stored none (a round
-// with no shots saves sg_total 0 today, #1436) has no SG to share.
+// with no valued shot saves sg_total null, #1436) has no SG to share.
 function roundSG(
   round: ShareCardInput['round'],
   handicapIndex: number | null,

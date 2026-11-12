@@ -10,8 +10,9 @@
 // pin. Typed or imported lengths don't match and are left alone. The stored SG
 // is checked against the ORIGINAL rows; the new SG is computed from the repaired
 // ones.
-// Mirrors the SG step of the finish flow (apps/mobile/lib/completeRound.ts):
-// per-round par overrides, the player's handicap (DEFAULT_HANDICAP when unset).
+// Mirrors the SG step of the finish flow (core finishRoundPlan): per-round par
+// overrides, a category with no valued shot stored as null (#1436), the
+// player's handicap (DEFAULT_HANDICAP when unset).
 // Rounds don't record the handicap SG was first computed with, so the current
 // profile value is used.
 //
@@ -32,7 +33,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_HANDICAP, computeRoundSG, haversineYards } from '@oga/core'
+import { DEFAULT_HANDICAP, applyParOverrides, computeRoundSG, haversineYards, roundSGPatch } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
@@ -131,19 +132,17 @@ async function main() {
       .select('*')
       .in('hole_score_id', holeScores.map((h) => h.id))
     if (shotsRes.error) throw shotsRes.error
-    const parOverride = new Map(holeScores.filter((h) => h.par != null).map((h) => [h.hole_id, h.par!]))
-    const holes = ((holesRes.data ?? []) as HoleRow[]).map((h) =>
-      parOverride.has(h.id) ? { ...h, par: parOverride.get(h.id)! } : h,
-    )
+    const holes = applyParOverrides((holesRes.data ?? []) as HoleRow[], holeScores)
     const shots = (shotsRes.data ?? []) as ShotRow[]
     if (shots.length === 0) {
       skipped.noShots++
       continue
     }
     const input = { holes, holeScores, shots, handicap: profRes.data?.handicap_index ?? DEFAULT_HANDICAP }
+    // A stored null is a category with no valued shot (#1436): the engine's 0 there.
     const matches = (b: ReturnType<typeof computeRoundSG>) => {
       const was = stamp(b.round)
-      return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === r[k])
+      return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === (r[k] ?? 0))
     }
     const runs = engines.map((e) => ({ e, out: e.computeRoundSG(input) }))
     // Strict: the round's stored SG reproduces to the cent. Else, holes-only:
@@ -175,19 +174,22 @@ async function main() {
       Object.entries(result.perHoleScore)
         .filter(([id]) => stampedIds.has(id))
         .reduce((sum, [id, sg]) => sum + sg[field] - before.perHoleScore[id]![field], Number(r[key]))
-    const next = strict
-      ? stamp(result.round)
-      : stamp({
-          offTee: roundDelta('sg_off_tee', 'offTee'),
-          approach: roundDelta('sg_approach', 'approach'),
-          aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
-          putting: roundDelta('sg_putting', 'putting'),
-          total:
-            roundDelta('sg_off_tee', 'offTee') +
-            roundDelta('sg_approach', 'approach') +
-            roundDelta('sg_around_green', 'aroundGreen') +
-            roundDelta('sg_putting', 'putting'),
-        })
+    const next = roundSGPatch({
+      counted: result.counted,
+      round: strict
+        ? result.round
+        : {
+            offTee: roundDelta('sg_off_tee', 'offTee'),
+            approach: roundDelta('sg_approach', 'approach'),
+            aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
+            putting: roundDelta('sg_putting', 'putting'),
+            total:
+              roundDelta('sg_off_tee', 'offTee') +
+              roundDelta('sg_approach', 'approach') +
+              roundDelta('sg_around_green', 'aroundGreen') +
+              roundDelta('sg_putting', 'putting'),
+          },
+    })
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
     // A hole is rewritten only when the same previous engine reproduces its stored values too.
     const holesChanged = Object.entries(result.perHoleScore).flatMap(([id, sg]) => {

@@ -1,15 +1,4 @@
-import {
-  DEFAULT_HANDICAP,
-  adjustedScore,
-  calculateDifferential,
-  calculateHandicapIndex,
-  computeRoundSG,
-  handicapHoleCount,
-  inferHoleStats,
-  obCount,
-  playedRowsForDifferential,
-  resolveCourseTee,
-} from '@oga/core'
+import { DEFAULT_HANDICAP, calculateHandicapIndex, finishRoundPlan } from '@oga/core'
 import {
   getCourseTees,
   getHoleScoresForRound,
@@ -27,7 +16,6 @@ import { clearScreenCache } from './screenCache'
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
-type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 interface CompleteArgs {
   roundId: string
@@ -36,10 +24,9 @@ interface CompleteArgs {
   handicap: number | null
 }
 
-// Mobile equivalent of apps/web/src/hooks/useCompleteRound (sans the
-// react-query / handicap-index recalc plumbing). Drains the pending
-// shot queue, runs computeRoundSG over the persisted shots, and stamps
-// completed_at + SG/score fields onto the round. completed_at is what
+// Mobile twin of apps/web/src/hooks/useCompleteRound: drains the pending
+// shot queue, reads the round, writes what core finishRoundPlan works out,
+// stamps completed_at, and recomputes the handicap index. completed_at is what
 // marks the round finalized — it removes it from the home-screen Resume
 // banner and routes it to the read-only summary (total_score may be null
 // when no scores were entered).
@@ -72,206 +59,44 @@ export async function completeRound({
       .single(),
   ])
   if (holesRes.error) throw holesRes.error
+  // Nothing is written yet, so a failed round read fails the finish (retryable)
+  // rather than going on without the round's tee and stamping course_tee_id null.
+  if (roundRes.error) throw roundRes.error
   if (holeScoresRes.error) throw holeScoresRes.error
   if (shotsRes.error) throw shotsRes.error
 
   const holeScoreRows = (holeScoresRes.data ?? []) as Array<
     HoleScoreRow & { holes?: HoleRow | null }
   >
-  const holeScores: HoleScoreRow[] = holeScoreRows.map((row) => {
-    const { holes: _h, ...rest } = row
-    return rest
-  })
-  // Per-round par override (#710): a hole_scores.par set during the round
-  // wins over the course hole's par for everything stamped at completion —
-  // stat inference, SG categorization, and the differential. Patching the
-  // holes array here is safe: unique (round_id, hole_id) means each hole
-  // has at most one override in this round.
-  const parOverrides = new Map(
-    holeScores
-      .filter((hs) => hs.par != null)
-      .map((hs) => [hs.hole_id, hs.par as number]),
-  )
-  const holes: HoleRow[] = (holesRes.data ?? []).map((h) => {
-    const par = parOverrides.get(h.id)
-    return par != null && par !== h.par ? { ...h, par } : h
-  })
-  const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
-  const tees: CourseTeeRow[] = teesRes.data ?? []
-  const roundTee = roundRes.data ?? null
-
-  // Self-repair stale stamped zeros (#711). Round creation pre-inserts
-  // every hole_scores row with score 0; live play updates it per shot via
-  // a direct online write that is never queued, so an offline stretch
-  // loses the score even though the shots themselves sync later. Live
-  // stamping defines score = shot count, so a score-0 hole that HAS
-  // synced shots recovers exactly the value the online path would have
-  // written. Patched in place so every downstream reader (computeRoundSG
-  // totals, holedOut, the SG upsert's carried score, the differential)
-  // sees the repaired value; the SG/infer upserts below persist it.
-  for (const hs of holeScores) {
-    if (hs.score !== 0) continue
-    const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
-    // Live stamping defines score = struck rows + penalty strokes, so the
-    // repair has to include the OB term too — a stroke-and-distance penalty
-    // has no shot row of its own, and rebuilding from the raw count alone
-    // would drop it (#839). obCount is per-hole: only this hole's rows.
-    if (holeShots.length > 0) hs.score = holeShots.length + obCount(holeShots)
-  }
-
-  // Infer fairway_hit + gir for any hole where the player didn't set
-  // them manually. Mobile live mode never writes those columns
-  // per-shot, so without this round-level fairwaysHit/gir totals stay
-  // 0 even when the shot data clearly shows otherwise. Patches in
-  // place so the subsequent computeRoundSG sees the inferred values.
-  const inferUpserts: Array<{
-    id: string
-    round_id: string
-    hole_id: string
-    score: number
-    fairway_hit: boolean | null
-    gir: boolean | null
-  }> = []
-  const holesById = new Map(holes.map((h) => [h.id, h]))
-  for (const hs of holeScores) {
-    const hole = holesById.get(hs.hole_id)
-    if (!hole) continue
-    const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
-    // holedOut when the shot log fully accounts for the score: every stroke
-    // was logged, so the last one holed. Incomplete logs (fewer strokes
-    // accounted for than the score) stay conservative — never a false
-    // positive. This lets off-green hole-outs (ace, holed approach, chip-in)
-    // count GIR (#669). A penalty stroke has no shot row, so it has to be
-    // added back or an OB hole could never read as holed out — permanently
-    // false, silently degrading GIR and fairway inference (#839).
-    const holedOut = holeShots.length + obCount(holeShots) === hs.score
-    const inferred = inferHoleStats(
-      holeShots.map((s) => ({
-        shot_number: s.shot_number,
-        lie_type: s.lie_type,
-        // Required: shot_number is not the stroke number on an OB hole, so
-        // inferGir needs the penalty strokes to size its thresholds (#839).
-        ob: s.ob,
-      })),
-      hole.par,
-      holedOut,
-    )
-    const nextFairway = hs.fairway_hit ?? inferred.fairway
-    const nextGir = hs.gir ?? inferred.gir
-    if (nextFairway !== hs.fairway_hit || nextGir !== hs.gir) {
-      hs.fairway_hit = nextFairway
-      hs.gir = nextGir
-      inferUpserts.push({
-        id: hs.id,
-        round_id: hs.round_id,
-        hole_id: hs.hole_id,
-        score: hs.score,
-        fairway_hit: nextFairway,
-        gir: nextGir,
-      })
-    }
-  }
-  if (inferUpserts.length > 0) {
-    const { error: inferError } = await supabase
-      .from('hole_scores')
-      .upsert(inferUpserts, { onConflict: 'id' })
-    if (inferError) throw inferError
-  }
-
-  const result = computeRoundSG({
-    holes,
-    holeScores,
-    shots,
+  const roundTee = roundRes.data
+  const plan = finishRoundPlan({
+    holes: holesRes.data ?? [],
+    holeScores: holeScoreRows.map(({ holes: _h, ...rest }) => rest),
+    shots: (shotsRes.data ?? []) as unknown as ShotRow[],
+    tees: teesRes.data ?? [],
+    courseTeeId: roundTee.course_tee_id,
+    teeColor: roundTee.tee_color,
+    roundHoleCount: roundTee.hole_count,
     handicap: handicap ?? DEFAULT_HANDICAP,
   })
 
-  // Per-hole SG upsert. Mirrors useCompleteRound.ts: carry round_id /
-  // hole_id / score forward so the underlying INSERT path of the upsert
-  // satisfies NOT NULL columns; the conflict on `id` then refreshes
-  // the SG fields only.
-  const holeScoresById = new Map(holeScores.map((hs) => [hs.id, hs]))
-  const sgRows = Object.entries(result.perHoleScore)
-    .map(([holeScoreId, sg]) => {
-      const existing = holeScoresById.get(holeScoreId)
-      if (!existing) return null
-      return {
-        id: holeScoreId,
-        round_id: existing.round_id,
-        hole_id: existing.hole_id,
-        score: existing.score,
-        sg_off_tee: round2(sg.offTee),
-        sg_approach: round2(sg.approach),
-        sg_around_green: round2(sg.aroundGreen),
-        sg_putting: round2(sg.putting),
-      }
-    })
-    .filter((r): r is NonNullable<typeof r> => r != null)
-  if (sgRows.length > 0) {
+  if (plan.inferUpserts.length > 0) {
+    const { error: inferError } = await supabase
+      .from('hole_scores')
+      .upsert(plan.inferUpserts, { onConflict: 'id' })
+    if (inferError) throw inferError
+  }
+  if (plan.sgRows.length > 0) {
     const { error: sgError } = await supabase
       .from('hole_scores')
-      .upsert(sgRows, { onConflict: 'id' })
+      .upsert(plan.sgRows, { onConflict: 'id' })
     if (sgError) throw sgError
-  }
-
-  // ---- Handicap differential ------------------------------------------
-  // Mirrors web's useCompleteRound: resolve the played tee (by id, else by
-  // colour), and if it carries a course rating + slope, compute the WHS
-  // score differential from the net-double-bogey-adjusted gross. Null when no rated tee
-  // is on the round — common, since most crawled courses have no tee data.
-  const tee = resolveCourseTee(tees, roundTee?.course_tee_id, roundTee?.tee_color)
-  let differential: number | null = null
-  if (
-    tee &&
-    tee.course_rating != null &&
-    tee.slope_rating != null &&
-    tee.slope_rating > 0
-  ) {
-    const holeRows = holeScores
-      .map((hs) => {
-        const h = holesById.get(hs.hole_id)
-        if (!h) return null
-        return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
-      })
-      .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
-    // Only a complete 9- or 18-hole round produces a differential (#711,
-    // #727) — see playedRowsForDifferential for the coverage contract.
-    const holeCount = handicapHoleCount(roundTee?.hole_count, holes.filter((h) => !h.loop_of).map((h) => h.number))
-    const playedRows = holeCount == null ? null : playedRowsForDifferential(holeRows, holeCount)
-    if (playedRows) {
-      const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP, {
-        courseRating: tee.course_rating,
-        slopeRating: tee.slope_rating,
-      })
-      differential = round2(
-        calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
-      )
-    }
   }
 
   const { error: roundError } = await updateRound(
     supabase,
     roundId,
-    {
-      sg_off_tee: round2(result.round.offTee),
-      sg_approach: round2(result.round.approach),
-      sg_around_green: round2(result.round.aroundGreen),
-      sg_putting: round2(result.round.putting),
-      sg_total: round2(result.round.total),
-      completed_at: new Date().toISOString(),
-      // null when no scores were entered — total_score is the SCORE, not a
-      // lifecycle flag. completed_at (set above) is the canonical "finalized"
-      // signal for routing and the Resume banner, so a scoreless finalized
-      // round stays null here and is correctly excluded from score averages
-      // (computed stats null-filter total_score).
-      total_score: result.totals.totalScore || null,
-      total_putts: result.totals.totalPutts || null,
-      fairways_hit:
-        result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
-      fairways_total: result.totals.fairwaysTotal || null,
-      gir: result.totals.gir,
-      course_tee_id: tee?.id ?? roundTee?.course_tee_id ?? null,
-      score_differential: differential,
-    },
+    { ...plan.roundPatch, completed_at: new Date().toISOString() },
     userId,
   )
   if (roundError) throw roundError
@@ -287,7 +112,7 @@ export async function completeRound({
   // differentials calculateHandicapIndex returns null and the entered
   // value stands. Mirrors web; this is what makes a mobile player's index
   // become a calculated "WHS index" rather than staying "Provisional".
-  if (differential != null) {
+  if (plan.differential != null) {
     const { data: recentDiffs, error: diffsError } = await supabase
       .from('rounds')
       .select('score_differential')
@@ -317,8 +142,4 @@ export async function completeRound({
       }
     }
   }
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
 }
