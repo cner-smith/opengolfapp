@@ -6,6 +6,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 function hole(o: Partial<HoleRow> & { id: string }): HoleRow {
   return {
@@ -40,9 +41,16 @@ function tee(o: Partial<CourseTeeRow> & { id: string }): CourseTeeRow {
   }
 }
 
+function holeTee(o: Partial<HoleTeeRow> & { hole_id: string; course_tee_id: string }): HoleTeeRow {
+  return {
+    id: `${o.course_tee_id}-${o.hole_id}`, par: null, stroke_index: null, tee_lat: null, tee_lng: null, yards: null,
+    ...o,
+  }
+}
+
 function input(o: Partial<FinishRoundInput>): FinishRoundInput {
   return {
-    holes: [], holeScores: [], shots: [], tees: [], courseTeeId: null, teeColor: null, roundHoleCount: null,
+    holes: [], holeScores: [], shots: [], tees: [], holeTees: [], courseTeeId: null, teeColor: null, roundHoleCount: null,
     handicap: 15, ...o,
   }
 }
@@ -319,6 +327,121 @@ describe('finishRoundPlan: recorded fairways and GIR', () => {
       }),
     )
     expect(plan.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 2, gir: 1 })
+  })
+})
+
+// Owner rule Q4 (2026-11-09): par = hole_scores.par, else the played tee's
+// hole_tees.par, else holes.par (#1456).
+describe("finishRoundPlan: the played tee's par", () => {
+  const t1 = tee({ id: 't1' })
+
+  it('tee par 5 on a holes.par 4 hole: GIR filled in against 5', () => {
+    // Tee → fairway 250 → fairway 100 → green 10 ft → 3 ft, score 5.
+    // Fairway: shot 2 starts in the fairway → hit (par 4 or 5).
+    // GIR: first green start is shot 4 ≤ 5 − 1 = 4 → hit. (Against holes.par 4: 4 > 3 → missed.)
+    const plan = finishRoundPlan(
+      input({
+        holes: [hole({ id: 'h1', par: 4 })],
+        holeScores: [hs({ id: 'a', hole_id: 'h1', score: 5 })],
+        shots: [
+          shot({ hole_score_id: 'a', shot_number: 1, lie_type: 'tee', distance_to_target: 500 }),
+          shot({ hole_score_id: 'a', shot_number: 2, lie_type: 'fairway', distance_to_target: 250 }),
+          shot({ hole_score_id: 'a', shot_number: 3, lie_type: 'fairway', distance_to_target: 100 }),
+          shot({ hole_score_id: 'a', shot_number: 4, lie_type: 'green', putt_distance_ft: 10 }),
+          shot({ hole_score_id: 'a', shot_number: 5, lie_type: 'green', putt_distance_ft: 3 }),
+        ],
+        tees: [t1],
+        holeTees: [holeTee({ hole_id: 'h1', course_tee_id: 't1', par: 5 })],
+        courseTeeId: 't1',
+      }),
+    )
+    expect(plan.inferUpserts).toEqual([{ id: 'a', round_id: 'r', hole_id: 'h1', score: 5, fairway_hit: true, gir: true }])
+    expect(plan.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 1, gir: 1 })
+  })
+
+  it('tee par 3 on a holes.par 4 hole: no fairway, the tee shot is approach', () => {
+    // Same shots and arithmetic as the hole_scores.par 3 test above, the 3 coming from the tee:
+    //   1: 3.95 − 1.65 − 1 = 1.30 (approach) · 2: 1.65 − 1.10 − 1 = −0.45 · 3: 1.10 − 1 = 0.10
+    // GIR: green start shot 2 ≤ 3 − 1 = 2 → hit. Fairway: par 3 → null, not counted.
+    const plan = finishRoundPlan(
+      input({
+        holes: [hole({ id: 'h1', par: 4 })],
+        holeScores: [hs({ id: 'a', hole_id: 'h1', score: 3, putts: 2 })],
+        shots: [
+          shot({ hole_score_id: 'a', shot_number: 1, lie_type: 'tee', distance_to_target: 150 }),
+          shot({ hole_score_id: 'a', shot_number: 2, lie_type: 'green', putt_distance_ft: 10 }),
+          shot({ hole_score_id: 'a', shot_number: 3, lie_type: 'green', putt_distance_ft: 3 }),
+        ],
+        tees: [t1],
+        holeTees: [holeTee({ hole_id: 'h1', course_tee_id: 't1', par: 3 })],
+        courseTeeId: 't1',
+      }),
+    )
+    expect(plan.inferUpserts).toEqual([{ id: 'a', round_id: 'r', hole_id: 'h1', score: 3, fairway_hit: null, gir: true }])
+    expect(plan.roundPatch).toMatchObject({
+      sg_off_tee: null, sg_approach: 1.3, sg_putting: -0.35, sg_total: 0.95,
+      fairways_hit: null, fairways_total: null, gir: 1,
+    })
+  })
+
+  it('hole_scores.par beats the tee par', () => {
+    // holes.par 5, tee par 3, round override 4 → played as a par 4.
+    // Tee → fairway 150 → green 10 ft → 3 ft, score 4.
+    // Fairway: shot 2 in the fairway → hit (par 3 would leave it null).
+    // GIR: green start shot 3 ≤ 4 − 1 = 3 → hit (par 3: 3 > 2 → missed).
+    const plan = finishRoundPlan(
+      input({
+        holes: [hole({ id: 'h1', par: 5 })],
+        holeScores: [hs({ id: 'a', hole_id: 'h1', score: 4, par: 4 })],
+        shots: [
+          shot({ hole_score_id: 'a', shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+          shot({ hole_score_id: 'a', shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+          shot({ hole_score_id: 'a', shot_number: 3, lie_type: 'green', putt_distance_ft: 10 }),
+          shot({ hole_score_id: 'a', shot_number: 4, lie_type: 'green', putt_distance_ft: 3 }),
+        ],
+        tees: [t1],
+        holeTees: [holeTee({ hole_id: 'h1', course_tee_id: 't1', par: 3 })],
+        courseTeeId: 't1',
+      }),
+    )
+    expect(plan.inferUpserts).toEqual([{ id: 'a', round_id: 'r', hole_id: 'h1', score: 4, fairway_hit: true, gir: true }])
+  })
+
+  it("another tee's rows, or no tee on the round: holes.par", () => {
+    // Recorded fairway on a holes.par 4 hole counts 1 of 1; a leaked par 3 would leave it uncounted.
+    const base = {
+      holes: [hole({ id: 'h1', par: 4 })],
+      holeScores: [hs({ id: 'a', hole_id: 'h1', score: 4, fairway_hit: true })],
+      tees: [t1, tee({ id: 't2', tee_color: 'blue' })],
+      holeTees: [holeTee({ hole_id: 'h1', course_tee_id: 't2', par: 3 })],
+    }
+    const otherTee = finishRoundPlan(input({ ...base, courseTeeId: 't1' }))
+    const noTee = finishRoundPlan(input(base))
+    expect(otherTee.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 1 })
+    expect(noTee.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 1 })
+  })
+
+  it('differential: net double bogey and course handicap use the tee par', () => {
+    // The rated 9-hole test above, with the tee making hole 9 (SI 9) a par 5: par 37.
+    // Handicap 18 → index 9. Course handicap = round(9·113/113 + (35 − 37)) = 7.
+    // 7 strokes over 9 holes: SI 1–7 get 1, SI 8–9 get 0. Holes 1–8 score 5 (all under cap).
+    // Hole 9 scores 9, cap 5 + 2 + 0 = 7. Adjusted 8·5 + 7 = 47. Differential (47 − 35)·113/113 = 12.
+    // (On holes.par alone it is 11.)
+    const holes = Array.from({ length: 9 }, (_, i) => hole({ id: `h${i + 1}`, number: i + 1, stroke_index: i + 1 }))
+    const holeScores = holes.map((h, i) => hs({ id: `s${i + 1}`, hole_id: h.id, score: i === 8 ? 9 : 5 }))
+    const plan = finishRoundPlan(
+      input({
+        holes,
+        holeScores,
+        tees: [tee({ id: 't1', course_rating: 35, slope_rating: 113 })],
+        holeTees: [holeTee({ hole_id: 'h9', course_tee_id: 't1', par: 5 })],
+        courseTeeId: 't1',
+        roundHoleCount: 9,
+        handicap: 18,
+      }),
+    )
+    expect(plan.differential).toBe(12)
+    expect(plan.roundPatch).toMatchObject({ total_score: 49, score_differential: 12 })
   })
 })
 

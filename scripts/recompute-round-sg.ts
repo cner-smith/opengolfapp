@@ -10,8 +10,10 @@
 // pin. Typed or imported lengths don't match and are left alone. The stored SG
 // is checked against the ORIGINAL rows; the new SG is computed from the repaired
 // ones.
-// Mirrors the SG step of the finish flow (core finishRoundPlan): per-round par
-// overrides, a category with no valued shot stored as null (#1436; per hole #1450), the
+// Mirrors the SG step of the finish flow (core finishRoundPlan): each hole's par
+// as played (hole_scores.par, else the round tee's hole_tees.par, #1456; a round
+// finished on holes.par before that won't reproduce and is left alone), a
+// category with no valued shot stored as null (#1436; per hole #1450), the
 // player's handicap (DEFAULT_HANDICAP when unset).
 // Rounds don't record the handicap SG was first computed with, so the current
 // profile value is used.
@@ -33,13 +35,23 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_HANDICAP, applyParOverrides, computeRoundSG, haversineYards, roundSGPatch, sgCategoryColumns } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  applyParOverrides,
+  computeRoundSG,
+  haversineYards,
+  resolveCourseTee,
+  roundSGPatch,
+  sgCategoryColumns,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 const SG = ['sg_off_tee', 'sg_approach', 'sg_around_green', 'sg_putting'] as const
 
 const apply = process.argv.includes('--apply')
@@ -111,7 +123,7 @@ async function main() {
   const engines = await loadEngines()
   const { data: rounds, error } = await supabase
     .from('rounds')
-    .select('id, user_id, course_id, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total')
+    .select('id, user_id, course_id, course_tee_id, tee_color, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total')
     .not('completed_at', 'is', null)
     .range(0, 9999)
   if (error) throw error
@@ -120,19 +132,27 @@ async function main() {
   const skipped = { noShots: 0, notReproduced: [] as unknown[], holesNotReproduced: 0 }
   let puttFixCount = 0
   for (const r of rounds ?? []) {
-    const [holesRes, hsRes, profRes] = await Promise.all([
+    const [holesRes, hsRes, profRes, teesRes] = await Promise.all([
       supabase.from('holes').select('*').eq('course_id', r.course_id),
       supabase.from('hole_scores').select('*').eq('round_id', r.id),
       supabase.from('profiles').select('handicap_index').eq('id', r.user_id).maybeSingle(),
+      supabase.from('course_tees').select('*').eq('course_id', r.course_id),
     ])
-    if (holesRes.error || hsRes.error || profRes.error) throw holesRes.error ?? hsRes.error ?? profRes.error
+    if (holesRes.error || hsRes.error || profRes.error || teesRes.error) {
+      throw holesRes.error ?? hsRes.error ?? profRes.error ?? teesRes.error
+    }
+    const tee = resolveCourseTee((teesRes.data ?? []) as CourseTeeRow[], r.course_tee_id, r.tee_color)
+    const teeRowsRes = tee
+      ? await supabase.from('hole_tees').select('*').eq('course_tee_id', tee.id)
+      : { data: [], error: null }
+    if (teeRowsRes.error) throw teeRowsRes.error
     const holeScores = (hsRes.data ?? []) as HoleScoreRow[]
     const shotsRes = await supabase
       .from('shots')
       .select('*')
       .in('hole_score_id', holeScores.map((h) => h.id))
     if (shotsRes.error) throw shotsRes.error
-    const holes = applyParOverrides((holesRes.data ?? []) as HoleRow[], holeScores)
+    const holes = applyParOverrides((holesRes.data ?? []) as HoleRow[], holeScores, (teeRowsRes.data ?? []) as HoleTeeRow[])
     const shots = (shotsRes.data ?? []) as ShotRow[]
     if (shots.length === 0) {
       skipped.noShots++

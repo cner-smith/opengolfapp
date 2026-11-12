@@ -2,6 +2,7 @@ import { DEFAULT_HANDICAP, calculateHandicapIndex, finishRoundPlan } from '@oga/
 import {
   getCourseTees,
   getHoleScoresForRound,
+  getHoleTeesForCourse,
   getHolesForCourse,
   getShotsForRound,
   updateProfile,
@@ -47,11 +48,12 @@ export async function completeRound({
   // write below would time out too. Stop now with the retryable message.
   if ((await syncPendingShots().catch(() => undefined))?.timedOut) throw timeoutError()
 
-  const [holesRes, holeScoresRes, shotsRes, teesRes, roundRes] = await Promise.all([
+  const [holesRes, holeScoresRes, shotsRes, teesRes, holeTeesRes, roundRes] = await Promise.all([
     getHolesForCourse(supabase, courseId),
     getHoleScoresForRound(supabase, roundId),
     getShotsForRound(supabase, roundId, userId),
     getCourseTees(supabase, courseId),
+    getHoleTeesForCourse(supabase, courseId),
     supabase
       .from('rounds')
       .select('course_tee_id, tee_color, hole_count')
@@ -64,6 +66,8 @@ export async function completeRound({
   if (roundRes.error) throw roundRes.error
   if (holeScoresRes.error) throw holeScoresRes.error
   if (shotsRes.error) throw shotsRes.error
+  // The tee's pars feed every number below (#1456): fail (retryable) rather than finish on holes.par.
+  if (holeTeesRes.error) throw holeTeesRes.error
 
   const holeScoreRows = (holeScoresRes.data ?? []) as Array<
     HoleScoreRow & { holes?: HoleRow | null }
@@ -74,6 +78,7 @@ export async function completeRound({
     holeScores: holeScoreRows.map(({ holes: _h, ...rest }) => rest),
     shots: (shotsRes.data ?? []) as unknown as ShotRow[],
     tees: teesRes.data ?? [],
+    holeTees: holeTeesRes.data ?? [],
     courseTeeId: roundTee.course_tee_id,
     teeColor: roundTee.tee_color,
     roundHoleCount: roundTee.hole_count,
