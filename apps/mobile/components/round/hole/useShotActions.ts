@@ -3,6 +3,7 @@ import { Alert } from 'react-native'
 import { uuid } from 'expo-modules-core'
 import type { User } from '@supabase/supabase-js'
 import {
+  aimOffsetInchesToYards,
   combinedBreakDirection,
   combinedPuttResult,
   isPuttShot,
@@ -237,9 +238,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       break_direction_vertical: meta?.breakDirectionVertical ?? null,
       break_direction_horizontal: meta?.breakDirectionHorizontal ?? null,
       aim_offset_yards:
-        meta?.aimOffsetInches != null
-          ? Math.round((meta.aimOffsetInches / 36) * 10) / 10
-          : null,
+        meta?.aimOffsetInches != null ? aimOffsetInchesToYards(meta.aimOffsetInches) : null,
       notes: meta?.notes ?? null,
     }
   }
