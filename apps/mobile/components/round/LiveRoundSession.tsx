@@ -953,7 +953,7 @@ export default function LiveRoundSession({
         />
       )}
       <CoachOverlay steps={coach.steps} onClose={coach.close} />
-      {idle.black && <IdleBlackout onWake={idle.wake} />}
+      {idle.black && <IdleBlackout onWake={idle.wake} catching={idle.catching} />}
     </View>
     </CoachProvider>
   )
