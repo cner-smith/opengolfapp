@@ -223,19 +223,20 @@ function playedNine(numbers: readonly number[]): 'front' | 'back' | null {
   return null
 }
 
-// Fairways: of the par 4s and 5s played (as the round save counts them).
+// Fairways and GIR: of the holes played where they were recorded, as the round
+// save counts them (a blank is not a miss). Fairways only on par 4s and 5s.
 function facts(holes: readonly PlayedHole[]): ShareCardModel['facts'] {
-  const fairwayHoles = holes.filter((h) => h.card.par > 3)
-  const fairwaysKnown = fairwayHoles.some((h) => h.row.fairway_hit != null)
-  const girKnown = holes.some((h) => h.row.gir != null)
+  const fairwayHoles = holes.filter((h) => h.card.par > 3 && h.row.fairway_hit != null)
+  const girHoles = holes.filter((h) => h.row.gir != null)
   const penaltyHoles = holes.filter((h) => h.row.penalties > 0)
   const penalties = penaltyHoles.reduce((n, h) => n + h.row.penalties, 0)
   return {
     putts: sumKnown(holes.map((h) => h.row.putts)),
-    fairways: fairwaysKnown
-      ? { hit: fairwayHoles.filter((h) => h.row.fairway_hit === true).length, of: fairwayHoles.length }
-      : null,
-    gir: girKnown ? { hit: holes.filter((h) => h.row.gir === true).length, of: holes.length } : null,
+    fairways:
+      fairwayHoles.length > 0
+        ? { hit: fairwayHoles.filter((h) => h.row.fairway_hit === true).length, of: fairwayHoles.length }
+        : null,
+    gir: girHoles.length > 0 ? { hit: girHoles.filter((h) => h.row.gir === true).length, of: girHoles.length } : null,
     penalties,
     penaltyNote:
       penalties === 0

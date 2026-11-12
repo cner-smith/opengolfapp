@@ -16,9 +16,12 @@ export interface RoundSGResult {
   totals: {
     totalScore: number
     totalPutts: number
+    /** Fairways and GIR count only played holes where they were recorded
+     *  (owner, 2026-11-11): a blank is not a miss. */
     fairwaysHit: number
     fairwaysTotal: number
     gir: number
+    girTotal: number
   }
 }
 
@@ -118,15 +121,20 @@ export function computeRoundSG(args: {
   let fairwaysHit = 0
   let fairwaysTotal = 0
   let gir = 0
+  let girTotal = 0
   for (const hs of holeScores) {
     totalScore += hs.score
     totalPutts += hs.putts ?? 0
-    if (hs.gir === true) gir += 1
-    const hole = holesById.get(hs.hole_id)
     // Score 0 = not played: a round ended early counts only its played holes.
-    if (hole && hole.par > 3 && hs.score > 0) {
+    if (hs.score <= 0) continue
+    if (hs.gir != null) {
+      girTotal += 1
+      if (hs.gir) gir += 1
+    }
+    const hole = holesById.get(hs.hole_id)
+    if (hole && hole.par > 3 && hs.fairway_hit != null) {
       fairwaysTotal += 1
-      if (hs.fairway_hit === true) fairwaysHit += 1
+      if (hs.fairway_hit) fairwaysHit += 1
     }
   }
 
@@ -134,6 +142,6 @@ export function computeRoundSG(args: {
     round,
     perHoleScore,
     counted,
-    totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir },
+    totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir, girTotal },
   }
 }

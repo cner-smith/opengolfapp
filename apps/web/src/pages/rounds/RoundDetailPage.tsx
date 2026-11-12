@@ -238,10 +238,13 @@ export function RoundDetailPage() {
   // Scored holes with their tee-resolved par: the header's running total,
   // the totals block and the best / worst line all read from these.
   const scored: ScoredHole[] = []
+  let girOf = 0
   for (const h of holes) {
     const hs = scoresByHoleId.get(h.id)
-    if (hs?.score != null && hs.score > 0)
+    if (hs?.score != null && hs.score > 0) {
       scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? h.par })
+      if (hs.gir != null) girOf += 1
+    }
   }
   const totals = scoredTotals(scored)
   const holesPlayed = totals.holesPlayed
@@ -399,7 +402,7 @@ export function RoundDetailPage() {
             <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
               <RoundSide
                 round={round.data as unknown as RoundRow}
-                holesPlayed={holesPlayed}
+                girOf={girOf}
                 totalRoundsLogged={allRounds.data?.length ?? 0}
               >
                 {roundKeys}

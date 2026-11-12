@@ -47,7 +47,7 @@ export interface RoundFinishPatch extends RoundSGPatch {
   total_putts: number | null
   fairways_hit: number | null
   fairways_total: number | null
-  gir: number
+  gir: number | null
   course_tee_id: string | null
   score_differential: number | null
 }
@@ -98,7 +98,7 @@ export function finishRoundPlan(input: FinishRoundInput): FinishRoundPlan {
       total_putts: result.totals.totalPutts || null,
       fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
       fairways_total: result.totals.fairwaysTotal || null,
-      gir: result.totals.gir,
+      gir: result.totals.girTotal > 0 ? result.totals.gir : null,
       // Stamp the resolved tee so later reads skip the colour fallback.
       course_tee_id: tee?.id ?? input.courseTeeId ?? null,
       score_differential: differential,

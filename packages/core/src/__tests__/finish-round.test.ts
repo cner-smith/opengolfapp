@@ -140,7 +140,8 @@ describe('finishRoundPlan', () => {
       sgRows: [],
       roundPatch: {
         sg_off_tee: null, sg_approach: null, sg_around_green: null, sg_putting: null, sg_total: null,
-        total_score: 49, total_putts: null, fairways_hit: 0, fairways_total: 9, gir: 0,
+        // No fairway or GIR recorded on any hole: null, not 0 of 9.
+        total_score: 49, total_putts: null, fairways_hit: null, fairways_total: null, gir: null,
         course_tee_id: 't1', score_differential: 11,
       },
       differential: 11,
@@ -213,6 +214,77 @@ describe('finishRoundPlan', () => {
       }),
     )
     expect(plan.roundPatch).toMatchObject({ total_score: 4, fairways_hit: 1, fairways_total: 1 })
+  })
+})
+
+// Owner 2026-11-11 (option A): fairways and GIR count only the holes where they
+// were recorded (after the fill-in from shots); a blank is not a miss.
+describe('finishRoundPlan: recorded fairways and GIR', () => {
+  const threeFours = [hole({ id: 'h1', number: 1 }), hole({ id: 'h2', number: 2 }), hole({ id: 'h3', number: 3 })]
+
+  it('nothing recorded: fairways and GIR are null, not 0 of n', () => {
+    const plan = finishRoundPlan(
+      input({
+        holes: threeFours,
+        holeScores: [
+          hs({ id: 'a', hole_id: 'h1', score: 4 }),
+          hs({ id: 'b', hole_id: 'h2', score: 5 }),
+          hs({ id: 'c', hole_id: 'h3', score: 4 }),
+        ],
+      }),
+    )
+    expect(plan.roundPatch).toMatchObject({ fairways_hit: null, fairways_total: null, gir: null })
+  })
+
+  it('partly recorded: fairway on 2 of 3 played (1 hit) → 1 of 2; GIR on 2 of 3 (1 hit) → 1', () => {
+    const plan = finishRoundPlan(
+      input({
+        holes: threeFours,
+        holeScores: [
+          hs({ id: 'a', hole_id: 'h1', score: 4, fairway_hit: true, gir: true }),
+          hs({ id: 'b', hole_id: 'h2', score: 5, fairway_hit: false }),
+          hs({ id: 'c', hole_id: 'h3', score: 4, gir: false }),
+        ],
+      }),
+    )
+    expect(plan.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 2, gir: 1 })
+  })
+
+  it('GIR recorded but never hit stores 0, not null', () => {
+    const plan = finishRoundPlan(
+      input({ holes: threeFours, holeScores: [hs({ id: 'a', hole_id: 'h1', score: 5, gir: false })] }),
+    )
+    expect(plan.roundPatch.gir).toBe(0)
+  })
+
+  it('a shots round counts fully: the fill-in records fairway and GIR first', () => {
+    // Hole 1 (par 4): tee → fairway 150 → green 10 ft → 3 ft. Fairway: shot 2 starts in
+    // the fairway → hit. GIR: first green start shot 3 ≤ 4 − 1 = 3 → hit.
+    // Hole 2 (par 4): tee → rough 150 → rough 20 → green. Fairway: shot 2 rough → missed.
+    // GIR: first green start shot 4 > 3 → missed. Hole 3 not played.
+    // Fairways 1 of 2, GIR 1 (recorded on 2).
+    const plan = finishRoundPlan(
+      input({
+        holes: threeFours,
+        holeScores: [
+          hs({ id: 'a', hole_id: 'h1', score: 4 }),
+          hs({ id: 'b', hole_id: 'h2', score: 5 }),
+          hs({ id: 'c', hole_id: 'h3', score: 0 }),
+        ],
+        shots: [
+          shot({ hole_score_id: 'a', shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+          shot({ hole_score_id: 'a', shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+          shot({ hole_score_id: 'a', shot_number: 3, lie_type: 'green', putt_distance_ft: 10 }),
+          shot({ hole_score_id: 'a', shot_number: 4, lie_type: 'green', putt_distance_ft: 3 }),
+          shot({ hole_score_id: 'b', shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+          shot({ hole_score_id: 'b', shot_number: 2, lie_type: 'rough', distance_to_target: 150 }),
+          shot({ hole_score_id: 'b', shot_number: 3, lie_type: 'rough', distance_to_target: 20 }),
+          shot({ hole_score_id: 'b', shot_number: 4, lie_type: 'green', putt_distance_ft: 3 }),
+          shot({ hole_score_id: 'b', shot_number: 5, lie_type: 'green', putt_distance_ft: 1 }),
+        ],
+      }),
+    )
+    expect(plan.roundPatch).toMatchObject({ fairways_hit: 1, fairways_total: 2, gir: 1 })
   })
 })
 
