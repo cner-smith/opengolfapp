@@ -5,6 +5,7 @@
 //              respect the opt-in, send, then stamp summary_email_sent_at.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@4'
+import { resolveCourseTee, scoredHolePars } from '../_shared/hole-tees.ts'
 import { buildRoundSummary, roundSummaryPar } from '../_shared/round-summary.ts'
 import { renderHtml } from './template.ts'
 
@@ -15,21 +16,27 @@ interface RoundRow {
   user_id: string
   total_score: number | null
   hole_count: number | null
+  course_tee_id: string | null
+  tee_color: string | null
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
   sg_putting: number | null
-  courses: { name: string | null } | null
-  course_tees: { par: number | null } | null
-  hole_scores: { score: number | null; par: number | null; holes: { par: number } | null }[] | null
+  courses: { name: string | null; course_tees: { id: string; tee_color: string; par: number | null }[] } | null
+  hole_scores:
+    | {
+        score: number | null
+        par: number | null
+        holes: { par: number; hole_tees: { course_tee_id: string; par: number | null }[] } | null
+      }[]
+    | null
 }
 
 const ROUND_SELECT = `
-  id, user_id, total_score, hole_count,
+  id, user_id, total_score, hole_count, course_tee_id, tee_color,
   sg_off_tee, sg_approach, sg_around_green, sg_putting,
-  courses(name),
-  course_tees(par),
-  hole_scores(score, par, holes(par))
+  courses(name, course_tees(id, tee_color, par)),
+  hole_scores(score, par, holes(par, hole_tees(course_tee_id, par)))
 `
 
 function json(body: unknown, status = 200): Response {
@@ -112,14 +119,14 @@ Deno.serve(async (req) => {
     const email = userRes?.user?.email
     if (userErr || !email) continue
 
-    // Par of the holes the round scored (per-round override, else the
-    // hole's), so a 6-hole round reads against its own six holes (#727).
-    // With none, the tee's par scaled to the round's hole count, else 4 a
-    // hole, else the tee's par, else 72 — see roundSummaryPar.
-    const scoredPars = (round.hole_scores ?? [])
-      .filter((hs) => (hs.score ?? 0) > 0)
-      .map((hs) => hs.par ?? hs.holes?.par ?? 4)
-    const par = roundSummaryPar(scoredPars, round.course_tees?.par, round.hole_count)
+    // Par of the holes the round scored, as played (per-round override, else
+    // the played tee's, else the hole's; #1462), so a 6-hole round reads
+    // against its own six holes (#727). With none, the tee's par scaled to the
+    // round's hole count, else 4 a hole, else the tee's par, else 72 — see
+    // roundSummaryPar.
+    const tee = resolveCourseTee(round.courses?.course_tees ?? [], round.course_tee_id, round.tee_color)
+    const scoredPars = scoredHolePars(round.hole_scores ?? [], tee?.id)
+    const par = roundSummaryPar(scoredPars, tee?.par, round.hole_count)
     const content = buildRoundSummary({
       courseName: round.courses?.name ?? 'your round',
       totalScore: round.total_score ?? 0,

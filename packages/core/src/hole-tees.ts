@@ -1,6 +1,5 @@
-import type { Database } from '@oga/supabase'
-
-type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+// IMPORT-FREE so the round-summary Edge Function can vendor it verbatim
+// (`pnpm email:vendor-core`).
 
 export interface HoleBase {
   par: number
@@ -52,12 +51,37 @@ export function resolveHole(
   liveOverride?: HoleLiveOverride,
 ): ResolvedHole {
   return {
-    par: roundOverride?.par ?? teeOverride?.par ?? base.par,
+    par: playedPar(base.par, teeOverride?.par, roundOverride?.par),
     yards: teeOverride?.yards ?? base.yards,
     strokeIndex: teeOverride?.stroke_index ?? base.stroke_index,
     teeLat: liveOverride?.tee_lat ?? teeOverride?.tee_lat ?? base.tee_lat,
     teeLng: liveOverride?.tee_lng ?? teeOverride?.tee_lng ?? base.tee_lng,
   }
+}
+
+function playedPar(holePar: number, teePar: number | null | undefined, roundPar: number | null | undefined): number {
+  return roundPar ?? teePar ?? holePar
+}
+
+// The par each scored hole was played at, in hole_scores order, for a reader
+// holding the round's hole_scores with their hole and every tee's hole_tees
+// rows (the round-summary email, #1462). Same rule as resolveHole (owner rule
+// Q4). A missing hole row reads as par 4.
+export function scoredHolePars(
+  holeScores: readonly {
+    score: number | null
+    /** hole_scores.par, the round's override. */
+    par: number | null
+    holes: { par: number; hole_tees: readonly { course_tee_id: string; par: number | null }[] } | null
+  }[],
+  teeId: string | null | undefined,
+): number[] {
+  return holeScores
+    .filter((hs) => (hs.score ?? 0) > 0)
+    .map((hs) => {
+      const teeRow = teeId ? hs.holes?.hole_tees.find((ht) => ht.course_tee_id === teeId) : undefined
+      return playedPar(hs.holes?.par ?? 4, teeRow?.par, hs.par)
+    })
 }
 
 // Resolves which course_tees row a round is playing: prefer the id
@@ -66,11 +90,11 @@ export function resolveHole(
 // (round has no tee selected, or the referenced tee was later deleted).
 // Lifted out of three previously-duplicated inline copies of this exact
 // fallback (useCompleteRound.ts, useRoundActions.ts, mobile completeRound.ts).
-export function resolveCourseTee(
-  tees: CourseTeeRow[],
+export function resolveCourseTee<T extends { id: string; tee_color: string }>(
+  tees: readonly T[],
   courseTeeId: string | null | undefined,
   teeColor: string | null | undefined,
-): CourseTeeRow | null {
+): T | null {
   if (courseTeeId) {
     const byId = tees.find((t) => t.id === courseTeeId)
     if (byId) return byId
