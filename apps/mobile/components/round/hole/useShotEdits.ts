@@ -78,8 +78,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   // Mirrors obInFlightRef for the OB key's busy state (#1112).
   const [obBusy, setObBusy] = useState(false)
   // The OB flag we last WROTE for a shot, which outranks the fetched value
-  // until the refetch catches up. The fetched `shots[i].ob` only refreshes when the
-  // post-write `refreshShots` round-trip lands — a whole extra RTT after the
+  // until the refetch catches up. The fetched flag (`data.shots[i].ob`) only
+  // refreshes when the post-write `refreshShots` round-trip lands — an RTT after the
   // write resolved and the in-flight gate released. Reading the fetched value
   // in that window is what made the penalty chargeable twice: a second tap
   // recomputed `next = true` against stale data, the update matched its (still
