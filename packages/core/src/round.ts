@@ -23,7 +23,7 @@ import {
   SHOT_SHAPE_LABELS,
   SHOT_START_LINE_LABELS,
 } from './constants'
-import { formatDistance, formatPuttDistance, haversineYards } from './units'
+import { aimOffsetInchesToYards, formatDistance, formatPuttDistance, haversineYards } from './units'
 import { REPLAY_YARDS } from './sg-calculator'
 import type {
   BreakDirection,
@@ -754,9 +754,7 @@ export function reviewedRowToShotFields(
     break_direction_vertical: isPutt ? row.breakDirectionVertical ?? null : null,
     break_direction_horizontal: isPutt ? row.breakDirectionHorizontal ?? null : null,
     aim_offset_yards:
-      isPutt && row.aimOffsetInches != null
-        ? Math.round((row.aimOffsetInches / 36) * 10) / 10
-        : null,
+      isPutt && row.aimOffsetInches != null ? aimOffsetInchesToYards(row.aimOffsetInches) : null,
     notes: row.notes ?? null,
   }
 }

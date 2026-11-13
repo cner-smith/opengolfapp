@@ -11,6 +11,12 @@ export const FEET_TO_YARDS = 0.333333
 export const FEET_TO_METERS = 0.3048
 export const FEET_TO_CM = 30.48
 
+// A putt's aim offset: inches left (−) or right (+) of the hole on the green
+// diagram, stored as aim_offset_yards to 0.1 yd.
+export function aimOffsetInchesToYards(inches: number): number {
+  return Math.round((inches / 36) * 10) / 10
+}
+
 export function toRadians(deg: number): number {
   return (deg * Math.PI) / 180
 }
