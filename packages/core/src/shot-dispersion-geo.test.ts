@@ -197,6 +197,10 @@ describe('aimPlateSpot', () => {
     expect(back(40, 60).yd).toBeCloseTo(30, 0)
   })
 
+  it('falls back to halfway when the ring stat is not a number', () => {
+    expect(back(120, NaN).yd).toBeCloseTo(60, 0)
+  })
+
   it('sits on the aim line, toward the ball', () => {
     expect(angGap(back(120, 45).brg, 180)).toBeLessThan(0.5)
   })

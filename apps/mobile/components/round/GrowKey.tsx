@@ -98,8 +98,11 @@ export function GrowKey({
         ]}
       >
         {/* Anchored just above the key part, so the growing face uncovers it from the bottom up. */}
+        {/* Folded, the drawer stays mounted (it grows out of the key), so hide it from screen readers too. */}
         <Animated.View
           pointerEvents={open && !ghost ? 'auto' : 'none'}
+          accessibilityElementsHidden={!open}
+          importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
           onLayout={(e) => {
             setDrawerH(e.nativeEvent.layout.height)
             onDrawerHeight(e.nativeEvent.layout.height)

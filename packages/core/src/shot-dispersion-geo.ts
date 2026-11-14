@@ -210,12 +210,15 @@ const PLATE_CLEAR_YARDS = 30
  * the aim toward the ball, 30 yd short of where the pattern's 95% ring reaches,
  * but always half to three quarters of the way back so it reads as the leg's
  * label rather than the ball's or the aim's. `ringShortYards` is how far short
- * of the aim the ring reaches (along95 − alongMean). On a short leg the ring
+ * of the aim the ring reaches: along95 − alongMean, where alongMean is + past
+ * the aim and − short of it (aim-relative dispersion). On a short leg the ring
  * can reach past three quarters; the plate then stays at three quarters, the
  * nearest it comes to the ball marker.
  */
 export function aimPlateSpot(ball: GeoPoint, aim: GeoPoint, ringShortYards: number): GeoPoint {
   const leg = haversineYards(aim.lat, aim.lng, ball.lat, ball.lng)
-  const back = Math.min(leg * 0.75, Math.max(leg * 0.5, ringShortYards + PLATE_CLEAR_YARDS))
+  // A broken stat must not turn the plate's coordinates to NaN: fall back to halfway.
+  const short = Number.isFinite(ringShortYards) ? ringShortYards : 0
+  const back = Math.min(leg * 0.75, Math.max(leg * 0.5, short + PLATE_CLEAR_YARDS))
   return destinationYards(aim, bearingDegrees(aim.lat, aim.lng, ball.lat, ball.lng), back)
 }
