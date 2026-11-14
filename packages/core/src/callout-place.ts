@@ -125,6 +125,7 @@ export function placeLoupe(q: {
   const up = LOUPE_LIFT + r
   const s = q.away
   const shift = r + LOUPE_SIDE
+  // In order of preference: above, above-away, above-toward, beside away, beside toward, below.
   const candidates: ScreenPt[] = [
     [x, y - up],
     [x + s * shift, y - up],

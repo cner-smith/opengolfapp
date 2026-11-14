@@ -66,6 +66,11 @@ export const Magnifier = forwardRef<
   const camera = useRef<Mapbox.Camera>(null)
   const zoom = useRef(17)
   const pinPt = useRef<ScreenPt | null>(null)
+  // The map answers async; one that answers after the aim step ended must not remount the loupe.
+  const liveRef = useRef(live)
+  liveRef.current = live
+  // A map torn down mid-call rejects; the loupe just keeps its last state.
+  const ignore = () => {}
 
   const keepOut = (finger: ScreenPt): ScreenBox[] => {
     if (!size) return []
@@ -95,10 +100,13 @@ export const Magnifier = forwardRef<
   useImperativeHandle(ref, () => ({
     warm: (aim) => {
       if (start) return
-      void map.current?.getZoom().then((z) => {
-        zoom.current = z
-        setStart({ center: [aim.lng, aim.lat], zoom: z + ZOOM_UP, heading: heading() })
-      })
+      void map.current
+        ?.getZoom()
+        .then((z) => {
+          zoom.current = z
+          if (liveRef.current) setStart({ center: [aim.lng, aim.lat], zoom: z + ZOOM_UP, heading: heading() })
+        })
+        .catch(ignore)
     },
     show: (at, x, y) => {
       setDragging(true)
@@ -106,18 +114,24 @@ export const Magnifier = forwardRef<
       pinPt.current = null
       if (pin) {
         // Mapbox answers (-1, -1) for a pin off the screen: no tag to dodge then.
-        void map.current?.getPointInView([pin.lng, pin.lat]).then(([px = -1, py = -1]) => {
-          if (px >= 0 && py >= 0) pinPt.current = [px, py]
-        })
+        void map.current
+          ?.getPointInView([pin.lng, pin.lat])
+          .then(([px = -1, py = -1]) => {
+            if (px >= 0 && py >= 0) pinPt.current = [px, py]
+          })
+          .catch(ignore)
       }
       // No touch-down reached us first: mount now (it shows once drawn).
       if (!start) setStart({ center: [at.lng, at.lat], zoom: zoom.current + ZOOM_UP, heading: heading() })
       centre(at)
       // The player may have zoomed since the touch-down.
-      void map.current?.getZoom().then((z) => {
-        zoom.current = z
-        centre(at)
-      })
+      void map.current
+        ?.getZoom()
+        .then((z) => {
+          zoom.current = z
+          centre(at)
+        })
+        .catch(ignore)
     },
     move: (at, x, y) => {
       place(x, y)
