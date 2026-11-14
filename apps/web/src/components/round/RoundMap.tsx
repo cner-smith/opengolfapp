@@ -329,8 +329,12 @@ export function RoundMap({
 // moves at most once a frame, in its own component so a pan re-renders only it.
 const WAYFINDER_ARROW = 20 // half the arrow's box: what it keeps clear of chrome
 const WAYFINDER_INSET = 24
-const WAYFINDER_LABEL = { width: 88, height: 28 }
-const PAPER_HALO = '0 0 3px #fbf8f1, 0 0 3px #fbf8f1, 0 0 6px #fbf8f1'
+const WAYFINDER_LABEL = { width: 84, height: 26 }
+// A solid paper outline: the text's shadow 2.5px out in eight directions, then a soft edge.
+const PAPER_HALO = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((d) => `${(2.5 * Math.cos((d * Math.PI) / 180)).toFixed(2)}px ${(2.5 * Math.sin((d * Math.PI) / 180)).toFixed(2)}px 0 #fbf8f1`)
+  .concat('0 0 6px #fbf8f1')
+  .join(', ')
 const CHROME_GAP = 6
 
 function WayfinderKey({
@@ -443,12 +447,12 @@ function WayfinderKey({
           alignItems: 'center',
           justifyContent: 'center',
           color: '#1C211C',
-          fontSize: 13,
+          fontSize: 11,
           textShadow: PAPER_HALO,
           whiteSpace: 'nowrap',
         }}
       >
-        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 22 }}>
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 18 }}>
           {num}
         </span>
         {unitLabel && <>&nbsp;{unitLabel}</>}

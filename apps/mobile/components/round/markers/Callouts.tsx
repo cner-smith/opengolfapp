@@ -1,9 +1,9 @@
 import { Platform, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import Svg, { G, Path } from 'react-native-svg'
+import Svg, { G, Path, Text as SvgText, TSpan } from 'react-native-svg'
 import type { Wayfinder } from '@oga/core'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
-import { TYPE } from '../../../lib/typography'
+import { FONT, TYPE } from '../../../lib/typography'
 import { Key } from '../../paper/Paper'
 import { FONT_CAP, P } from '../../paper/tokens'
 
@@ -99,8 +99,7 @@ export function ObCallout({
 export const WAYFINDER_ARROW = 20
 /** dp the arrow's ellipse keeps in from the map's open edges. */
 export const WAYFINDER_INSET = 24
-const LABEL = { width: 84, height: 28 }
-const HALO = { textShadowColor: P.raised, textShadowRadius: 4, textShadowOffset: { width: 0, height: 0 } }
+const LABEL = { width: 80, height: 26 }
 
 export function WayfinderKey({ wf }: { wf: Wayfinder }) {
   // The label's centre: in from the arrow along the ellipse's inner side, far
@@ -128,22 +127,35 @@ export function WayfinderKey({ wf }: { wf: Wayfinder }) {
           <Path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill={P.ink} />
         </G>
       </Svg>
-      <View
-        style={{
-          position: 'absolute',
-          left: wf.x + ix * reach - LABEL.width / 2,
-          top: wf.y + iy * reach - LABEL.height / 2,
-          width: LABEL.width,
-          height: LABEL.height,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+      {/* SVG text: a 5 dp paper stroke under the ink draws a solid outline. */}
+      <Svg
+        width={LABEL.width}
+        height={LABEL.height}
+        style={{ position: 'absolute', left: wf.x + ix * reach - LABEL.width / 2, top: wf.y + iy * reach - LABEL.height / 2 }}
       >
-        <Text allowFontScaling={false} style={[TYPE.serif, HALO, { fontSize: 22, lineHeight: 26, color: P.ink }]}>
-          {num}
-          {unit ? <Text style={[TYPE.body, HALO, { fontSize: 13 }]}> {unit}</Text> : null}
-        </Text>
-      </View>
+        {[true, false].map((outline) => (
+          <SvgText
+            key={String(outline)}
+            // The anchor centres the number alone: shift by about half the unit.
+            x={LABEL.width / 2 - (unit ? 3 * unit.length + 3 : 0)}
+            y={19}
+            textAnchor="middle"
+            fontFamily={FONT.serifItalic}
+            fontSize={18}
+            fill={outline ? P.raised : P.ink}
+            stroke={outline ? P.raised : undefined}
+            strokeWidth={outline ? 5 : undefined}
+            strokeLinejoin="round"
+          >
+            {num}
+            {unit ? (
+              <TSpan fontFamily={FONT.body} fontSize={11}>
+                {' ' + unit}
+              </TSpan>
+            ) : null}
+          </SvgText>
+        ))}
+      </Svg>
     </View>
   )
 }
