@@ -128,11 +128,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     pendingForHole,
     storedPin,
     roundPin,
-    remotePuttCount,
-    localPuttCount,
-    previousShots,
-    previousShotIds,
-    previousShotObs,
+    puttCount,
+    shots,
     shotNumber,
     holeCount,
     effectiveHoles,
@@ -261,9 +258,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (!base) return
     // Stamp the client id up front so the optimistic pending entry below carries
     // the SAME id that insertPendingShot persists to SQLite. Without it, the
-    // in-memory payload has no `id`, so previousShotIds skips this shot (its
-    // `&& p.id` guard) while previousShots keeps it — misaligning the summary's
-    // row→shot map and leaving the delete affordance disabled until a refetch.
+    // in-memory payload has no `id`, so the hole's shot list (core
+    // liveHoleShots) leaves this shot out until a refetch: no breadcrumb, no OB
+    // key target, no delete.
     const payload = base.id ? base : { ...base, id: uuid.v4() }
     persistShotInFlightRef.current = true
     setSaving(true)
@@ -288,7 +285,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       ])
       setAim(null)
       setRoundState('PLACE_BALL')
-      const newPutts = remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
+      const newPutts = puttCount + (isPutt ? 1 : 0)
       // score = struck rows + penalty strokes. `shotNumber` IS the struck
       // count once this row lands, so without the OB term the very next shot
       // overwrites the chip's bump with the raw count. `payload.ob` covers
@@ -357,7 +354,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // so go straight to the end-of-hole summary rather than back to PLACE_BALL.
     // A miss falls through — persistShot already returned to PLACE_BALL for the
     // next putt. The "On the green" chip is gated on totalShotsThisHole > 0
-    // (MapBottomChrome), so a putt is never the hole's first shot: previousShots
+    // (MapBottomChrome), so a putt is never the hole's first shot: shots
     // is ≥1 here and finishHole opens the summary, never the empty-hole advance.
     if (v.puttMade === true && !data.shotsOutOfReach) finishHole()
   }
@@ -444,7 +441,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // same recovery as no fix at all.
     const gpsStale =
       markSpot == null && Date.now() - gpsFixAtRef.current > 30_000
-    const last = previousShots[previousShots.length - 1]
+    const last = shots[shots.length - 1]?.start
     logDiag('mark', {
       source: markSpot == null ? 'gps_position' : ballSource === 'gps' ? 'gps_fix' : `ball_${ballSource}`,
       fixAgeMs: Date.now() - gpsFixAtRef.current,
@@ -478,7 +475,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     const pin = roundPin ?? storedPin
     if (last && !(pin && distanceYards(last, pin) <= PUTTING_RADIUS_YARDS)) {
       const yards = distanceYards(last, ballSnapshot)
-      setMark({ hole: holeNumber, shot: previousShots.length, yards, at: ballSnapshot })
+      setMark({ hole: holeNumber, shot: shots.length, yards, at: ballSnapshot })
     } else setMark(null)
     // Marking a ball IS engaging the live append flow for this hole visit —
     // keeps the aids on across the natural shot-to-shot loop even after the
@@ -537,7 +534,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // either mode for a just_track player who wants to log the putt.
     const autoGreen =
       captureMode === 'track_patterns' &&
-      previousShots.length > 0 &&
+      shots.length > 0 &&
       pinTarget != null &&
       distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
     // On the green (#791 step 4 rework): the marked ball is the putt's start.
@@ -611,7 +608,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // Nothing placed on this hole → nothing to review; advance straight on
     // (a skipped / walked hole). Otherwise open the end-of-hole review so the
     // player confirms each shot's details before moving on (#791).
-    if (previousShots.length === 0) {
+    if (shots.length === 0) {
       advanceAfterHole()
       return
     }
@@ -668,7 +665,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // Back out of the review to the live map, into the played-hole EDIT surface
   // (stepper + drag-to-move + delete) rather than back into live capture —
   // this hole is already played by construction (the summary only opens once
-  // previousShots is non-empty). setRoundState('PLACE_BALL') closes the
+  // shots is non-empty). setRoundState('PLACE_BALL') closes the
   // SUMMARY overlay; setAppendEngaged(false) is what actually flips
   // isRevisitingPlayedHole (→ editMode in LiveRoundSession) true for this
   // hole — without it, appendEngaged is still true from the live capture
@@ -719,7 +716,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   const lastHit =
     mark &&
     mark.hole === holeNumber &&
-    (at(previousShots[mark.shot], mark) || (previousShots.length === mark.shot && at(ball, mark)))
+    (at(shots[mark.shot]?.start, mark) || (shots.length === mark.shot && at(ball, mark)))
       ? { shot: mark.shot, yards: mark.yards }
       : null
 

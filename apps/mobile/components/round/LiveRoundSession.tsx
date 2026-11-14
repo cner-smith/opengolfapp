@@ -170,6 +170,9 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
+  // Views of the hole's one shot list for the props that take plain arrays.
+  const shotStarts = useMemo(() => data.shots.map((s) => s.start), [data.shots])
+  const shotIds = useMemo(() => data.shots.map((s) => s.id), [data.shots])
   const [backTag, closeBackTag] = useBackOnlineTag(data.refreshRound)
   // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
   // round's actual count (e.g. hole=10 on a 9-hole round) — the
@@ -199,7 +202,7 @@ export default function LiveRoundSession({
     storedPin: data.storedPin,
     roundPin: data.roundPin,
     tee: data.tee,
-    hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
+    hasPriorShots: data.shotCount > 0,
   })
 
   // Played-hole mode (#1115): the stepper (pick, drag, Add, Delete) on any hole
@@ -208,8 +211,8 @@ export default function LiveRoundSession({
   // hole change). Those two need the frontier check: the just-finished hole
   // stays current until Save & next moves on. A skipped hole being played live
   // stays live once its first shot is marked (cabdedd4). Indexes into
-  // previousShots, so it needs at least one.
-  const editMode = data.previousShots.length > 0 && (finalState.isRevisitingPlayedHole ||
+  // data.shots, so it needs at least one.
+  const editMode = data.shots.length > 0 && (finalState.isRevisitingPlayedHole ||
     (holeNumber < furthestHoleReached && (!!data.currentHoleScore?.finished_at || editHole === holeNumber)))
 
   // Which of this hole's played shots is selected in edit mode. Reset to the
@@ -220,8 +223,8 @@ export default function LiveRoundSession({
     setActiveShotIdx(0)
   }, [holeNumber])
   useEffect(() => {
-    setActiveShotIdx((i) => Math.min(i, Math.max(0, data.previousShots.length - 1)))
-  }, [data.previousShots.length])
+    setActiveShotIdx((i) => Math.min(i, Math.max(0, data.shots.length - 1)))
+  }, [data.shots.length])
 
   // A holed putt whose review was never saved (app killed / relaunched with the
   // sheet up) resumes in PLACE_BALL as "next shot". Reopen the review once per
@@ -306,7 +309,7 @@ export default function LiveRoundSession({
   // pattern shows is pinned to the shot you're facing. Null (no pin / tee
   // shot) → selectClub falls back to the longest club.
   // In edit mode the hero reads the selected shot's start (#1115).
-  const heroBall = editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball
+  const heroBall = editMode ? data.shots[activeShotIdx]?.start ?? null : finalState.ball
   const ballToPinYards = useMemo(() => {
     const pinPt = data.roundPin ?? data.storedPin
     if (!heroBall || !pinPt) return null
@@ -373,7 +376,7 @@ export default function LiveRoundSession({
   // putting, plus expected strokes to hole out from there.
   // In played-hole mode, whether the selected shot is a putt (its lie), so a putt reads in feet.
   const putting = editMode
-    ? isPuttShot(data.previousShotCaptured[activeShotIdx]?.lie_type ?? null)
+    ? isPuttShot(data.shots[activeShotIdx]?.captured.lie_type ?? null)
     : finalState.roundState === 'PUTTING'
   const heroDistance = useMemo(() => {
     if (ballToPinYards == null) return null
@@ -411,10 +414,7 @@ export default function LiveRoundSession({
     else setSheetHeld(false)
   }
 
-  const totalShotsThisHole =
-    data.remoteShotCount + data.localShotCount > 0
-      ? data.remoteShotCount + data.localShotCount
-      : 0
+  const totalShotsThisHole = data.shotCount
 
   const { wheelRows, autoClub, wheelClub, setClubOverride, wheelOpen, setWheelOpen } =
     useClubWheel({ bag, byClub, selectClub, ballToPinYards, holeNumber, totalShotsThisHole })
@@ -468,7 +468,7 @@ export default function LiveRoundSession({
     holeNumber,
     pin: data.roundPin ?? data.storedPin,
     ball: heroBall,
-    previousShots: data.previousShots,
+    previousShots: shotStarts,
     tee: data.tee,
     userId: user?.id,
     offline: authOffline,
@@ -509,7 +509,7 @@ export default function LiveRoundSession({
       if (finalState.roundState === 'SUMMARY' && !sheetHeld) return false
       // Editing a hole that isn't saved yet (review ✕ / Back): Back returns
       // to its review rather than asking to leave the round (#938).
-      const editingUnsaved = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
+      const editingUnsaved = holeNumber < furthestHoleReached && data.shots.length > 0 &&
         !data.currentHoleScore.finished_at && editHole === holeNumber
       if (green.open) green.close()
       else if (wheelOpen) setWheelOpen(false)
@@ -548,23 +548,22 @@ export default function LiveRoundSession({
   // the start from before the move.
   const moveInFlightRef = useRef<Promise<boolean> | null>(null)
   const handleEditModeMove = async (loc: LatLng) => {
-    const shotId = data.previousShotIds[activeShotIdx]
+    const shotId = data.shots[activeShotIdx]?.id
     if (!shotId) return false
     moveInFlightRef.current = actions.moveShot(shotId, loc)
     return moveInFlightRef.current
   }
 
-  const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
+  const handleDeleteActiveShot = () => setDeleteShotId(data.shots[activeShotIdx]?.id ?? null)
 
   // Add inserts a shot after the selected one and selects it, ready to drag into place (#1114).
   const [adding, setAdding] = useState(false)
   const handleAddShot = async () => {
-    const afterId = data.previousShotIds[activeShotIdx]
-    const prev = data.previousShots[activeShotIdx]
-    if (!afterId || !prev) return
-    const start = insertedShotStart(prev, data.previousShots[activeShotIdx + 1] ?? null, data.roundPin ?? data.storedPin ?? null)
+    const after = data.shots[activeShotIdx]
+    if (!after) return
+    const start = insertedShotStart(after.start, data.shots[activeShotIdx + 1]?.start ?? null, data.roundPin ?? data.storedPin ?? null)
     setAdding(true)
-    if (await actions.insertShot(afterId, start)) setActiveShotIdx(activeShotIdx + 1)
+    if (await actions.insertShot(after.id, start)) setActiveShotIdx(activeShotIdx + 1)
     setAdding(false)
   }
 
@@ -654,12 +653,12 @@ export default function LiveRoundSession({
           // shot itself is the `ball` above, and shots after it aren't drawn
           // while stepping through an earlier one.
           previousShots={
-            editMode ? data.previousShots.slice(0, activeShotIdx) : data.previousShots
+            editMode ? shotStarts.slice(0, activeShotIdx) : shotStarts
           }
-          // Read off `actions.shotObs`, not `data.previousShotObs`, for the
+          // Read off `actions.shotObs`, not `data.shots[i].ob`, for the
           // same reason the chip/summary do (see summaryRows above) — our own
           // last OB write outranks the fetched flags until the refetch lands.
-          // Sliced identically to previousShots so the two stay index-aligned
+          // Sliced identically to the starts so the two stay index-aligned
           // in edit mode too (#839).
           previousShotObs={
             editMode ? actions.shotObs.slice(0, activeShotIdx) : actions.shotObs
@@ -690,7 +689,7 @@ export default function LiveRoundSession({
             !finalState.isRevisitingPlayedHole
           }
           tapToPlaceBall={!editMode}
-          focusOn={editMode ? data.previousShots[activeShotIdx] ?? null : null}
+          focusOn={editMode ? data.shots[activeShotIdx]?.start ?? null : null}
           recenterRef={recenterRef}
           lefty={lefty}
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
@@ -743,11 +742,11 @@ export default function LiveRoundSession({
               <CoachTarget id="live.played">
                 <ShotStepper
                   index={activeShotIdx}
-                  count={data.previousShots.length}
+                  count={data.shots.length}
                   onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
-                  onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
+                  onNext={() => setActiveShotIdx((i) => Math.min(data.shots.length - 1, i + 1))}
                   onDelete={handleDeleteActiveShot}
-                  deleteDisabled={data.previousShots.length === 0}
+                  deleteDisabled={data.shots.length === 0}
                   onAdd={handleAddShot}
                   addDisabled={adding}
                   onDone={editHole !== holeNumber || data.currentHoleScore.finished_at ? undefined : async () => {
@@ -791,7 +790,7 @@ export default function LiveRoundSession({
           puttDistanceFt={puttDistanceFt}
           // Live OB (#839): label + toggle share one source in useShotActions
           // (the fetched flag, overridden by our own last write until the
-          // refetch lands) — reading data.previousShotObs here would reopen
+          // refetch lands) — reading data.shots[i].ob here would reopen
           // the window where a second tap charges a second penalty.
           obPromptActive={obPromptActive}
           lastShotIsOb={actions.lastShotIsOb}
@@ -938,7 +937,7 @@ export default function LiveRoundSession({
         saving={actions.saving}
         onSave={actions.saveHoleSummary}
         onEditOnMap={handleEditHoleOnMap}
-        shotIds={data.previousShotIds}
+        shotIds={shotIds}
         onDeleteShot={actions.deleteShot}
       />
 
