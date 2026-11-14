@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { TYPE } from '../../lib/typography'
-import { FONT_CAP, LEDGE, P, R } from './tokens'
+import { FONT_CAP, LEDGE, MAP_KEY, P, R } from './tokens'
 
 const GRAIN = require('../../assets/grain.png')
 
@@ -104,6 +104,9 @@ export interface KeyProps {
   /** Multi-select toggle: announce as a checkbox (checked) instead of a
    *  selected button. */
   checkbox?: boolean
+  /** A key over the live map (#1468): the MAP_KEY see-through face on a thin
+   *  ink strip instead of the solid ledge block. */
+  glass?: boolean
   children: ReactNode
 }
 
@@ -125,12 +128,15 @@ export function Key({
   faceStyle,
   pressHaptic = true,
   checkbox = false,
+  glass = false,
   children,
 }: KeyProps) {
   const [pressed, setPressed] = useState(false)
   const t = TONES[tone]
   const down = pressed || latched || disabled
-  const edgeColor = disabled ? P.ink35 : edge ?? t.edge
+  const edgeColor = disabled ? P.ink35 : glass && !latched ? MAP_KEY.edge : edge ?? t.edge
+  const face = glass ? MAP_KEY.face : t.face
+  const facePressed = glass ? MAP_KEY.pressed : t.pressed
   // Motion (§15): press-in sinks 3 dp in 40 ms (out-quad), release rises in
   // 110 ms (out-cubic); the face colour swaps at once. A latch sinks in
   // 120 ms (out-cubic) and darkens over 75 ms; unlatching rises in 90 ms.
@@ -153,7 +159,7 @@ export function Key({
   }, [latched, disabled, sink, tint])
   const faceMotion = useAnimatedStyle(() => ({
     transform: [{ translateY: sink.value * LEDGE }],
-    backgroundColor: disabled ? P.chrome : interpolateColor(tint.value, [0, 1], [t.face, t.pressed]),
+    backgroundColor: disabled ? (glass ? MAP_KEY.face : P.chrome) : interpolateColor(tint.value, [0, 1], [face, facePressed]),
   }))
   return (
     <Pressable
@@ -180,15 +186,28 @@ export function Key({
     >
       {!disabled && (
         <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            top: LEDGE,
-            backgroundColor: edgeColor,
-            borderRadius: R,
-          }}
+          style={
+            glass
+              ? {
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: LEDGE - MAP_KEY.ledge,
+                  height: MAP_KEY.ledge,
+                  backgroundColor: edgeColor,
+                  borderBottomLeftRadius: R,
+                  borderBottomRightRadius: R,
+                }
+              : {
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  top: LEDGE,
+                  backgroundColor: edgeColor,
+                  borderRadius: R,
+                }
+          }
         />
       )}
       <Animated.View
@@ -196,7 +215,7 @@ export function Key({
           {
             flexGrow: stretch ? 1 : 0,
             borderRadius: R,
-            borderWidth: latched ? 2 : borderWidth,
+            borderWidth: latched ? 2 : glass ? StyleSheet.hairlineWidth : borderWidth,
             borderColor: edgeColor,
             alignItems: 'center',
             justifyContent: 'center',

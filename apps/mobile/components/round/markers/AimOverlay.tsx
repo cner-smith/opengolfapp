@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import Svg, { Circle, Path } from 'react-native-svg'
 import { useReducedMotion } from 'react-native-reanimated'
 import { arcGeoJSON, circleGeoJSON } from '@oga/core'
 import type { LatLng } from '../HoleMap.types'
@@ -81,5 +83,56 @@ export function AimOverlay({
         </Mapbox.ShapeSource>
       )}
     </>
+  )
+}
+
+// The aim handle's box and its four grip arrows (N/E/S/W): tips 37 out from
+// the centre, bases just outside the ring's halo.
+const AIM_BOX = 84
+const AIM_C = AIM_BOX / 2
+const AIM_GRIPS = [0, 90, 180, 270].map((deg) => {
+  const pt = (along: number, across: number) => {
+    const a = (deg * Math.PI) / 180
+    const x = AIM_C + along * Math.sin(a) + across * Math.cos(a)
+    const y = AIM_C - along * Math.cos(a) + across * Math.sin(a)
+    return `${Math.round(x * 100) / 100} ${Math.round(y * 100) / 100}`
+  }
+  return `M${pt(37, 0)} L${pt(29, 5.5)} L${pt(29, -5.5)} Z`
+})
+
+// The draggable aim handle (#950): a tinted gold disc with an ink halo and
+// four grip arrows.
+export function AimReticle() {
+  return (
+    <View style={{ width: AIM_BOX, height: AIM_BOX }}>
+      <Svg width={AIM_BOX} height={AIM_BOX} viewBox={`0 0 ${AIM_BOX} ${AIM_BOX}`}>
+        <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.ink} strokeOpacity={0.55} strokeWidth={7} />
+        <Circle cx={AIM_C} cy={AIM_C} r={24} fill="rgba(166,106,31,0.30)" stroke={P.warn} strokeWidth={4} />
+        <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.raised} strokeWidth={1.2} />
+        {AIM_GRIPS.map((d) => (
+          <Path key={d} d={d} fill={P.raised} stroke={P.ink} strokeWidth={1.2} strokeLinejoin="round" />
+        ))}
+        <Circle cx={AIM_C} cy={AIM_C} r={4.5} fill={P.warn} stroke={P.raised} strokeWidth={2} />
+      </Svg>
+    </View>
+  )
+}
+
+const CROSS = `M${AIM_C - 11} ${AIM_C}h7M${AIM_C + 4} ${AIM_C}h7M${AIM_C} ${AIM_C - 11}v7M${AIM_C} ${AIM_C + 4}v7`
+
+// The aim handle while the pattern is on (#1468): a small crosshair with a
+// gold dot, so the pattern's ring reads as the target. The grab area stays
+// the reticle's size: PointAnnotation hit-tests opaque pixels, so a
+// near-transparent pad fills it.
+export function AimCrosshair() {
+  return (
+    <View style={{ width: AIM_BOX, height: AIM_BOX }}>
+      <Svg width={AIM_BOX} height={AIM_BOX} viewBox={`0 0 ${AIM_BOX} ${AIM_BOX}`}>
+        <Path d={CROSS} stroke={P.ink} strokeOpacity={0.6} strokeWidth={4} strokeLinecap="round" />
+        <Path d={CROSS} stroke={P.raised} strokeWidth={1.8} strokeLinecap="round" />
+        <Circle cx={AIM_C} cy={AIM_C} r={3.6} fill={P.warn} stroke={P.raised} strokeWidth={1.6} />
+        <Circle cx={AIM_C} cy={AIM_C} r={24} fill="rgba(251,248,241,0.02)" />
+      </Svg>
+    </View>
   )
 }

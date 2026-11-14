@@ -137,6 +137,63 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
   }
 }
 
+type TouchProps = {
+  onTouchStartCapture: () => void
+  onTouchEnd: (e: GestureResponderEvent) => void
+  onTouchCancel: () => void
+}
+
+// The map keys fade after a few idle seconds (#1468). Same plumbing as the
+// blackout's touchProps: a finger down wakes them and holds the timer; the
+// last finger up restarts it.
+const KEYS_IDLE_MS = 4_000
+export function useMapKeysIdle(): { awake: boolean; touchProps: TouchProps } {
+  const [awake, setAwake] = useState(true)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+  }
+  const arm = useCallback(() => {
+    stop()
+    timer.current = setTimeout(() => setAwake(false), KEYS_IDLE_MS)
+  }, [])
+  useEffect(() => {
+    arm()
+    return stop
+  }, [arm])
+  return {
+    awake,
+    touchProps: {
+      onTouchStartCapture: () => {
+        stop()
+        setAwake(true)
+      },
+      onTouchEnd: (e) => {
+        if (e.nativeEvent.touches.length === 0) arm()
+      },
+      onTouchCancel: arm,
+    },
+  }
+}
+
+export function bothTouchProps(a: TouchProps, b: TouchProps): TouchProps {
+  return {
+    onTouchStartCapture: () => {
+      a.onTouchStartCapture()
+      b.onTouchStartCapture()
+    },
+    onTouchEnd: (e) => {
+      a.onTouchEnd(e)
+      b.onTouchEnd(e)
+    },
+    onTouchCancel: () => {
+      a.onTouchCancel()
+      b.onTouchCancel()
+    },
+  }
+}
+
 // Plain black: on OLED those pixels are off, which is the point. Mounted last in
 // the session root, over the review sheet, tips and menu. The first tap only
 // lifts it.

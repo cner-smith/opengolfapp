@@ -33,10 +33,10 @@ import { useShotActions } from './hole/useShotActions'
 import { useSummaryRows } from './hole/useSummaryRows'
 import { useGreenView } from './green/GreenView'
 import { HoleModals } from './hole/HoleModals'
-import { LiveRoundDock } from './LiveRoundDock'
+import { LiveRoundDock, RULER_SIDE_CLEAR } from './LiveRoundDock'
 import { BackOnlineTag, useBackOnlineTag } from './BackOnline'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { IdleBlackout, useIdleBlackout } from './IdleBlackout'
+import { bothTouchProps, IdleBlackout, useIdleBlackout, useMapKeysIdle } from './IdleBlackout'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS, PLAYED_HOLE_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
@@ -494,6 +494,7 @@ export default function LiveRoundSession({
     reading: rs === 'SET_AIM' || coach.steps != null || green.open,
     draggingRef: finalState.ballDraggingRef,
   })
+  const keysIdle = useMapKeysIdle()
 
   // Android Back (#915): menu/pin/aim aren't Modals; runs before the router's listener (newest first).
   // Only while this screen is focused: the session stays mounted behind Home
@@ -602,7 +603,7 @@ export default function LiveRoundSession({
 
   return (
     <CoachProvider>
-    <View style={{ flex: 1, backgroundColor: P.chrome }} {...idle.touchProps}>
+    <View style={{ flex: 1, backgroundColor: P.chrome }} {...bothTouchProps(idle.touchProps, keysIdle.touchProps)}>
       <LiveRoundHeader
         onHelp={coach.openHelp}
         holeNumber={holeNumber}
@@ -694,6 +695,7 @@ export default function LiveRoundSession({
           lefty={lefty}
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
+          plateClearBottom={footerHeight ? footerHeight + RULER_SIDE_CLEAR : undefined}
           wayfinderBottom={dockHeight ? dockHeight + 6 : undefined}
           tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
@@ -773,6 +775,7 @@ export default function LiveRoundSession({
             onOpenChange: setWheelOpen,
           }}
           greenKey={green.key}
+          keysAwake={keysIdle.awake}
           onTogglePin={() => setPinPlacementOpen((o) => !o)}
           overlayMode={overlayMode}
           onSetOverlayMode={setOverlayMode}

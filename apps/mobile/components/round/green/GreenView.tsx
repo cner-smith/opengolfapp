@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Pressable, Text, View, type ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -33,7 +33,7 @@ import { TYPE } from '../../../lib/typography'
 import { Key, KeyText, Rocker } from '../../paper/Paper'
 import { Primary } from '../../paper/Dock'
 import { Icon } from '../../paper/icons'
-import { P } from '../../paper/tokens'
+import { MAP_KEY, P } from '../../paper/tokens'
 import { fitGreen, GreenDrawing, screenFrame, type ScreenFrame, type GreenMode } from './GreenDrawing'
 import { useGreenMaps, type PreparedGreen } from './greenData'
 import { GreenMapLayers } from './GreenMapLayers'
@@ -213,6 +213,8 @@ function GreenKey({
           }}
           latched={pinPlacementOpen}
           pressHaptic={false}
+          glass
+          style={{ width: KEY_W }}
           faceStyle={{ height: 46, gap: 1 }}
         >
           <Icon.pin size={20} />
@@ -242,18 +244,18 @@ function GreenKey({
       style={{ paddingBottom: 3, width: KEY_W }}
     >
       {/* Only the ledge strip under the face: the see-through face must not show a solid block. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, backgroundColor: P.ink, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 3 - MAP_KEY.ledge, height: MAP_KEY.ledge, backgroundColor: MAP_KEY.edge, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
       <View
         style={{
           height: 100,
           alignItems: 'center',
           justifyContent: 'flex-end',
           paddingBottom: 4,
-          borderWidth: 1,
-          borderColor: P.ink,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: MAP_KEY.edge,
           borderRadius: 3,
           overflow: 'hidden',
-          backgroundColor: down ? 'rgba(228,220,202,0.88)' : 'rgba(251,248,241,0.88)',
+          backgroundColor: down ? MAP_KEY.pressed : MAP_KEY.face,
           transform: [{ translateY: down ? 3 : 0 }],
         }}
       >
