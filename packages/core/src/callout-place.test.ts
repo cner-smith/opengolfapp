@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placeAimTag, placeCallout } from './callout-place'
+import { placeAimTag, placeCallout, placeLoupe } from './callout-place'
 
 const base = { box: { w: 116, h: 46 }, size: { w: 600, h: 700 }, prev: null, plates: [] }
 
@@ -49,5 +49,40 @@ describe('placeAimTag', () => {
 
   it('holds the left edge when neither side fits', () => {
     expect(placeAimTag({ ...tag, size: { w: 100, h: 400 }, anchor: [50, 200] }).x).toBe(8)
+  })
+})
+
+describe('placeLoupe', () => {
+  // A 400 × 700 map, a 65 radius loupe: it stands 155 above the finger.
+  const q = { r: 65, size: { w: 400, h: 700 }, keepOut: [] as { left: number; top: number; right: number; bottom: number }[], away: -1 as const }
+
+  it('stands straight above the finger when nothing is there', () => {
+    expect(placeLoupe({ ...q, finger: [200, 400] })).toEqual([200, 245])
+  })
+
+  it('slides in from a side edge instead of leaving the map', () => {
+    expect(placeLoupe({ ...q, finger: [30, 400] })).toEqual([73, 245])
+  })
+
+  it('steps away from the tags when the remaining tag is above the finger', () => {
+    // The tag starts on the line and runs right; the loupe goes up and left.
+    const tag = { left: 200, top: 220, right: 330, bottom: 270 }
+    expect(placeLoupe({ ...q, finger: [200, 400], keepOut: [tag] })).toEqual([123, 245])
+    // Lefty: tags run left, so it goes up and right.
+    const left = { left: 70, top: 220, right: 200, bottom: 270 }
+    expect(placeLoupe({ ...q, finger: [200, 400], keepOut: [left], away: 1 })).toEqual([277, 245])
+  })
+
+  it('goes beside the finger near the top, never over the Mapbox logo', () => {
+    // Finger near the top-left: above is off the map. Beside it to the left
+    // runs off the map too, so it goes right; a logo there pushes it below.
+    expect(placeLoupe({ ...q, finger: [100, 120] })).toEqual([255, 120])
+    const logo = { left: 0, top: 0, right: 400, bottom: 200 }
+    expect(placeLoupe({ ...q, finger: [100, 120], keepOut: [logo] })).toEqual([100, 275])
+  })
+
+  it('takes the spot touching the fewest boxes when none is clear', () => {
+    const all = { left: 0, top: 0, right: 400, bottom: 700 }
+    expect(placeLoupe({ ...q, finger: [200, 400], keepOut: [all] })).toEqual([200, 245])
   })
 })

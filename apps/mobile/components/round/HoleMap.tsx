@@ -25,6 +25,7 @@ import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimCrosshair, AimOverlay, AimReticle } from './markers/AimOverlay'
+import { dragPoint, Magnifier, type MagnifierHandle } from './Magnifier'
 import { AimPath } from './markers/AimPath'
 import { ObCallout, offscreenArrow, WayfinderKey } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
@@ -515,6 +516,10 @@ export function HoleMap({
     }
   }, [showAim, aim?.lat, aim?.lng, effectivePin?.lat, effectivePin?.lng])
 
+  // The live aim drag's magnifier (#1356); the past round's drags come later.
+  const loupe = useRef<MagnifierHandle>(null)
+  const loupeLive = isAimPhase && !pastCrumbs
+
   // Wall-clock gate for the aim-drag throttle (see AIM_DRAG_THROTTLE_MS).
   const lastAimDragRef = useRef(0)
 
@@ -630,6 +635,7 @@ export function HoleMap({
     <GestureDetector gesture={longPress}>
       <View
         style={{ flex: 1, position: 'relative' }}
+        onTouchStart={loupeLive && aim ? () => loupe.current?.warm(aim) : undefined}
         onLayout={(e) =>
           setMapSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
         }
@@ -808,9 +814,20 @@ export function HoleMap({
               id="aim"
               coordinate={aimCoordMemo}
               draggable={isAimPhase}
-              onDragStart={() => haptic('grab')}
-              onDrag={onAimDrag}
-              onDragEnd={onAimDragEnd}
+              onDragStart={(e) => {
+                haptic('grab')
+                const p = loupeLive ? dragPoint(e) : null
+                if (p) loupe.current?.show(p.at, p.x, p.y)
+              }}
+              onDrag={(e) => {
+                const p = loupeLive ? dragPoint(e) : null
+                if (p) loupe.current?.move(p.at, p.x, p.y)
+                onAimDrag(e)
+              }}
+              onDragEnd={(e) => {
+                loupe.current?.hide()
+                onAimDragEnd(e)
+              }}
             >
               {pattern ? smallAimHandle : aimHandle}
             </Mapbox.PointAnnotation>
@@ -907,6 +924,16 @@ export function HoleMap({
           )}
         </Mapbox.MapView>
         {wf && <WayfinderKey wf={wf} />}
+        <Magnifier
+          ref={loupe}
+          live={loupeLive}
+          map={mapViewRef}
+          heading={() => settledCamRef.current?.heading ?? 0}
+          size={mapSize}
+          pin={roundPin ?? pin ?? null}
+          lefty={lefty}
+          ornamentsTop={ornamentsTop}
+        />
       </View>
     </GestureDetector>
   )
