@@ -23,7 +23,7 @@ export function useSummaryRows(
 ) {
   return useMemo(() => {
     if (roundState !== 'SUMMARY') return []
-    const pts = data.previousShots
+    const pts = data.shots.map((s) => s.start)
     if (pts.length === 0) return []
     const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
     const par = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
@@ -36,7 +36,7 @@ export function useSummaryRows(
     // (which sources shot_result from the reviewed row, never from the stored
     // one) writes null over the 'ob' the chip wrote.
     //
-    // Read off `shotObs`, not data.previousShotObs, for the same
+    // Read off `shotObs`, not data.shots[i].ob, for the same
     // reason the chip's label is (see LiveRoundSession's OB props): the fetched flags
     // lag our own write by a refetch, and finishing the hole inside that
     // window would seed the sheet without the penalty.
@@ -53,13 +53,12 @@ export function useSummaryRows(
     return withReplayLies(
       applyCapturedShots(
         buildInitialRows(pts, par, pin.lat, pin.lng, userBag),
-        data.previousShotCaptured,
+        data.shots.map((s) => s.captured),
       ).map((r, i) => (shotObs[i] ? { ...r, shotResult: 'ob' as const } : r)),
     )
   }, [
     roundState,
-    data.previousShots,
-    data.previousShotCaptured,
+    data.shots,
     shotObs,
     bag,
     byClub,

@@ -2,6 +2,7 @@
 // One reducer owns the rule so every path (GPS, drag, OB, save, hole change)
 // answers the same question the same way (#1107).
 import type { GeoPoint } from './shot-dispersion-geo'
+import { isPuttShot, type CapturedShot } from './round'
 import { haversineYards } from './units'
 
 type LatLng = GeoPoint
@@ -82,4 +83,96 @@ export function awaitingNewSpot(state: LiveBallState): boolean {
 export function markSpot(state: LiveBallState): LatLng | null {
   if (state.source !== 'gps') return state.ball
   return awaitingNewSpot(state) ? null : (state.gps ?? state.ball)
+}
+
+// ---------------------------------------------------------------------------
+// The live hole's shots: the server's rows and the phone's queue as one list.
+
+/** A `shots` row as the live hole screen reads it (from the server or the offline cache). */
+export interface LiveShotRow {
+  id: string
+  club: string | null
+  lie_type: string | null
+  start_lat: number | null
+  start_lng: number | null
+  ob: boolean | null
+  putt_result: string | null
+}
+
+/** A shot on the live hole: where it was played from and what the round stored for it. */
+export interface LiveHoleShot {
+  id: string
+  start: LatLng
+  ob: boolean
+  captured: CapturedShot
+}
+
+export interface LiveHoleShots {
+  /** Shots with a start and an id: server rows (in shot_number order), then queued ones
+   *  (in queue order). The map, the stepper, the OB key and the review all index this
+   *  one list, so a shot's start, id and OB flag can't drift apart (#839). */
+  shots: LiveHoleShot[]
+  /** Every stored row, with a start or not: the next shot is numbered `count + 1`. */
+  count: number
+  putts: number
+  /** The hole's latest row (the last queued one, else the last server one) is a made putt. */
+  lastHoled: boolean
+  /** The hole's latest row was played from the green. */
+  lastPutt: boolean
+}
+
+/**
+ * One list of the hole's shots, built from the server rows loaded for a hole score and
+ * the phone's queued payloads (JSON, already without the ones the server returned).
+ * Only rows of `holeScoreId` count: on a hole switch the screen renders the new hole
+ * once before the old hole's shots are cleared, and they must not show under it.
+ */
+export function liveHoleShots(
+  holeScoreId: string | null,
+  remote: { holeScoreId: string; rows: readonly LiveShotRow[] } | null,
+  queued: readonly string[],
+): LiveHoleShots {
+  const rows: LiveShotRow[] = remote?.holeScoreId === holeScoreId ? [...remote.rows] : []
+  for (const raw of queued) {
+    const p = parseQueued(raw)
+    if (p?.hole_score_id !== holeScoreId) continue
+    rows.push({
+      id: p.id ?? '',
+      club: p.club ?? null,
+      lie_type: p.lie_type ?? null,
+      start_lat: p.start_lat ?? null,
+      start_lng: p.start_lng ?? null,
+      ob: p.ob ?? null,
+      putt_result: p.putt_result ?? null,
+    })
+  }
+  const shots = rows.flatMap((r): LiveHoleShot[] =>
+    r.id && r.start_lat != null && r.start_lng != null
+      ? [{
+          id: r.id,
+          start: { lat: r.start_lat, lng: r.start_lng },
+          ob: r.ob === true,
+          captured: { club: r.club, lie_type: r.lie_type, putt_result: r.putt_result },
+        }]
+      : [],
+  )
+  const last = rows[rows.length - 1]
+  return {
+    shots,
+    count: rows.length,
+    putts: rows.filter((r) => isPuttShot(r.lie_type)).length,
+    lastHoled: last?.putt_result === 'made',
+    lastPutt: !!last && isPuttShot(last.lie_type),
+  }
+}
+
+type QueuedPayload = Partial<LiveShotRow> & { hole_score_id?: string; id?: string }
+
+function parseQueued(raw: string): QueuedPayload | null {
+  try {
+    const p: unknown = JSON.parse(raw)
+    return p && typeof p === 'object' ? (p as QueuedPayload) : null
+  } catch {
+    return null
+  }
 }

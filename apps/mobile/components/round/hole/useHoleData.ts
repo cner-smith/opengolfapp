@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, roundHoleCount, type CapturedShot, type ResolvedHole } from '@oga/core'
+import { inferHoleCount, liveHoleShots, resolveCourseTee, resolveHole, roundHoleCount, type LiveHoleShot, type ResolvedHole } from '@oga/core'
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
@@ -48,23 +48,17 @@ export interface UseHoleDataResult {
   roundPin: LatLng | null
   tee: LatLng | null
   courseCenter: LatLng | null
-  remoteShotCount: number
-  remotePuttCount: number
-  remoteShotStarts: LatLng[]
   pendingForHole: PendingShot[]
   setPendingForHole: React.Dispatch<React.SetStateAction<PendingShot[]>>
-  previousShots: LatLng[]
-  previousShotIds: string[]
-  /** Out-of-bounds flag per shot, aligned 1:1 with `previousShotIds` (same
-   *  order, same length, same filters). Drives the live OB chip's
-   *  set-vs-undo state so it is DERIVED from the stored rows rather than
-   *  remembered in component state — a mid-hole reload must not offer to
-   *  mark an already-OB shot again and double-charge the penalty (#839). */
-  previousShotObs: boolean[]
-  /** Club, lie and putt result already stored per shot, aligned 1:1 with
-   *  `previousShotIds`. Seeds the end-of-hole review so a live putt isn't
-   *  re-guessed from distance (#1038). */
-  previousShotCaptured: CapturedShot[]
+  /** The hole's shots with a start, server rows then queued ones: start, id,
+   *  OB flag and stored club/lie/putt result in one record per shot. The OB
+   *  flag comes from the stored rows, so a mid-hole reload must not offer to
+   *  mark an already-OB shot again and double-charge the penalty (#839); the
+   *  stored club/lie seed the end-of-hole review (#1038). */
+  shots: LiveHoleShot[]
+  /** Every stored shot row of the hole (server + queued), with a start or not. */
+  shotCount: number
+  puttCount: number
   /** The hole's latest shot is a made putt (remote or still queued). */
   lastShotHoled: boolean
   /** The hole's latest shot was played from the green. */
@@ -74,8 +68,6 @@ export interface UseHoleDataResult {
   shotsOutOfReach: boolean
   /** Refetches the hole's shots; resolves once the refetch has landed in state. */
   refreshShots: () => Promise<void>
-  localShotCount: number
-  localPuttCount: number
   shotNumber: number
 }
 
@@ -150,19 +142,12 @@ export function useHoleData(
   const [holeTees, setHoleTees] = useState<HoleTeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [remoteShotCount, setRemoteShotCount] = useState(0)
-  const [remotePuttCount, setRemotePuttCount] = useState(0)
   const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
-  const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
-  const [remoteShotIds, setRemoteShotIds] = useState<string[]>([])
-  const [remoteShotObs, setRemoteShotObs] = useState<boolean[]>([])
-  const [remoteShotCaptured, setRemoteShotCaptured] = useState<CapturedShot[]>([])
-  // Hole score whose latest remote shot is a made putt. An id, not a bool: on a
-  // hole switch the caller sees the new hole before this resets.
-  const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
-  const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
-  // Hole score whose shots have landed in state (#1005).
-  const [shotsLoadedFor, setShotsLoadedFor] = useState<string | null>(null)
+  // The shots the last load of a hole treated as remote (server rows, or the
+  // offline cache's), tagged with their hole score: on a hole switch the
+  // caller sees the new hole before this resets. Set = the hole's shots have
+  // landed in state (#1005).
+  const [remote, setRemote] = useState<{ holeScoreId: string; rows: LiteShot[] } | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
   // Resolved by the refetch effect once a run that started at or after this
   // refresh settles, so a caller can wait for fresh shots (Done after a move,
@@ -398,14 +383,11 @@ export function useHoleData(
   // Tracks which hole_score id the reset-to-neutral block below has already
   // run for, so a same-hole refresh (shotsRefreshNonce bump, e.g. after
   // moveShot/deleteShot from the live-round edit-mode stepper) doesn't
-  // re-trigger it. Without this scoping, previousShots/previousShotIds would
-  // flash to empty for the whole fetch RTT on every move/delete — dropping
+  // re-trigger it. Without this scoping, the hole's shots would flash to
+  // empty for the whole fetch RTT on every move/delete — dropping
   // `hasPriorShots` to false and kicking the player briefly out of edit mode
-  // mid-action (previousShots.length > 0 is part of that predicate).
+  // mid-action (shots.length > 0 is part of that predicate).
   const resetForHoleScoreIdRef = useRef<string | null>(null)
-  // The shots the last load of a hole treated as remote (server rows, or the
-  // offline cache's), for the offline cache write below.
-  const remoteShotsRef = useRef<{ holeScoreId: string; shots: LiteShot[] } | null>(null)
   useEffect(() => {
     const holeScoreId = currentHoleScore?.id ?? null
     if (resetForHoleScoreIdRef.current !== holeScoreId) {
@@ -420,15 +402,7 @@ export function useHoleData(
       // actual hole_score id change (see ref above) — a same-hole refresh
       // keeps showing the last-known-good shots while the refetch is in
       // flight instead.
-      setRemoteShotCount(0)
-      setRemotePuttCount(0)
-      setRemoteShotStarts([])
-      setRemoteShotIds([])
-      setRemoteShotObs([])
-      setRemoteShotCaptured([])
-      setRemoteHoledFor(null)
-      setRemotePuttFor(null)
-      setShotsLoadedFor(null)
+      setRemote(null)
       setPendingForHole([])
     }
     if (!currentHoleScore) {
@@ -536,30 +510,8 @@ export function useHoleData(
           const payload = payloadOf(p)
           return !payload?.id || !remoteIds.has(payload.id)
         })
-        remoteShotsRef.current = { holeScoreId: currentHoleScore.id, shots }
-        setRemoteShotCount(shots.length)
-        setRemotePuttCount(shots.filter((s) => isPuttShot(s.lie_type)).length)
-        const starts: LatLng[] = []
-        const ids: string[] = []
-        const obs: boolean[] = []
-        const captured: CapturedShot[] = []
-        for (const r of shots) {
-          if (r.start_lat != null && r.start_lng != null) {
-            starts.push({ lat: r.start_lat, lng: r.start_lng })
-            ids.push(r.id)
-            obs.push(r.ob === true)
-            captured.push({ club: r.club, lie_type: r.lie_type, putt_result: r.putt_result })
-          }
-        }
-        setRemoteShotStarts(starts)
-        setRemoteShotIds(ids)
-        setRemoteShotObs(obs)
-        setRemoteShotCaptured(captured)
-        const lastRemote = shots[shots.length - 1]
-        setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
-        setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
+        setRemote({ holeScoreId: currentHoleScore.id, rows: shots })
         setPendingForHole(dedupedLocal)
-        setShotsLoadedFor(currentHoleScore.id)
         logDiag('refetch', { remote: shots.length, local: dedupedLocal.length, ms: Date.now() - fetchT0 })
       } catch (err) {
         logDiag('refetch_failed', { msg: err })
@@ -583,7 +535,6 @@ export function useHoleData(
   // pendingForHole without a refetch). Skips until this hole has loaded.
   useEffect(() => {
     const hsId = currentHoleScore?.id
-    const remote = remoteShotsRef.current
     if (!userId || !id || !hsId || remote?.holeScoreId !== hsId) return
     const queued = pendingForHole.flatMap((row): LiteShot[] => {
       const p = payloadOf(row)
@@ -599,137 +550,29 @@ export function useHoleData(
         putt_result: p.putt_result ?? null,
       }]
     })
-    void writeCache(offlineKeys.holeShots(userId, id, hsId), [...remote.shots, ...queued])
-  }, [pendingForHole, currentHoleScore?.id, userId, id])
+    void writeCache(offlineKeys.holeShots(userId, id, hsId), [...remote.rows, ...queued])
+  }, [remote, pendingForHole, currentHoleScore?.id, userId, id])
 
-  // Derive local shot/putt counts from the pending array — single source
-  // of truth, never out of sync with the underlying queue. Putts are
-  // counted via @oga/core isPuttShot (lie_type='green').
-  const localShotCount = pendingForHole.length
-
-  // Shot waypoints rendered on the map: synced shot starts followed by
-  // pending shot starts (in pending insertion order). The current ball
-  // is intentionally excluded — HoleMap appends it as the line's final
-  // segment so the ball can move while the breadcrumb stays.
-  //
-  // INVARIANT: this filter and those of `previousShotIds` / `previousShotObs`
-  // below must stay IDENTICAL — the three arrays are consumed by index, and a
-  // payload admitted by one but not another shifts every later index. That
-  // alignment now decides which shot markLastShotOb writes `ob: true` to,
-  // which waypoint wears the OB badge, and which row summaryRows stamps —
-  // the row that then sets the hole score (#839). `p.id` is redundant today
-  // (insertPendingShot always stamps one) but is kept here so the invariant
-  // is structural rather than a coincidence of three call sites.
-  const previousShots = useMemo(() => {
-    const out: LatLng[] = [...remoteShotStarts]
-    for (const r of pendingForHole) {
-      try {
-        const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null && p.id) {
-          out.push({ lat: p.start_lat, lng: p.start_lng })
-        }
-      } catch {
-        // skip malformed pending payload
-      }
-    }
-    return out
-  }, [remoteShotStarts, pendingForHole])
-
-  // Shot client-ids aligned 1:1 with `previousShots` (same order + length), so
-  // the summary can map a row to its shot for delete_shot. Remote ids come from
-  // the server rows; pending ids from payload.id (always set on insert, db.ts).
-  // Same filter as `previousShots` above — see the invariant note there.
-  const previousShotIds = useMemo(() => {
-    const out: string[] = [...remoteShotIds]
-    for (const r of pendingForHole) {
-      try {
-        const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null && p.id) {
-          out.push(p.id)
-        }
-      } catch {
-        // skip malformed pending payload (matches previousShots)
-      }
-    }
-    return out
-  }, [remoteShotIds, pendingForHole])
-
-  // OB flag per shot, built with the SAME filters as previousShots /
-  // previousShotIds above so all three stay index-aligned (a shot's position,
-  // id and OB state must never drift apart — see the invariant note on
-  // previousShots). Pending payloads carry `ob` themselves — buildPayload writes it,
-  // and the live OB chip patches it back into SQLite so this stays true for a
-  // shot flagged after it was queued (#839).
-  const previousShotObs = useMemo(() => {
-    const out: boolean[] = [...remoteShotObs]
-    for (const r of pendingForHole) {
-      try {
-        const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null && p.id) {
-          out.push(p.ob === true)
-        }
-      } catch {
-        // skip malformed pending payload (matches previousShotIds)
-      }
-    }
-    return out
-  }, [remoteShotObs, pendingForHole])
-
-  // Same filters again (see the invariant note on previousShots).
-  const previousShotCaptured = useMemo(() => {
-    const out: CapturedShot[] = [...remoteShotCaptured]
-    for (const r of pendingForHole) {
-      try {
-        const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null && p.id) {
-          out.push({
-            club: p.club ?? null,
-            lie_type: p.lie_type ?? null,
-            putt_result: p.putt_result ?? null,
-          })
-        }
-      } catch {
-        // skip malformed pending payload (matches previousShotIds)
-      }
-    }
-    return out
-  }, [remoteShotCaptured, pendingForHole])
-
-  // Queued shots come after the remote ones, so the last queued one wins.
-  const { lastShotHoled, lastShotPutt } = useMemo(() => {
-    const id = currentHoleScore?.id
-    if (!id) return { lastShotHoled: false, lastShotPutt: false }
-    const last = pendingForHole[pendingForHole.length - 1]
-    if (!last) return { lastShotHoled: remoteHoledFor === id, lastShotPutt: remotePuttFor === id }
-    try {
-      const p = JSON.parse(last.payload) as ShotPayload
-      const mine = p.hole_score_id === id
-      return { lastShotHoled: mine && p.putt_result === 'made', lastShotPutt: mine && isPuttShot(p.lie_type) }
-    } catch {
-      return { lastShotHoled: false, lastShotPutt: false }
-    }
-  }, [remoteHoledFor, remotePuttFor, pendingForHole, currentHoleScore?.id])
+  // The hole's shots as one list (server rows, then the queue in insertion
+  // order), so a shot's start, id and OB flag can't drift apart: the list's
+  // order decides which shot the OB key flags and which review row sets the
+  // hole score (#839). The current ball is not in it: HoleMap appends it as
+  // the line's final segment so the ball can move while the breadcrumb stays.
+  const holeShots = useMemo(
+    () => liveHoleShots(currentHoleScore?.id ?? null, remote, pendingForHole.map((p) => p.payload)),
+    [currentHoleScore?.id, remote, pendingForHole],
+  )
 
   // Live tee anchor: the player's first shot's start IS the tee. Falls back to
   // the stored course tee before the first shot (camera + pre-shot distances).
   // useHoleData is live-round-only (past rounds use PastRoundMap), so this is
   // the "GPS-first in live mode" anchor without touching the shared
   // holes.tee_lat — writeTee still only persists for synthetic holes.
-  const tee: LatLng | null = previousShots[0] ?? storedTee
-
-  const localPuttCount = useMemo(() => {
-    let n = 0
-    for (const r of pendingForHole) {
-      try {
-        const p = JSON.parse(r.payload) as ShotPayload
-        if (isPuttShot(p.lie_type)) n++
-      } catch {
-        // skip malformed pending payload
-      }
-    }
-    return n
-  }, [pendingForHole])
-  const shotNumber = remoteShotCount + localShotCount + 1
+  const tee: LatLng | null = holeShots.shots[0]?.start ?? storedTee
+  // Every stored row takes a number, placed on the map or not: numbering off
+  // the placed list would reuse a number and the sync would quarantine the
+  // shot on unique(hole_score_id, shot_number).
+  const shotNumber = holeShots.count + 1
 
   return {
     round,
@@ -752,21 +595,15 @@ export function useHoleData(
     roundPin,
     tee,
     courseCenter,
-    remoteShotCount,
-    remotePuttCount,
-    remoteShotStarts,
     pendingForHole,
     setPendingForHole,
-    previousShots,
-    previousShotIds,
-    previousShotObs,
-    previousShotCaptured,
-    lastShotHoled,
-    lastShotPutt,
-    shotsOutOfReach: !!currentHoleScore?.score && shotsLoadedFor !== currentHoleScore.id && !pendingForHole.length,
+    shots: holeShots.shots,
+    shotCount: holeShots.count,
+    puttCount: holeShots.putts,
+    lastShotHoled: holeShots.lastHoled,
+    lastShotPutt: holeShots.lastPutt,
+    shotsOutOfReach: !!currentHoleScore?.score && remote?.holeScoreId !== currentHoleScore.id && !pendingForHole.length,
     refreshShots,
-    localShotCount,
-    localPuttCount,
     shotNumber,
   }
 }
