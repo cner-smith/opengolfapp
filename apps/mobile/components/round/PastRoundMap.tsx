@@ -833,7 +833,7 @@ export function PastRoundMap({
           // its controls are a solid panel below it.
           aimBallInset={50}
           // Clear of the Mapbox logo, and the mode rocker while logging.
-          wayfinderBottom={{ key: wayfinderClear, ball: wayfinderClear }}
+          wayfinderBottom={{ clear: wayfinderClear }}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}

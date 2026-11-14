@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type RefObject } from 'react'
 import type Mapbox from '@rnmapbox/maps'
 import type { MapState } from '@rnmapbox/maps'
 import { viewPoint, wayfinder, type DistanceUnit, type MapCamera, type ScreenBox, type Wayfinder } from '@oga/core'
-import type { LatLng } from '../HoleMap.types'
+import type { KeyColumn, LatLng } from '../HoleMap.types'
 import { WAYFINDER_KEY } from '../markers/Callouts'
 
 // The wayfinder (#1386), from the camera as of the last settle: no per-frame
@@ -21,9 +21,9 @@ export function useWayfinder({
 }: {
   mapViewRef: RefObject<Mapbox.MapView | null>
   mapSize: { w: number; h: number } | null
-  /** dp from the map bottom: `key` kept clear of the key, and a ball above
-   *  `ball` counts as on screen. Unset, there is no wayfinder. */
-  bottom: { key: number; ball: number } | undefined
+  /** dp of solid chrome along the map bottom, and the key columns standing on
+   *  it. Unset, there is no wayfinder. */
+  bottom: { clear: number; columns?: KeyColumn[] } | undefined
   ball: LatLng | null | undefined
   pin: LatLng | null | undefined
   hidden: boolean
@@ -49,23 +49,28 @@ export function useWayfinder({
         if (mine === seq.current) setCam({ center: { lat, lng }, zoom, bearing: heading, pitch, centerPx, height: mapSize.h })
       })
   }
-  const wf = useMemo(
-    () =>
-      bottom == null || !cam || !mapSize || hidden
-        ? null
-        : wayfinder({
-            ball: ball ?? null,
-            pin: pin ?? null,
-            zoom: cam.zoom,
-            project: (p) => viewPoint(p, cam),
-            // Below the top ornaments, above the dock and its open drawer.
-            area: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - bottom.key },
-            seen: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - bottom.ball },
-            key: WAYFINDER_KEY,
-            avoid: drawer ? [drawer] : [],
-            unit,
-          }),
-    [bottom?.key, bottom?.ball, cam, mapSize, hidden, ball?.lat, ball?.lng, pin?.lat, pin?.lng, drawer?.left, drawer?.top, drawer?.right, drawer?.bottom, unit],
-  )
+  const wf = useMemo(() => {
+    if (bottom == null || !cam || !mapSize || hidden) return null
+    const floor = mapSize.h - bottom.clear
+    // A little air between the key and a column.
+    const columns = (bottom.columns ?? []).map((c) => ({
+      left: c.left - 6,
+      top: floor - c.above - 6,
+      right: c.right + 6,
+      bottom: floor,
+    }))
+    return wayfinder({
+      ball: ball ?? null,
+      pin: pin ?? null,
+      zoom: cam.zoom,
+      project: (p) => viewPoint(p, cam),
+      // Below the top ornaments, down to the solid chrome; off the key columns
+      // and the open drawer.
+      area: { left: 6, top: 40, right: mapSize.w - 6, bottom: floor },
+      key: WAYFINDER_KEY,
+      avoid: drawer ? [drawer, ...columns] : columns,
+      unit,
+    })
+  }, [bottom?.clear, bottom?.columns, cam, mapSize, hidden, ball?.lat, ball?.lng, pin?.lat, pin?.lng, drawer?.left, drawer?.top, drawer?.right, drawer?.bottom, unit])
   return { wf, onIdle }
 }

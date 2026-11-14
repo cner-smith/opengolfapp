@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -26,7 +26,7 @@ import { FONT_CAP, GAP, LEDGE, MARGIN, P, R } from '../paper/tokens'
 import { APPR_RULER_FEET, RULER_STEP, RulerCard, TEE_RULER_YARDS } from './HoleMapOverlays'
 import { GrowKey } from './GrowKey'
 import type { RoundState } from './hole/types'
-import type { OffscreenArrow } from './HoleMap.types'
+import type { KeyColumn, OffscreenArrow } from './HoleMap.types'
 
 export interface LiveRoundDockProps {
   /** The shot the last Mark measured (#1087). */
@@ -97,6 +97,8 @@ export interface LiveRoundDockProps {
   onDockHeight?: (h: number) => void
   /** The ruler drawer's top in dp above the footer while it's up, else 0. */
   onRulerDrawer?: (box: { width: number; top: number } | null) => void
+  /** The key columns standing on the footer, for the wayfinder to slide clear of. */
+  onKeyColumns?: (cols: KeyColumn[]) => void
   /** False after a few seconds with no touch: the map keys fade (#1468). */
   keysAwake: boolean
 }
@@ -246,6 +248,19 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     <View />
   )
 
+  // Each column's box as laid out in the full-width stack row; none when hidden.
+  const columns = useRef<{ keys: KeyColumn | null; right: KeyColumn | null }>({ keys: null, right: null })
+  const measureColumn = (which: 'keys' | 'right') => (e: LayoutChangeEvent) => {
+    const { x, width, height } = e.nativeEvent.layout
+    columns.current[which] = width && height ? { left: x, right: x + width, above: GAP + height } : null
+    p.onKeyColumns?.([columns.current.keys, columns.current.right].filter((c): c is KeyColumn => c != null))
+  }
+  useEffect(() => {
+    if (showStacks) return
+    columns.current = { keys: null, right: null }
+    p.onKeyColumns?.([])
+  }, [showStacks])
+
   // An open wheel or drawer keeps the keys up.
   const keysFade = useKeysFade(p.keysAwake || p.wheel.open || rulerOpen || scrubbing)
 
@@ -274,7 +289,11 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           ]}
         >
           {/* Keys keep to the column's outer edge, so the icon key mirrors for lefty. */}
-          <View pointerEvents="box-none" style={{ width: 124, gap: GAP, alignItems: p.lefty ? 'flex-end' : 'flex-start' }}>
+          <View
+            pointerEvents="box-none"
+            onLayout={measureColumn('keys')}
+            style={{ width: 124, gap: GAP, alignItems: p.lefty ? 'flex-end' : 'flex-start' }}
+          >
             {keys}
             {!putting && p.hasPin && (
               <CoachTarget id="live.wheel" style={{ alignSelf: 'stretch' }}>
@@ -283,7 +302,9 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
               </CoachTarget>
             )}
           </View>
-          {right}
+          <View pointerEvents="box-none" onLayout={measureColumn('right')}>
+            {right}
+          </View>
         </Animated.View>
       )}
       <PaperSurface

@@ -4,7 +4,7 @@ import { playCup } from '../../lib/sounds'
 import { ActivityIndicator, BackHandler, Dimensions, View } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
-import type { OffscreenArrow } from './HoleMap.types'
+import type { KeyColumn, OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import {
@@ -127,6 +127,7 @@ export default function LiveRoundSession({
   const [footerHeight, setFooterHeight] = useState(0)
   const [dockHeight, setDockHeight] = useState(0)
   const [rulerDrawer, setRulerDrawer] = useState<{ width: number; top: number } | null>(null)
+  const [keyColumns, setKeyColumns] = useState<KeyColumn[]>([])
   const recenterRef = useRef<(() => void) | null>(null)
   // Left-hand layout (§12), device-local; re-read on focus since Profile is
   // a tab away while this screen stays mounted.
@@ -695,8 +696,8 @@ export default function LiveRoundSession({
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
           plateClearBottom={footerHeight ? footerHeight + RULER_SIDE_CLEAR : undefined}
-          // The key keeps above the whole dock; a ball shows down to the footer (#1471).
-          wayfinderBottom={dockHeight && footerHeight ? { key: dockHeight + 6, ball: footerHeight } : undefined}
+          // On the map's edge down to the footer, clear of the key columns (#1471).
+          wayfinderBottom={footerHeight ? { clear: footerHeight, columns: keyColumns } : undefined}
           tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
@@ -846,6 +847,7 @@ export default function LiveRoundSession({
           onNotOnGreen={actions.notOnGreen}
           onFooterHeight={setFooterHeight}
           onDockHeight={setDockHeight}
+          onKeyColumns={setKeyColumns}
           onRulerDrawer={setRulerDrawer}
         />
         {green.view}

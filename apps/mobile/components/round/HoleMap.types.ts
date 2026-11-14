@@ -109,9 +109,10 @@ export interface HoleMapProps {
    *  and dp above the map bottom. A leg tag reaching over it rises above it. */
   tagClearDrawer?: { width: number; top: number }
   /** The wayfinder (#1386), which points at the ball from green zoom; unset,
-   *  there is none. dp from the map bottom: `key` is kept clear of the key, and
-   *  a ball above `ball` counts as on screen (#1471). */
-  wayfinderBottom?: { key: number; ball: number }
+   *  there is none. `clear`: dp of solid chrome along the map bottom; the key
+   *  rides the edge above it. `columns`: keys standing on that chrome, which
+   *  the key slides clear of (#1471). */
+  wayfinderBottom?: { clear: number; columns?: KeyColumn[] }
   onSetAim: (loc: LatLng) => void
   /** Resolving false rejects the move: the ball marker snaps back. */
   onSetBall: (loc: LatLng) => void | Promise<void | boolean>
@@ -203,4 +204,12 @@ export interface PastCrumbs {
   selectedN: number | null
   /** Tapping a crumb selects it (index into `crumbs`). Omit = not tappable. */
   onSelect?: (i: number) => void
+}
+
+/** A column of map keys standing on the bottom chrome: dp from the map's left
+ *  edge, and how far its top stands above that chrome. */
+export interface KeyColumn {
+  left: number
+  right: number
+  above: number
 }

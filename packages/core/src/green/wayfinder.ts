@@ -26,14 +26,11 @@ export interface WayfinderInput {
   /** A point's screen position, px from the map's top left. */
   project: (p: GeoPoint) => [number, number]
   /** The open map, px: chrome along the edges already taken off. The key
-   *  stays inside it. */
+   *  rides its edge, like a compass rose. */
   area: ScreenBox
-  /** Where a ball still counts as on screen, when that reaches past `area`:
-   *  a live dock's key columns hide the key but not the ball between them. */
-  seen?: ScreenBox
   key: { width: number; height: number }
-  /** Chrome inside the area that the key steps out of (key columns, bands);
-   *  it steps off the pin's flag too. */
+  /** Chrome over the map (key columns, drawers) that hides the key but not
+   *  the ball: the key slides along its edge clear of these and the flag. */
   avoid?: ScreenBox[]
   unit: DistanceUnit
 }
@@ -56,8 +53,7 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
   const [px, py] = i.project(i.pin)
   if (!inside(px, py, a)) return null
   const [bx, by] = i.project(i.ball)
-  const s = i.seen ?? a
-  if (inside(bx, by, { left: s.left + MARGIN, top: s.top + MARGIN, right: s.right - MARGIN, bottom: s.bottom - MARGIN })) {
+  if (inside(bx, by, { left: a.left + MARGIN, top: a.top + MARGIN, right: a.right - MARGIN, bottom: a.bottom - MARGIN })) {
     return null
   }
 
@@ -70,32 +66,50 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
   const cy = (a.top + a.bottom) / 2
   const dx = bx - cx
   const dy = by - cy
-  const t = Math.min(
-    dx === 0 ? Infinity : (room.right - cx) / Math.abs(dx),
-    dy === 0 ? Infinity : (room.bottom - cy) / Math.abs(dy),
-  )
-  let x = cx + dx * t
-  let y = cy + dy * t
+  const tx = dx === 0 ? Infinity : (room.right - cx) / Math.abs(dx)
+  const ty = dy === 0 ? Infinity : (room.bottom - cy) / Math.abs(dy)
+  const t = Math.min(tx, ty)
+  const at: [number, number] = [cx + dx * t, cy + dy * t]
 
-  // Off the flag, then out of any chrome, by the shortest step that stays in room.
+  // Clear of the flag and any chrome, still on the edge it landed on.
   const flag = { left: px + FLAG.left, top: py + FLAG.top, right: px + FLAG.right, bottom: py + FLAG.bottom }
-  for (const b of [flag, ...(i.avoid ?? [])]) {
-    if (!(x > b.left - hw && x < b.right + hw && y > b.top - hh && y < b.bottom + hh)) continue
-    const steps: [number, number][] = [
-      [b.right + hw, y],
-      [b.left - hw, y],
-      [x, b.top - hh],
-      [x, b.bottom + hh],
-    ]
-    const best = steps
-      .filter(([sx, sy]) => inside(sx, sy, room))
-      .sort((p, q) => Math.hypot(p[0] - x, p[1] - y) - Math.hypot(q[0] - x, q[1] - y))[0]
-    if (best) [x, y] = best
-  }
+  const blocks = [flag, ...(i.avoid ?? [])].map((b) => ({
+    left: b.left - hw,
+    top: b.top - hh,
+    right: b.right + hw,
+    bottom: b.bottom + hh,
+  }))
+  const own = ty <= tx ? (dy > 0 ? 'bottom' : 'top') : dx > 0 ? 'right' : 'left'
+  const [x, y] = clearOnEdges(at, room, blocks, own)
 
   const deg = (Math.atan2(bx - x, -(by - y)) * 180) / Math.PI
   const yards = haversineYards(i.pin.lat, i.pin.lng, i.ball.lat, i.ball.lng)
   return { x, y, rotate: (deg + 360) % 360, distance: formatDistance(yards, i.unit) }
+}
+
+type Edge = 'top' | 'bottom' | 'left' | 'right'
+
+// The nearest spot to `at` on the room's edges that no block covers: on the
+// key's own edge if it has one, else on whichever edge is nearest.
+function clearOnEdges(at: [number, number], room: ScreenBox, blocks: ScreenBox[], own: Edge): [number, number] {
+  const free = (x: number, y: number) => !blocks.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom)
+  if (free(...at)) return at
+  const spots = (edge: Edge): [number, number][] => {
+    const across = edge === 'top' || edge === 'bottom'
+    const fixed = room[edge]
+    const lo = across ? room.left : room.top
+    const hi = across ? room.right : room.bottom
+    const want = Math.min(hi, Math.max(lo, across ? at[0] : at[1]))
+    const stops = [want, lo, hi, ...blocks.flatMap((b) => (across ? [b.left, b.right] : [b.top, b.bottom]))]
+    return stops
+      .filter((v) => v >= lo && v <= hi)
+      .map((v): [number, number] => (across ? [v, fixed] : [fixed, v]))
+      .filter(([x, y]) => free(x, y))
+  }
+  const near = (ps: [number, number][]) =>
+    ps.sort((p, q) => Math.hypot(p[0] - at[0], p[1] - at[1]) - Math.hypot(q[0] - at[0], q[1] - at[1]))[0]
+  const edges: Edge[] = ['top', 'bottom', 'left', 'right']
+  return near(spots(own)) ?? near(edges.filter((e) => e !== own).flatMap(spots)) ?? at
 }
 
 export interface MapCamera {

@@ -118,29 +118,69 @@ describe('wayfinder', () => {
     expect(w.rotate).toBeCloseTo(86.72, 2)
   })
 
-  // A live dock: key columns up to y 440, its solid footer from y 560. The
-  // key keeps above the columns; the ball is seen down to the footer.
+  // A live dock: the map runs down to the footer at y 560, with key columns in
+  // both bottom corners up to y 440. The columns hide the key, not the ball.
   const docked = (ball: GeoPoint) =>
-    base(ball, { area: { left: 0, top: 0, right: 400, bottom: 440 }, seen: { left: 0, top: 0, right: 400, bottom: 560 } })
+    base(ball, {
+      area: { left: 0, top: 0, right: 400, bottom: 560 },
+      avoid: [
+        { left: 0, top: 440, right: 100, bottom: 560 },
+        { left: 300, top: 440, right: 400, bottom: 560 },
+      ],
+    })
 
   it('is hidden for a ball in view between the key columns, above the footer', () => {
     // 50 m south = y 500: below the columns' top, above the footer.
     expect(wayfinder(docked(geo(0, -50)))).toBeNull()
   })
 
-  it('still points at a ball under the footer, from above the key columns', () => {
-    // 70 m south = y 580, inside the footer.
+  it('sits on the bottom edge between the key columns, just above the footer', () => {
+    // 70 m south = y 580, under the footer.
     const w = wayfinder(docked(geo(0, -70)))!
-    expect(w.x).toBeCloseTo(200, 6)
-    expect(w.y).toBeCloseTo(420, 6)
-    expect(w.rotate).toBeCloseTo(180, 6)
-  })
-
-  it('steps up out of a band along the bottom', () => {
-    const w = wayfinder(base(geo(0, -YD150), { avoid: [{ left: 0, top: 560, right: 400, bottom: 600 }] }))!
     expect(w.x).toBeCloseTo(200, 6)
     expect(w.y).toBeCloseTo(540, 6)
     expect(w.rotate).toBeCloseTo(180, 6)
+  })
+
+  it('slides along the bottom edge out of a key column, never up off the edge', () => {
+    // Ball at (-40, 900) px: the edge point (88, 580) is in the left column
+    // grown by half the key (x < 190, y > 500). Up to y 500 is the shorter
+    // step, but the key keeps to the edge: right to x 190, short of the right
+    // column (x > 210).
+    const w = wayfinder(
+      base(geo(-60, -150), {
+        avoid: [
+          { left: 0, top: 520, right: 150, bottom: 600 },
+          { left: 250, top: 520, right: 400, bottom: 600 },
+        ],
+      }),
+    )!
+    expect(w.x).toBeCloseTo(190, 6)
+    expect(w.y).toBeCloseTo(580, 6)
+  })
+
+  it('slides along the bottom edge off a flag that stands on it', () => {
+    // The pin at (200, 590): the flag grown by half the key spans x 148-272,
+    // y 532-618. Up to y 532 is the shorter step; the key slides left to x 148.
+    const low = (p: GeoPoint): [number, number] => {
+      const [x, y] = flat(p)
+      return [x, y + 290]
+    }
+    const w = wayfinder(base(geo(0, -YD150), { project: low }))!
+    expect(w.x).toBeCloseTo(148, 6)
+    expect(w.y).toBeCloseTo(580, 6)
+    // From (148, 580) to (200, 1138.64): 180 - atan(52 / 558.64)
+    expect(w.rotate).toBeCloseTo(174.682, 2)
+  })
+
+  it('moves to the nearest side edge when a band fills the bottom edge', () => {
+    // The band leaves no room on the bottom edge. The ball sits a little
+    // right of centre, so the right edge is nearer: (360, 540), above the band.
+    const w = wayfinder(base(geo(10, -YD150), { avoid: [{ left: 0, top: 560, right: 400, bottom: 600 }] }))!
+    expect(w.x).toBeCloseTo(360, 6)
+    expect(w.y).toBeCloseTo(540, 6)
+    // From (360, 540) to (240, 848.64): 180 + atan(120 / 308.64)
+    expect(w.rotate).toBeCloseTo(201.247, 2)
   })
 
   it('on a map turned to the player line, follows the turn', () => {
