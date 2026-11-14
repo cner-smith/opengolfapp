@@ -17,14 +17,16 @@ const flat = (p: GeoPoint): [number, number] => [
 // 150 yd = 137.16 m, 548.64 px on the test map.
 const YD150 = 137.16
 
-// A 400 × 600 map, an 80 × 40 key: its centre stays in x 40–360, y 20–580.
+// A 400 × 600 map with a 20 px inset: the arrow rides the ellipse centred on
+// (200, 300) with radii 180 across and 280 down, and keeps a 14 px box clear.
 const base = (ball: GeoPoint | null, over: Partial<WayfinderInput> = {}): WayfinderInput => ({
   ball,
   pin: PIN,
   zoom: 19.5,
   project: flat,
   area: { left: 0, top: 0, right: 400, bottom: 600 },
-  key: { width: 80, height: 40 },
+  inset: 20,
+  arrow: 14,
   unit: 'yards',
   ...over,
 })
@@ -34,42 +36,38 @@ describe('wayfinder', () => {
     expect(wayfinder(base(geo(25, -25)))).toBeNull()
   })
 
-  it('sits on the bottom edge, pointing down, for a ball behind the view', () => {
+  it('sits at the bottom of the ellipse, pointing down, for a ball behind the view', () => {
     const w = wayfinder(base(geo(0, -YD150)))!
     expect(w.x).toBeCloseTo(200, 6)
     expect(w.y).toBeCloseTo(580, 6)
     expect(w.rotate).toBeCloseTo(180, 6)
+    expect(w.inward[0]).toBeCloseTo(0, 6)
+    expect(w.inward[1]).toBeCloseTo(-1, 6)
     expect(w.distance).toBe('150 yd')
   })
 
-  it('sits on the top edge, pointing up', () => {
-    const w = wayfinder(base(geo(0, YD150)))!
-    expect(w.x).toBeCloseTo(200, 6)
-    expect(w.y).toBeCloseTo(20, 6)
-    expect(w.rotate).toBeCloseTo(0, 6)
+  it('sits at the top, right and left of the ellipse', () => {
+    const up = wayfinder(base(geo(0, YD150)))!
+    expect(up.x).toBeCloseTo(200, 6)
+    expect(up.y).toBeCloseTo(20, 6)
+    expect(up.rotate).toBeCloseTo(0, 6)
+    const right = wayfinder(base(geo(YD150, 0)))!
+    expect(right.x).toBeCloseTo(380, 6)
+    expect(right.y).toBeCloseTo(300, 6)
+    expect(right.rotate).toBeCloseTo(90, 6)
+    const left = wayfinder(base(geo(-YD150, 0)))!
+    expect(left.x).toBeCloseTo(20, 6)
+    expect(left.rotate).toBeCloseTo(270, 6)
   })
 
-  it('sits on the right edge, pointing right', () => {
-    const w = wayfinder(base(geo(YD150, 0)))!
-    expect(w.x).toBeCloseTo(360, 6)
-    expect(w.y).toBeCloseTo(300, 6)
-    expect(w.rotate).toBeCloseTo(90, 6)
-  })
-
-  it('sits on the left edge, pointing left', () => {
-    const w = wayfinder(base(geo(-YD150, 0)))!
-    expect(w.x).toBeCloseTo(40, 6)
-    expect(w.y).toBeCloseTo(300, 6)
-    expect(w.rotate).toBeCloseTo(270, 6)
-  })
-
-  it('reaches the corner along the diagonal, in metres for a metric player', () => {
-    // (160, -280) m = (640, 1120) px: both edges bind at t = 1/4.
-    // Haversine: 279.69 m south, 159.82 m east = 322.13 m = 352.29 yd.
+  it('rides the curve toward a ball off the corner, in metres for a metric player', () => {
+    // (160, -280) m = (640, 1120) px from the centre. On the ellipse:
+    // s = 1 / √((640/180)² + (1120/280)²) = 0.186855 → (319.585, 509.275).
+    // Haversine: 279.69 m south, 159.82 m east = 322.13 m.
     const w = wayfinder(base(geo(160, -280), { unit: 'meters' }))!
-    expect(w.x).toBeCloseTo(360, 6)
-    expect(w.y).toBeCloseTo(580, 6)
-    // 180 − atan(640 / 1120) = 180 − 29.745
+    expect(w.x).toBeCloseTo(319.585, 2)
+    expect(w.y).toBeCloseTo(509.275, 2)
+    // On the ray from the centre: 180 − atan(640 / 1120)
     expect(w.rotate).toBeCloseTo(150.255, 2)
     expect(w.distance).toBe('322 m')
   })
@@ -77,9 +75,7 @@ describe('wayfinder', () => {
   it('counts a ball on the very edge as off screen, and one a margin inside as on', () => {
     // y = 600 is 75 m south; y = 580 is 70 m south.
     const w = wayfinder(base(geo(0, -75)))!
-    expect(w.x).toBeCloseTo(200, 6)
     expect(w.y).toBeCloseTo(580, 6)
-    expect(w.rotate).toBeCloseTo(180, 6)
     expect(wayfinder(base(geo(0, -70)))).toBeNull()
   })
 
@@ -90,36 +86,8 @@ describe('wayfinder', () => {
     expect(wayfinder(base(geo(0, -YD150), { pin: null }))).toBeNull()
   })
 
-  it('steps sideways out of a key column, and still points at the ball', () => {
-    // Ball at (0, 900) px: the edge point (106.67, 580) is inside the column
-    // grown by the key's half size (x < 140, y > 420). Right to x = 140 is
-    // the shortest way out; up to y = 420 is longer, left is off the map.
-    const w = wayfinder(
-      base(geo(-50, -150), { avoid: [{ left: 0, top: 440, right: 100, bottom: 600 }] }),
-    )!
-    expect(w.x).toBeCloseTo(140, 6)
-    expect(w.y).toBeCloseTo(580, 6)
-    // From (140, 580) to (0, 900): 180 + atan(140 / 320)
-    expect(w.rotate).toBeCloseTo(203.629, 2)
-  })
-
-  it('never covers the flag: steps off it by the shortest way', () => {
-    // The pin at (300, 300), the ball 548.64 px right: the edge point
-    // (360, 300) is on the flag (x 288–332, y 262–308, grown by half the
-    // key). Down to y = 328 is the shortest step; right is off the map.
-    const shifted = (p: GeoPoint): [number, number] => {
-      const [x, y] = flat(p)
-      return [x + 100, y]
-    }
-    const w = wayfinder(base(geo(YD150, 0), { project: shifted }))!
-    expect(w.x).toBeCloseTo(360, 6)
-    expect(w.y).toBeCloseTo(328, 6)
-    // From (360, 328) to (848.64, 300): 90 − atan(28 / 488.64)
-    expect(w.rotate).toBeCloseTo(86.72, 2)
-  })
-
   // A live dock: the map runs down to the footer at y 560, with key columns in
-  // both bottom corners up to y 440. The columns hide the key, not the ball.
+  // both bottom corners up to y 440. The columns hide the arrow, not the ball.
   const docked = (ball: GeoPoint) =>
     base(ball, {
       area: { left: 0, top: 0, right: 400, bottom: 560 },
@@ -134,63 +102,50 @@ describe('wayfinder', () => {
     expect(wayfinder(docked(geo(0, -50)))).toBeNull()
   })
 
-  it('sits on the bottom edge between the key columns, just above the footer', () => {
-    // 70 m south = y 580, under the footer.
+  it('sits at the bottom of the ellipse between the key columns, above the footer', () => {
+    // 70 m south = y 580, under the footer. The ellipse's bottom is y 540.
     const w = wayfinder(docked(geo(0, -70)))!
     expect(w.x).toBeCloseTo(200, 6)
     expect(w.y).toBeCloseTo(540, 6)
     expect(w.rotate).toBeCloseTo(180, 6)
   })
 
-  it('slides along the bottom edge out of a key column, never up off the edge', () => {
-    // Ball at (-40, 900) px: the edge point (88, 580) is in the left column
-    // grown by half the key (x < 190, y > 500). Up to y 500 is the shorter
-    // step, but the key keeps to the edge: right to x 190, short of the right
-    // column (x > 210).
-    const w = wayfinder(
-      base(geo(-60, -150), {
-        avoid: [
-          { left: 0, top: 520, right: 150, bottom: 600 },
-          { left: 250, top: 520, right: 400, bottom: 600 },
-        ],
-      }),
-    )!
-    expect(w.x).toBeCloseTo(190, 6)
-    expect(w.y).toBeCloseTo(580, 6)
+  it('slides along the ellipse past a key column, to the nearest clear angle', () => {
+    // Ball at (-100, 700) px: the ray meets the ellipse at (63.33, 482.22),
+    // inside the column grown by the arrow (x < 114, y > 426). The clear
+    // stops on the curve: (114, 545.97) at 109.3° and (39.25, 426) at
+    // 141.9°; the ray is at 126.9°, so the arrow slides up to (39.25, 426).
+    const w = wayfinder(base(geo(-75, -100), { avoid: [{ left: 0, top: 440, right: 100, bottom: 600 }] }))!
+    expect(w.x).toBeCloseTo(39.255, 2)
+    expect(w.y).toBeCloseTo(426, 6)
+    // From (39.25, 426) to (-100, 700)
+    expect(w.rotate).toBeCloseTo(206.941, 2)
   })
 
-  it('slides along the bottom edge off a flag that stands on it', () => {
-    // The pin at (200, 590): the flag grown by half the key spans x 148-272,
-    // y 532-618. Up to y 532 is the shorter step; the key slides left to x 148.
+  it('slides along the ellipse off a flag that stands on it', () => {
+    // The pin at (200, 590): its flag grown by the arrow spans x 174–246,
+    // y 538–612, over the ellipse's bottom. The ball a touch right of the
+    // pin puts the ray at 89.45°; (174, 577.06) is at 95.5° and (246, 570.70)
+    // at 80.4°, so the arrow slides left to (174, 577.06).
     const low = (p: GeoPoint): [number, number] => {
       const [x, y] = flat(p)
       return [x, y + 290]
     }
-    const w = wayfinder(base(geo(0, -YD150), { project: low }))!
-    expect(w.x).toBeCloseTo(148, 6)
-    expect(w.y).toBeCloseTo(580, 6)
-    // From (148, 580) to (200, 1138.64): 180 - atan(52 / 558.64)
-    expect(w.rotate).toBeCloseTo(174.682, 2)
-  })
-
-  it('moves to the nearest side edge when a band fills the bottom edge', () => {
-    // The band leaves no room on the bottom edge. The ball sits a little
-    // right of centre, so the right edge is nearer: (360, 540), above the band.
-    const w = wayfinder(base(geo(10, -YD150), { avoid: [{ left: 0, top: 560, right: 400, bottom: 600 }] }))!
-    expect(w.x).toBeCloseTo(360, 6)
-    expect(w.y).toBeCloseTo(540, 6)
-    // From (360, 540) to (240, 848.64): 180 + atan(120 / 308.64)
-    expect(w.rotate).toBeCloseTo(201.247, 2)
+    const w = wayfinder(base(geo(2, -YD150), { project: low }))!
+    expect(w.x).toBeCloseTo(174, 6)
+    expect(w.y).toBeCloseTo(577.06, 2)
+    // From (174, 577.06) to (208, 1138.64): 180 − atan(34 / 561.58)
+    expect(w.rotate).toBeCloseTo(176.535, 2)
   })
 
   it('on a map turned to the player line, follows the turn', () => {
-    // Heading 45: the camera looks north-east, so a ball due south of the
-    // centre sits down and to the right, 45° off the vertical. The direction
-    // (1, 1) meets the x edge first: t = 160 / dx puts it at (360, 460).
+    // Heading 45: a ball due south of the centre sits down and to the right,
+    // 45° off the vertical. On the ellipse: 1 / √(1/180² + 1/280²) = 151.41 px
+    // along each axis.
     const cam = { center: PIN, zoom: 19.5, bearing: 45, pitch: 0, centerPx: [200, 300] as [number, number], height: 600 }
     const w = wayfinder(base(geo(0, -YD150), { project: (p) => viewPoint(p, cam) }))!
-    expect(w.x).toBeCloseTo(360, 6)
-    expect(w.y).toBeCloseTo(460, 6)
+    expect(w.x).toBeCloseTo(351.41, 2)
+    expect(w.y).toBeCloseTo(451.41, 2)
     expect(w.rotate).toBeCloseTo(135, 6)
     expect(w.distance).toBe('150 yd')
   })

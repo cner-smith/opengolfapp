@@ -322,11 +322,15 @@ export function RoundMap({
   )
 }
 
-// The wayfinder (#1386): at green zoom with the ball off screen, a key at the
-// map's edge pointing at the ball, with its distance to the pin. Not a
-// control: taps go through to the map. Re-measured on map moves at most once
-// a frame, in its own component so a pan re-renders only the key.
-const WAYFINDER_KEY = { width: 96, height: 43 } // 40 + the 3 px ledge
+// The wayfinder (#1386): at green zoom with the ball off screen, a compass
+// rose: the chevron rides an ellipse inside the map, turned toward the ball,
+// with its distance to the pin on the inner side. Ink with a paper halo, no
+// backdrop. Not a control: taps go through to the map. Re-measured on map
+// moves at most once a frame, in its own component so a pan re-renders only it.
+const WAYFINDER_ARROW = 20 // half the arrow's box: what it keeps clear of chrome
+const WAYFINDER_INSET = 24
+const WAYFINDER_LABEL = { width: 88, height: 28 }
+const PAPER_HALO = '0 0 3px #fbf8f1, 0 0 3px #fbf8f1, 0 0 6px #fbf8f1'
 const CHROME_GAP = 6
 
 function WayfinderKey({
@@ -376,7 +380,8 @@ function WayfinderKey({
           return [q.x, q.y]
         },
         area: { left: 8, top: 8, right: box.width - 8, bottom: box.height - 8 },
-        key: WAYFINDER_KEY,
+        inset: WAYFINDER_INSET,
+        arrow: WAYFINDER_ARROW,
         avoid,
         unit,
       })
@@ -404,36 +409,49 @@ function WayfinderKey({
   // "150 yd" → a serif number and its unit; '—' has no unit.
   const cut = wf.distance.lastIndexOf(' ')
   const [num, unitLabel] = cut < 0 ? [wf.distance, ''] : [wf.distance.slice(0, cut), wf.distance.slice(cut + 1)]
+  // The label's centre: in from the arrow along the ellipse's inner side.
+  const [ix, iy] = wf.inward
+  const reach =
+    WAYFINDER_ARROW + 2 + (Math.abs(ix) * WAYFINDER_LABEL.width) / 2 + (Math.abs(iy) * WAYFINDER_LABEL.height) / 2
   return (
     <div
-      className="key"
       role="img"
       aria-label={`Your ball, ${wf.distance} from the pin`}
       data-testid="wayfinder"
-      style={{
-        position: 'absolute',
-        left: wf.x,
-        top: wf.y,
-        transform: 'translate(-50%, -50%)',
-        width: WAYFINDER_KEY.width,
-        height: 40,
-        minHeight: 40,
-        padding: 0,
-        gap: 6,
-        zIndex: 4,
-        pointerEvents: 'none',
-        fontWeight: 400,
-        fontSize: 13,
-      }}
+      style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}
     >
-      <svg width="22" height="22" viewBox="-11 -11 22 22" aria-hidden>
-        <path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" transform={`rotate(${wf.rotate.toFixed(1)})`} fill="#1C211C" />
+      <svg
+        width="48"
+        height="48"
+        viewBox="-24 -24 48 48"
+        aria-hidden
+        style={{ position: 'absolute', left: wf.x - 24, top: wf.y - 24 }}
+      >
+        <g transform={`rotate(${wf.rotate.toFixed(1)})`}>
+          <path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill="#fbf8f1" stroke="#fbf8f1" strokeWidth="5" strokeLinejoin="round" />
+          <path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill="#1C211C" />
+        </g>
       </svg>
-      <span>
-        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 17 }}>
+      <span
+        style={{
+          position: 'absolute',
+          left: wf.x + ix * reach - WAYFINDER_LABEL.width / 2,
+          top: wf.y + iy * reach - WAYFINDER_LABEL.height / 2,
+          width: WAYFINDER_LABEL.width,
+          height: WAYFINDER_LABEL.height,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#1C211C',
+          fontSize: 13,
+          textShadow: PAPER_HALO,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 22 }}>
           {num}
-        </span>{' '}
-        {unitLabel}
+        </span>
+        {unitLabel && <>&nbsp;{unitLabel}</>}
       </span>
     </div>
   )

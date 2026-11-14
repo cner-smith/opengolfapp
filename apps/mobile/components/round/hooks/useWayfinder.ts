@@ -3,7 +3,7 @@ import type Mapbox from '@rnmapbox/maps'
 import type { MapState } from '@rnmapbox/maps'
 import { viewPoint, wayfinder, type DistanceUnit, type MapCamera, type ScreenBox, type Wayfinder } from '@oga/core'
 import type { KeyColumn, LatLng } from '../HoleMap.types'
-import { WAYFINDER_KEY } from '../markers/Callouts'
+import { WAYFINDER_ARROW, WAYFINDER_INSET } from '../markers/Callouts'
 
 // The wayfinder (#1386), from the camera as of the last settle: no per-frame
 // work. getPointInView answers (-1, -1) off the map (Mapbox's
@@ -52,22 +52,17 @@ export function useWayfinder({
   const wf = useMemo(() => {
     if (bottom == null || !cam || !mapSize || hidden) return null
     const floor = mapSize.h - bottom.clear
-    // A little air between the key and a column.
-    const columns = (bottom.columns ?? []).map((c) => ({
-      left: c.left - 6,
-      top: floor - c.above - 6,
-      right: c.right + 6,
-      bottom: floor,
-    }))
+    const columns = (bottom.columns ?? []).map((c) => ({ left: c.left, top: floor - c.above, right: c.right, bottom: floor }))
     return wayfinder({
       ball: ball ?? null,
       pin: pin ?? null,
       zoom: cam.zoom,
       project: (p) => viewPoint(p, cam),
-      // Below the top ornaments, down to the solid chrome; off the key columns
-      // and the open drawer.
+      // Below the top ornaments, down to the solid chrome; the arrow keeps off
+      // the key columns and the open drawer.
       area: { left: 6, top: 40, right: mapSize.w - 6, bottom: floor },
-      key: WAYFINDER_KEY,
+      inset: WAYFINDER_INSET,
+      arrow: WAYFINDER_ARROW,
       avoid: drawer ? [drawer, ...columns] : columns,
       unit,
     })

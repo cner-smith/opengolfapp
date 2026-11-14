@@ -25,22 +25,27 @@ export interface WayfinderInput {
   zoom: number
   /** A point's screen position, px from the map's top left. */
   project: (p: GeoPoint) => [number, number]
-  /** The open map, px: chrome along the edges already taken off. The key
-   *  rides its edge, like a compass rose. */
+  /** The open map, px: chrome along the edges already taken off. */
   area: ScreenBox
-  key: { width: number; height: number }
-  /** Chrome over the map (key columns, drawers) that hides the key but not
-   *  the ball: the key slides along its edge clear of these and the flag. */
+  /** px the arrow's ellipse keeps in from the area's edges, so it stays whole. */
+  inset: number
+  /** Half the arrow's size, px: the box it keeps clear of chrome and the flag. */
+  arrow: number
+  /** Chrome over the map (key columns, drawers) that hides the arrow but not
+   *  the ball. */
   avoid?: ScreenBox[]
   unit: DistanceUnit
 }
 
 export interface Wayfinder {
-  /** The key's centre, px. */
+  /** The arrow's centre, px, on the ellipse. */
   x: number
   y: number
   /** Toward the ball, degrees clockwise from screen up. */
   rotate: number
+  /** Unit vector from the arrow toward the ellipse's centre: the side its
+   *  distance label sits on, clear of the screen edge. */
+  inward: [number, number]
   /** The ball's distance to the pin, in the player's unit. */
   distance: string
 }
@@ -57,59 +62,71 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
     return null
   }
 
-  // Along the line from the area's centre to the ball, to the box the key's
-  // centre may use (the area less half the key, so the key stays whole).
-  const hw = i.key.width / 2
-  const hh = i.key.height / 2
-  const room = { left: a.left + hw, top: a.top + hh, right: a.right - hw, bottom: a.bottom - hh }
-  const cx = (a.left + a.right) / 2
-  const cy = (a.top + a.bottom) / 2
-  const dx = bx - cx
-  const dy = by - cy
-  const tx = dx === 0 ? Infinity : (room.right - cx) / Math.abs(dx)
-  const ty = dy === 0 ? Infinity : (room.bottom - cy) / Math.abs(dy)
-  const t = Math.min(tx, ty)
-  const at: [number, number] = [cx + dx * t, cy + dy * t]
-
-  // Clear of the flag and any chrome, still on the edge it landed on.
+  // A compass rose: the arrow rides an ellipse inscribed in the area, on the
+  // ray from its centre toward the ball, slid along the curve off the flag and
+  // any chrome.
+  const ell = {
+    cx: (a.left + a.right) / 2,
+    cy: (a.top + a.bottom) / 2,
+    rx: (a.right - a.left) / 2 - i.inset,
+    ry: (a.bottom - a.top) / 2 - i.inset,
+  }
+  const r = i.arrow
   const flag = { left: px + FLAG.left, top: py + FLAG.top, right: px + FLAG.right, bottom: py + FLAG.bottom }
-  const blocks = [flag, ...(i.avoid ?? [])].map((b) => ({
-    left: b.left - hw,
-    top: b.top - hh,
-    right: b.right + hw,
-    bottom: b.bottom + hh,
-  }))
-  const own = ty <= tx ? (dy > 0 ? 'bottom' : 'top') : dx > 0 ? 'right' : 'left'
-  const [x, y] = clearOnEdges(at, room, blocks, own)
+  const blocks = [flag, ...(i.avoid ?? [])].map((b) => ({ left: b.left - r, top: b.top - r, right: b.right + r, bottom: b.bottom + r }))
+  const [x, y] = clearOnEllipse(Math.atan2(by - ell.cy, bx - ell.cx), ell, blocks)
 
   const deg = (Math.atan2(bx - x, -(by - y)) * 180) / Math.PI
+  const toCentre = Math.hypot(ell.cx - x, ell.cy - y) || 1
   const yards = haversineYards(i.pin.lat, i.pin.lng, i.ball.lat, i.ball.lng)
-  return { x, y, rotate: (deg + 360) % 360, distance: formatDistance(yards, i.unit) }
+  return {
+    x,
+    y,
+    rotate: (deg + 360) % 360,
+    inward: [(ell.cx - x) / toCentre, (ell.cy - y) / toCentre],
+    distance: formatDistance(yards, i.unit),
+  }
 }
 
-type Edge = 'top' | 'bottom' | 'left' | 'right'
+interface Ellipse {
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+}
 
-// The nearest spot to `at` on the room's edges that no block covers: on the
-// key's own edge if it has one, else on whichever edge is nearest.
-function clearOnEdges(at: [number, number], room: ScreenBox, blocks: ScreenBox[], own: Edge): [number, number] {
-  const free = (x: number, y: number) => !blocks.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom)
-  if (free(...at)) return at
-  const spots = (edge: Edge): [number, number][] => {
-    const across = edge === 'top' || edge === 'bottom'
-    const fixed = room[edge]
-    const lo = across ? room.left : room.top
-    const hi = across ? room.right : room.bottom
-    const want = Math.min(hi, Math.max(lo, across ? at[0] : at[1]))
-    const stops = [want, lo, hi, ...blocks.flatMap((b) => (across ? [b.left, b.right] : [b.top, b.bottom]))]
-    return stops
-      .filter((v) => v >= lo && v <= hi)
-      .map((v): [number, number] => (across ? [v, fixed] : [fixed, v]))
-      .filter(([x, y]) => free(x, y))
+// The point on the ellipse at screen angle `at` (radians from the centre), or
+// if a block covers it, the nearest point along the curve that none covers:
+// where the curve crosses a block's edge.
+function clearOnEllipse(at: number, e: Ellipse, blocks: ScreenBox[]): [number, number] {
+  const point = (t: number): [number, number] => {
+    const c = Math.cos(t)
+    const s = Math.sin(t)
+    const k = 1 / Math.hypot(c / e.rx, s / e.ry)
+    return [e.cx + c * k, e.cy + s * k]
   }
-  const near = (ps: [number, number][]) =>
-    ps.sort((p, q) => Math.hypot(p[0] - at[0], p[1] - at[1]) - Math.hypot(q[0] - at[0], q[1] - at[1]))[0]
-  const edges: Edge[] = ['top', 'bottom', 'left', 'right']
-  return near(spots(own)) ?? near(edges.filter((e) => e !== own).flatMap(spots)) ?? at
+  const free = ([x, y]: [number, number]) => !blocks.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom)
+  const want = point(at)
+  if (free(want)) return want
+  const crossings = blocks.flatMap((b) => [
+    ...[b.left, b.right].flatMap((x) => {
+      const u = (x - e.cx) / e.rx
+      if (Math.abs(u) > 1) return []
+      const dy = e.ry * Math.sqrt(1 - u * u)
+      return [[x, e.cy - dy], [x, e.cy + dy]] as [number, number][]
+    }),
+    ...[b.top, b.bottom].flatMap((y) => {
+      const v = (y - e.cy) / e.ry
+      if (Math.abs(v) > 1) return []
+      const dx = e.rx * Math.sqrt(1 - v * v)
+      return [[e.cx - dx, y], [e.cx + dx, y]] as [number, number][]
+    }),
+  ])
+  const turn = (p: [number, number]) => {
+    const d = Math.abs(Math.atan2(p[1] - e.cy, p[0] - e.cx) - at) % (2 * Math.PI)
+    return Math.min(d, 2 * Math.PI - d)
+  }
+  return crossings.filter(free).sort((p, q) => turn(p) - turn(q))[0] ?? want
 }
 
 export interface MapCamera {

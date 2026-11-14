@@ -4,8 +4,8 @@ import Svg, { G, Path } from 'react-native-svg'
 import type { Wayfinder } from '@oga/core'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
-import { Key, KeyText } from '../../paper/Paper'
-import { FONT_CAP, LEDGE, P, R } from '../../paper/tokens'
+import { Key } from '../../paper/Paper'
+import { FONT_CAP, P } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -91,45 +91,58 @@ export function ObCallout({
   )
 }
 
-// The wayfinder (#1386): the wide, flat chevron as a map key at the map's
-// edge, pointing at the ball, with its distance to the pin. Drawn like a Key
-// (paper face, ink rim, ledge) but not one: no tap, and touches go through.
-export const WAYFINDER_KEY = { width: 92, height: 38 + LEDGE }
+// The wayfinder (#1386): a compass rose. The wide, flat chevron rides an
+// ellipse inside the map, turned toward the ball, with the ball's distance to
+// the pin on its inner side. No backdrop: ink with a paper halo reads over the
+// imagery. Not a control: touches go through.
+/** Half the arrow's box, dp: what it keeps clear of the keys and the flag. */
+export const WAYFINDER_ARROW = 20
+/** dp the arrow's ellipse keeps in from the map's open edges. */
+export const WAYFINDER_INSET = 24
+const LABEL = { width: 84, height: 28 }
+const HALO = { textShadowColor: P.raised, textShadowRadius: 4, textShadowOffset: { width: 0, height: 0 } }
 
 export function WayfinderKey({ wf }: { wf: Wayfinder }) {
+  // The label's centre: in from the arrow along the ellipse's inner side, far
+  // enough that the two never touch whichever way the arrow sits.
+  const [ix, iy] = wf.inward
+  const reach = WAYFINDER_ARROW + 2 + (Math.abs(ix) * LABEL.width) / 2 + (Math.abs(iy) * LABEL.height) / 2
+  // "46 yd" → a serif number and its unit; '—' has no unit.
+  const cut = wf.distance.lastIndexOf(' ')
+  const [num, unit] = cut < 0 ? [wf.distance, ''] : [wf.distance.slice(0, cut), wf.distance.slice(cut + 1)]
   return (
     <View
       pointerEvents="none"
       accessible
       accessibilityLabel={`Your ball, ${wf.distance} from the pin`}
-      style={{
-        position: 'absolute',
-        left: wf.x - WAYFINDER_KEY.width / 2,
-        top: wf.y - WAYFINDER_KEY.height / 2,
-        width: WAYFINDER_KEY.width,
-        height: WAYFINDER_KEY.height,
-      }}
+      style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
     >
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: LEDGE, backgroundColor: P.ink, borderRadius: R }} />
+      <Svg
+        width={48}
+        height={48}
+        viewBox="-24 -24 48 48"
+        style={{ position: 'absolute', left: wf.x - 24, top: wf.y - 24 }}
+      >
+        <G rotation={wf.rotate} origin="0,0">
+          <Path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill={P.raised} stroke={P.raised} strokeWidth={5} strokeLinejoin="round" />
+          <Path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill={P.ink} />
+        </G>
+      </Svg>
       <View
         style={{
-          height: WAYFINDER_KEY.height - LEDGE,
-          flexDirection: 'row',
+          position: 'absolute',
+          left: wf.x + ix * reach - LABEL.width / 2,
+          top: wf.y + iy * reach - LABEL.height / 2,
+          width: LABEL.width,
+          height: LABEL.height,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 6,
-          backgroundColor: P.raised,
-          borderWidth: 1,
-          borderColor: P.ink,
-          borderRadius: R,
         }}
       >
-        <Svg width={22} height={22} viewBox="-11 -11 22 22">
-          <G rotation={wf.rotate} origin="0,0">
-            <Path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" fill={P.ink} />
-          </G>
-        </Svg>
-        <KeyText size={13}>{wf.distance}</KeyText>
+        <Text allowFontScaling={false} style={[TYPE.serif, HALO, { fontSize: 22, lineHeight: 26, color: P.ink }]}>
+          {num}
+          {unit ? <Text style={[TYPE.body, HALO, { fontSize: 13 }]}> {unit}</Text> : null}
+        </Text>
       </View>
     </View>
   )
