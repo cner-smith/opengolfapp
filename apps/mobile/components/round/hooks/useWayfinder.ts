@@ -21,8 +21,9 @@ export function useWayfinder({
 }: {
   mapViewRef: RefObject<Mapbox.MapView | null>
   mapSize: { w: number; h: number } | null
-  /** dp kept clear along the map bottom; unset, there is no wayfinder. */
-  bottom: number | undefined
+  /** dp from the map bottom: `key` kept clear of the key, and a ball above
+   *  `ball` counts as on screen. Unset, there is no wayfinder. */
+  bottom: { key: number; ball: number } | undefined
   ball: LatLng | null | undefined
   pin: LatLng | null | undefined
   hidden: boolean
@@ -58,12 +59,13 @@ export function useWayfinder({
             zoom: cam.zoom,
             project: (p) => viewPoint(p, cam),
             // Below the top ornaments, above the dock and its open drawer.
-            area: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - bottom },
+            area: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - bottom.key },
+            seen: { left: 6, top: 40, right: mapSize.w - 6, bottom: mapSize.h - bottom.ball },
             key: WAYFINDER_KEY,
             avoid: drawer ? [drawer] : [],
             unit,
           }),
-    [bottom, cam, mapSize, hidden, ball?.lat, ball?.lng, pin?.lat, pin?.lng, drawer?.left, drawer?.top, drawer?.right, drawer?.bottom, unit],
+    [bottom?.key, bottom?.ball, cam, mapSize, hidden, ball?.lat, ball?.lng, pin?.lat, pin?.lng, drawer?.left, drawer?.top, drawer?.right, drawer?.bottom, unit],
   )
   return { wf, onIdle }
 }

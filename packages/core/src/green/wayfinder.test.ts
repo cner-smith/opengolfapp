@@ -118,6 +118,24 @@ describe('wayfinder', () => {
     expect(w.rotate).toBeCloseTo(86.72, 2)
   })
 
+  // A live dock: key columns up to y 440, its solid footer from y 560. The
+  // key keeps above the columns; the ball is seen down to the footer.
+  const docked = (ball: GeoPoint) =>
+    base(ball, { area: { left: 0, top: 0, right: 400, bottom: 440 }, seen: { left: 0, top: 0, right: 400, bottom: 560 } })
+
+  it('is hidden for a ball in view between the key columns, above the footer', () => {
+    // 50 m south = y 500: below the columns' top, above the footer.
+    expect(wayfinder(docked(geo(0, -50)))).toBeNull()
+  })
+
+  it('still points at a ball under the footer, from above the key columns', () => {
+    // 70 m south = y 580, inside the footer.
+    const w = wayfinder(docked(geo(0, -70)))!
+    expect(w.x).toBeCloseTo(200, 6)
+    expect(w.y).toBeCloseTo(420, 6)
+    expect(w.rotate).toBeCloseTo(180, 6)
+  })
+
   it('steps up out of a band along the bottom', () => {
     const w = wayfinder(base(geo(0, -YD150), { avoid: [{ left: 0, top: 560, right: 400, bottom: 600 }] }))!
     expect(w.x).toBeCloseTo(200, 6)

@@ -108,9 +108,10 @@ export interface HoleMapProps {
   /** The dock's open ruler drawer on its ruler side: dp in from that map edge
    *  and dp above the map bottom. A leg tag reaching over it rises above it. */
   tagClearDrawer?: { width: number; top: number }
-  /** dp from the map bottom kept clear of the wayfinder (#1386), which points
-   *  at the ball from green zoom; unset, there is none. */
-  wayfinderBottom?: number
+  /** The wayfinder (#1386), which points at the ball from green zoom; unset,
+   *  there is none. dp from the map bottom: `key` is kept clear of the key, and
+   *  a ball above `ball` counts as on screen (#1471). */
+  wayfinderBottom?: { key: number; ball: number }
   onSetAim: (loc: LatLng) => void
   /** Resolving false rejects the move: the ball marker snaps back. */
   onSetBall: (loc: LatLng) => void | Promise<void | boolean>
