@@ -696,7 +696,7 @@ export default function LiveRoundSession({
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
           plateClearBottom={footerHeight ? footerHeight + RULER_SIDE_CLEAR : undefined}
           // The key keeps above the whole dock; a ball shows down to the footer (#1471).
-          wayfinderBottom={dockHeight ? { key: dockHeight + 6, ball: footerHeight } : undefined}
+          wayfinderBottom={dockHeight && footerHeight ? { key: dockHeight + 6, ball: footerHeight } : undefined}
           tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
