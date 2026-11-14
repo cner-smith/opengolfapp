@@ -37,7 +37,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   DEFAULT_HANDICAP,
-  applyParOverrides,
+  holesAsPlayed,
   computeRoundSG,
   haversineYards,
   resolveCourseTee,
@@ -152,7 +152,7 @@ async function main() {
       .select('*')
       .in('hole_score_id', holeScores.map((h) => h.id))
     if (shotsRes.error) throw shotsRes.error
-    const holes = applyParOverrides((holesRes.data ?? []) as HoleRow[], holeScores, (teeRowsRes.data ?? []) as HoleTeeRow[])
+    const holes = holesAsPlayed((holesRes.data ?? []) as HoleRow[], holeScores, (teeRowsRes.data ?? []) as HoleTeeRow[])
     const shots = (shotsRes.data ?? []) as ShotRow[]
     if (shots.length === 0) {
       skipped.noShots++

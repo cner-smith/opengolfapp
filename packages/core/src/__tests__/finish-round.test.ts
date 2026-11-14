@@ -443,6 +443,32 @@ describe("finishRoundPlan: the played tee's par", () => {
     expect(plan.differential).toBe(12)
     expect(plan.roundPatch).toMatchObject({ total_score: 49, score_differential: 12 })
   })
+
+  it("differential: net double bogey allocates strokes by the tee's stroke index", () => {
+    // Nine par 4s, rating 36, slope 113. Handicap 2 → index 1 (9 holes).
+    // Course handicap = round(1·113/113 + (36 − 36)) = 1: one stroke, on the SI-1 hole.
+    // holes.stroke_index: h1 = 1 … h9 = 9. The tee swaps them: h1 = 9, h9 = 1.
+    // Hole 1 scores 8, holes 2–9 score 4.
+    // Tee SI: h1 gets no stroke, cap 4 + 2 = 6. Adjusted 6 + 8·4 = 38. Differential (38 − 36)·113/113 = 2.
+    // (With holes.stroke_index, h1 gets the stroke, cap 7: adjusted 39, differential 3.)
+    const holes = Array.from({ length: 9 }, (_, i) => hole({ id: `h${i + 1}`, number: i + 1, stroke_index: i + 1 }))
+    const holeScores = holes.map((h, i) => hs({ id: `s${i + 1}`, hole_id: h.id, score: i === 0 ? 8 : 4 }))
+    const plan = finishRoundPlan(
+      input({
+        holes,
+        holeScores,
+        tees: [tee({ id: 't1', course_rating: 36, slope_rating: 113 })],
+        holeTees: [
+          holeTee({ hole_id: 'h1', course_tee_id: 't1', stroke_index: 9 }),
+          holeTee({ hole_id: 'h9', course_tee_id: 't1', stroke_index: 1 }),
+        ],
+        courseTeeId: 't1',
+        roundHoleCount: 9,
+        handicap: 2,
+      }),
+    )
+    expect(plan.differential).toBe(2)
+  })
 })
 
 describe('roundSGPatch', () => {

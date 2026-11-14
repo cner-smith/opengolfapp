@@ -83,7 +83,7 @@ export interface FinishRoundPlan {
 export function finishRoundPlan(input: FinishRoundInput): FinishRoundPlan {
   const tee = resolveCourseTee(input.tees, input.courseTeeId, input.teeColor)
   const teeRows = tee ? input.holeTees.filter((ht) => ht.course_tee_id === tee.id) : []
-  const holes = applyParOverrides(input.holes, input.holeScores, teeRows)
+  const holes = holesAsPlayed(input.holes, input.holeScores, teeRows)
   const repaired = repairStampedZeros(input.holeScores, input.shots)
   const { holeScores, upserts } = inferHoleStatUpserts(repaired, holes, input.shots)
   const result = computeRoundSG({ holes, holeScores, shots: input.shots, handicap: input.handicap })
@@ -115,11 +115,12 @@ export function finishRoundPlan(input: FinishRoundInput): FinishRoundPlan {
   }
 }
 
-// Each hole's par as played, for everything stamped at the finish: the
-// round's hole_scores.par (#710) over the played tee's hole_tees.par over
-// holes.par (owner rule Q4, resolveHole; #1456). `teeRows` are the played
-// tee's hole_tees rows only.
-export function applyParOverrides(
+// Each hole's par and stroke index as played, for everything stamped at the
+// finish: par = the round's hole_scores.par (#710) over the played tee's
+// hole_tees.par over holes.par (owner rule Q4, resolveHole; #1456); stroke
+// index = the played tee's hole_tees.stroke_index over holes.stroke_index
+// (#1463). `teeRows` are the played tee's hole_tees rows only.
+export function holesAsPlayed(
   holes: HoleRow[],
   holeScores: HoleScoreRow[],
   teeRows: HoleTeeRow[],
@@ -127,8 +128,8 @@ export function applyParOverrides(
   const scoreByHole = new Map(holeScores.map((hs) => [hs.hole_id, hs]))
   const teeRowByHole = new Map(teeRows.map((ht) => [ht.hole_id, ht]))
   return holes.map((h) => {
-    const { par } = resolveHole(h, teeRowByHole.get(h.id), { par: scoreByHole.get(h.id)?.par })
-    return par !== h.par ? { ...h, par } : h
+    const { par, strokeIndex } = resolveHole(h, teeRowByHole.get(h.id), { par: scoreByHole.get(h.id)?.par })
+    return par !== h.par || strokeIndex !== h.stroke_index ? { ...h, par, stroke_index: strokeIndex } : h
   })
 }
 
