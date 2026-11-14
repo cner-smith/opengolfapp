@@ -124,8 +124,8 @@ export function WayfinderKey({ wf }: { wf: Wayfinder }) {
         style={{ position: 'absolute', left: wf.x - 24, top: wf.y - 24 }}
       >
         <G rotation={wf.rotate} origin="0,0">
-          <Path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill={P.raised} stroke={P.raised} strokeWidth={5} strokeLinejoin="round" />
-          <Path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill={P.ink} />
+          <Path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill={P.raised} stroke={P.raised} strokeWidth={5} strokeLinejoin="round" />
+          <Path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill={P.ink} />
         </G>
       </Svg>
       <View

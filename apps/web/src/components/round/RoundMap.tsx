@@ -428,8 +428,8 @@ function WayfinderKey({
         style={{ position: 'absolute', left: wf.x - 24, top: wf.y - 24 }}
       >
         <g transform={`rotate(${wf.rotate.toFixed(1)})`}>
-          <path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill="#fbf8f1" stroke="#fbf8f1" strokeWidth="5" strokeLinejoin="round" />
-          <path d="M0,-11 L16,11 L0,6 L-16,11 Z" fill="#1C211C" />
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#fbf8f1" stroke="#fbf8f1" strokeWidth="5" strokeLinejoin="round" />
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#1C211C" />
         </g>
       </svg>
       <span
