@@ -53,6 +53,7 @@ export function RulerCard({
   onSelect,
   onScrub,
   lefty,
+  bare = false,
 }: {
   mode: 'tee' | 'appr'
   index: number
@@ -62,6 +63,8 @@ export function RulerCard({
   /** Continuous position while a finger drags the ruler. */
   onScrub: (pos: number) => void
   lefty: boolean
+  /** No plate of its own: it sits inside the grown Aim width key's face. */
+  bare?: boolean
 }) {
   const values = mode === 'tee' ? TEE_RULER_YARDS : APPR_RULER_FEET
   const at = (y: number) => Math.max(0, Math.min(values.length - 1, (y - TOP0) / STEP))
@@ -106,8 +109,8 @@ export function RulerCard({
         }
         style={{
           height: RH,
-          backgroundColor: P.glass,
-          borderWidth: 1,
+          backgroundColor: bare ? 'transparent' : P.glass,
+          borderWidth: bare ? 0 : 1,
           borderColor: P.ink,
           borderRadius: R,
         }}

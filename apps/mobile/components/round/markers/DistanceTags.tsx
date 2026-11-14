@@ -202,10 +202,13 @@ export function AimTag({
   lefty,
   toward,
   clamp,
+  spread,
 }: {
   at: LatLng
   toward?: LatLng
   clamp?: LegTagClamp
+  /** The pattern's spread while its ring is up (#1468): "±38 wide · ±20 long". */
+  spread: string | null
   /** e.g. "101.4 yd" */
   display: string
   lie: string | null
@@ -240,6 +243,9 @@ export function AimTag({
             {Math.abs(sg).toFixed(1)}
           </Text>
         </Text>
+      )}
+      {spread != null && (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{spread}</Text>
       )}
     </LegTag>
   )

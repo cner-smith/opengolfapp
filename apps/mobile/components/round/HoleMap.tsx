@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import Svg, { Circle, Path } from 'react-native-svg'
 import {
+  aimPlateSpot,
   bearingDegrees,
   calculateShotSG,
   fanPlates,
   flagCupK,
   getExpectedStrokes,
   startCategory,
+  wholeDistance,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -23,7 +24,7 @@ import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
-import { AimOverlay } from './markers/AimOverlay'
+import { AimCrosshair, AimOverlay, AimReticle } from './markers/AimOverlay'
 import { AimPath } from './markers/AimPath'
 import { ObCallout, offscreenArrow, WayfinderKey } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
@@ -46,19 +47,6 @@ function toCoord(l: LatLng): [number, number] {
 // Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
 // still track the finger; onDragEnd always applies the final position.
 const AIM_DRAG_THROTTLE_MS = 40
-// The aim handle's box and its four grip arrows (N/E/S/W): tips 37 out from
-// the centre, bases just outside the ring's halo.
-const AIM_BOX = 84
-const AIM_C = AIM_BOX / 2
-const AIM_GRIPS = [0, 90, 180, 270].map((deg) => {
-  const pt = (along: number, across: number) => {
-    const a = (deg * Math.PI) / 180
-    const x = AIM_C + along * Math.sin(a) + across * Math.cos(a)
-    const y = AIM_C - along * Math.cos(a) + across * Math.sin(a)
-    return `${Math.round(x * 100) / 100} ${Math.round(y * 100) / 100}`
-  }
-  return `M${pt(37, 0)} L${pt(29, 5.5)} L${pt(29, -5.5)} Z`
-})
 // Distance labels are @rnmapbox MarkerViews that capture touches (their content
 // wrapper hardcodes the touch responder), so a label sitting at its leg's
 // midpoint steals the drag from the aim handle when that leg is short — the
@@ -107,6 +95,7 @@ export function HoleMap({
   putting = false,
   ornamentsTop = false,
   tagClearBottom,
+  plateClearBottom,
   tagClearDrawer,
   wayfinderBottom,
   gpsPosition,
@@ -453,7 +442,7 @@ export function HoleMap({
 
   const showAim = isAimPhase || isPlaceBallPhase
 
-  // The ring's rods say the spread; the rail's arc steps back to a hairline.
+  // The ring is up: the plate says the spread; the rail's arc steps back to a hairline.
   const patternRing = !!pattern?.dispersion && pattern.dispersion.sampleSize >= RING_MIN_SHOTS
 
   const aimDistanceYards = useMemo(() => {
@@ -461,10 +450,16 @@ export function HoleMap({
     return distanceYards(ball, aim)
   }, [showAim, ball, aim])
 
-  const aimMidpoint: LatLng | null = useMemo(() => {
+  // The aim plate stands on the aim line, short of the pattern's 95% ring
+  // (#1468). With no pattern, a nominal 15 yd ring keeps it where it'd be.
+  const ringShort = pattern?.dispersion ? pattern.dispersion.along95 - pattern.dispersion.alongMean : 15
+  const aimPlateAt: LatLng | null = useMemo(() => {
     if (!showAim || !ball || !aim) return null
-    return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
-  }, [showAim, ball, aim])
+    return aimPlateSpot(ball, aim, ringShort)
+  }, [showAim, ball, aim, ringShort])
+  const spread = pattern?.dispersion && patternRing
+    ? `±${wholeDistance(pattern.dispersion.perp68, unit)} wide · ±${wholeDistance(pattern.dispersion.along68, unit)} long`
+    : null
 
   // @rnmapbox PointAnnotation is a PureComponent that renders its children to a
   // bitmap; it re-renders (and re-bitmaps — dropping the in-flight native drag)
@@ -506,22 +501,9 @@ export function HoleMap({
   // amber ring, ink halo and four grip arrows say it drags (#950). The outer
   // box just centers it. Proper fix is a MarkerView + gesture-handler
   // rewrite — see the tracking issue.
-  const aimHandle = useMemo(
-    () => (
-      <View style={{ width: AIM_BOX, height: AIM_BOX }}>
-        <Svg width={AIM_BOX} height={AIM_BOX} viewBox={`0 0 ${AIM_BOX} ${AIM_BOX}`}>
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.ink} strokeOpacity={0.55} strokeWidth={7} />
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="rgba(166,106,31,0.30)" stroke={P.warn} strokeWidth={4} />
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.raised} strokeWidth={1.2} />
-          {AIM_GRIPS.map((d) => (
-            <Path key={d} d={d} fill={P.raised} stroke={P.ink} strokeWidth={1.2} strokeLinejoin="round" />
-          ))}
-          <Circle cx={AIM_C} cy={AIM_C} r={4.5} fill={P.warn} stroke={P.raised} strokeWidth={2} />
-        </Svg>
-      </View>
-    ),
-    [],
-  )
+  const aimHandle = useMemo(() => <AimReticle />, [])
+  // With the pattern on, the reticle shrinks to a crosshair (#1468): the ring is the target.
+  const smallAimHandle = useMemo(() => <AimCrosshair />, [])
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
   // sits — mirrors the aim pill on the ball→aim leg.
@@ -762,12 +744,7 @@ export function HoleMap({
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
-            <DispersionLayers
-              ball={ball}
-              aim={aim}
-              pattern={pattern}
-              frame={{ map: mapViewRef, mapWidth: mapSize?.w ?? null, idleTick, lefty }}
-            />
+            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
           )}
 
           {styleLoaded && showAim && ball && aim && <AimPath ball={ball} aim={aim} pin={effectivePin} />}
@@ -826,6 +803,8 @@ export function HoleMap({
               view stays uncluttered. */}
           {aim && aimCoordMemo && (
             <Mapbox.PointAnnotation
+              // It bitmaps its child once: remount it when the handle swaps.
+              key={pattern ? 'aim-small' : 'aim-full'}
               id="aim"
               coordinate={aimCoordMemo}
               draggable={isAimPhase}
@@ -833,24 +812,26 @@ export function HoleMap({
               onDrag={onAimDrag}
               onDragEnd={onAimDragEnd}
             >
-              {aimHandle}
+              {pattern ? smallAimHandle : aimHandle}
             </Mapbox.PointAnnotation>
           )}
 
           {/* The past round's flag callout carries the leg distance instead
               (§19.9 C), so its map shows no leg tags. */}
           {!pastCrumbs &&
-            aimMidpoint &&
+            aimPlateAt &&
             aimDistanceYards !== null &&
             aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
             <AimTag
-              at={aimMidpoint}
+              at={aimPlateAt}
               display={toDisplay(aimDistanceYards, 1)}
               lie={liveStrokes.lieLabel}
               sg={liveStrokes.sg}
+              spread={spread}
               lefty={lefty}
               toward={aim ?? undefined}
-              clamp={legTagClamp}
+              // Clears only the keys on its own side (the left column stands taller).
+              clamp={legTagClamp && plateClearBottom != null && mapSize ? { ...legTagClamp, maxY: mapSize.h - plateClearBottom } : legTagClamp}
             />
           )}
 

@@ -102,6 +102,9 @@ export interface HoleMapProps {
   ornamentsTop?: boolean
   /** dp from the map bottom the caller's dock covers; leg tags stay above it. */
   tagClearBottom?: number
+  /** dp from the map bottom the keys on the aim plate's side cover (#1468):
+   *  lower than the whole dock, whose left column stands taller. */
+  plateClearBottom?: number
   /** The dock's open ruler drawer on its ruler side: dp in from that map edge
    *  and dp above the map bottom. A leg tag reaching over it rises above it. */
   tagClearDrawer?: { width: number; top: number }
