@@ -25,8 +25,12 @@ export interface WayfinderInput {
   zoom: number
   /** A point's screen position, px from the map's top left. */
   project: (p: GeoPoint) => [number, number]
-  /** The open map, px: chrome along the edges already taken off. */
+  /** The open map, px: chrome along the edges already taken off. The key
+   *  stays inside it. */
   area: ScreenBox
+  /** Where a ball still counts as on screen, when that reaches past `area`:
+   *  a live dock's key columns hide the key but not the ball between them. */
+  seen?: ScreenBox
   key: { width: number; height: number }
   /** Chrome inside the area that the key steps out of (key columns, bands);
    *  it steps off the pin's flag too. */
@@ -52,7 +56,8 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
   const [px, py] = i.project(i.pin)
   if (!inside(px, py, a)) return null
   const [bx, by] = i.project(i.ball)
-  if (inside(bx, by, { left: a.left + MARGIN, top: a.top + MARGIN, right: a.right - MARGIN, bottom: a.bottom - MARGIN })) {
+  const s = i.seen ?? a
+  if (inside(bx, by, { left: s.left + MARGIN, top: s.top + MARGIN, right: s.right - MARGIN, bottom: s.bottom - MARGIN })) {
     return null
   }
 

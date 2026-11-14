@@ -831,7 +831,7 @@ export function PastRoundMap({
           // its controls are a solid panel below it.
           aimBallInset={50}
           // Clear of the Mapbox logo, and the mode rocker while logging.
-          wayfinderBottom={completed ? 36 : ROCKER_BOTTOM + 51}
+          wayfinderBottom={completed ? { key: 36, ball: 36 } : { key: ROCKER_BOTTOM + 51, ball: ROCKER_BOTTOM + 51 }}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}
