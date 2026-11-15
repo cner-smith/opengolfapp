@@ -4,9 +4,13 @@ import Svg, { Circle, Defs, G, Line, Pattern, Polygon, Rect, Text as SvgText } f
 import {
   clubChangeCallouts,
   clubHistory,
+  clubHistoryHeadline,
+  niceAxis,
+  shapeStack,
   YARDS_TO_METERS,
   type ClubDistanceStat,
   type ClubHistoryPeriod,
+  type ClubHistoryPeriodKind,
   type ClubHistoryRow,
   type DistanceUnit,
 } from '@oga/core'
@@ -36,6 +40,7 @@ export function ClubHistory({ clubDistances, unit, width }: { clubDistances: Clu
   const [picked, setPicked] = useState<string | null>(null)
   const club = picked ?? mostUsed
   const [period, setPeriod] = useState<Period>('month')
+  const periodKind: ClubHistoryPeriodKind = period === 'month' ? 'month' : { rounds: 10 }
   const [showTable, setShowTable] = useState(false)
   // Rows stay with their club so a new pick never draws the last one's shots.
   const [loaded, setLoaded] = useState<{ club: string; rows: ClubHistoryRow[]; error: boolean } | null>(null)
@@ -85,11 +90,7 @@ export function ClubHistory({ clubDistances, unit, width }: { clubDistances: Clu
       ) : (
         <>
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 19, lineHeight: 25 }]}>
-            {callouts && callouts.sentences.length > 0
-              ? callouts.sentences[0]
-              : callouts?.first
-                ? `No change bigger than the noise since ${callouts.first.label}.`
-                : `A change shows once two ${period === 'month' ? 'months' : 'windows of 10 rounds'} have 10 or more shots.`}
+            {clubHistoryHeadline(callouts, periodKind)}
           </Text>
           {callouts?.sentences[1] && (
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 15, lineHeight: 21, marginTop: 6 }]}>
@@ -140,18 +141,6 @@ export function ClubHistory({ clubDistances, unit, width }: { clubDistances: Clu
       )}
     </View>
   )
-}
-
-// Round-number axis, at most five ticks (same rule as the web section).
-function niceAxis(values: number[], minSpan: number): { lo: number; hi: number; ticks: number[] } {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const step = [5, 10, 20, 50, 100].find((s) => Math.max(max - min, minSpan) / s <= 4) ?? 100
-  const lo = Math.floor(min / step) * step
-  let hi = Math.ceil(max / step) * step
-  if (hi - lo < minSpan) hi = lo + Math.ceil(minSpan / step) * step
-  if (hi === lo) hi = lo + step
-  return { lo, hi, ticks: Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + i * step) }
 }
 
 function Charts({ periods, unit, width }: { periods: ClubHistoryPeriod[]; unit: DistanceUnit; width: number }) {
@@ -262,14 +251,12 @@ function Charts({ periods, unit, width }: { periods: ClubHistoryPeriod[]; unit: 
 
       <SvgText x={0} y={240} fontFamily={TYPE.body.fontFamily} fontSize={12} fill={P.ink}>Shape: fade · straight · draw</SvgText>
       {periods.map((p, i) => {
-        const rec = p.shape.draw + p.shape.straight + p.shape.fade
+        const { bars } = shapeStack(p.shape, S_H)
         const left = x(i) - colW / 2
-        if (rec < 5) {
+        if (!bars) {
           return <Rect key={i} x={left} y={S_TOP} width={colW} height={S_H} fill={P.raised} stroke={P.lineStrong} strokeDasharray="3,3" />
         }
-        const fadeH = (p.shape.fade / rec) * S_H
-        const straightH = (p.shape.straight / rec) * S_H
-        const drawH = S_H - fadeH - straightH
+        const { fadeH, straightH, drawH } = bars
         return (
           <G key={i}>
             <Rect x={left} y={S_TOP + S_H - fadeH} width={colW} height={fadeH} fill={P.ink} />

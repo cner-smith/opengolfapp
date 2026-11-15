@@ -34,6 +34,7 @@ import {
   shapeTally,
   shotWords,
   tallyWords,
+  teeBreakFor,
   wholeDistance as numIn,
   type Club,
   type ColourBy,
@@ -63,7 +64,7 @@ import { useClubDispersion } from '../../components/round/hole/useClubDispersion
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
 import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
 import { AimPlot } from '../../components/patterns/AimPlot'
-import { TeePlot, teeBreakOf } from '../../components/patterns/TeePlot'
+import { TeePlot } from '../../components/patterns/TeePlot'
 import { flightOf, type ChartProps } from '../../components/patterns/chartParts'
 import { ColourRow, LAYER_INFO, LayerBar, type LegendEntry } from '../../components/patterns/LayerControls'
 import { FilterSheet } from '../../components/patterns/FilterSheet'
@@ -420,7 +421,7 @@ export default function Patterns() {
         ? `Your next ${noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
         : ''
       : 'Lines leave on your recorded start line and bend by your recorded shape.',
-    view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
+    view === 'tee' && avgAim != null && teeBreakFor(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
     view === 'tee' && conflicts > 0 ? `${conflicts} shot${conflicts === 1 ? " doesn't" : "s don't"} add up, so the second half is dashed.` : '',
     view === 'tee' && neither > 0 ? `${neither} dashed straight line${neither === 1 ? ' has' : 's have'} neither recorded.` : '',
     view === 'tee' && n > 40 && layers.flights ? 'The bold line is the typical flight.' : '',

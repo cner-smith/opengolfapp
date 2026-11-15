@@ -8,14 +8,12 @@ import {
   cubic,
   flightControls,
   insideRing,
-  ringExtent,
   shapeTally,
   shotWords,
-  teeBreakYards,
   startLineTally,
-  type DispersionPoint,
+  teeAxis,
+  teeView,
   type DispersionRing,
-  type DispersionStats,
   type FlightPoint,
   type ShotShape,
   type ShotStartLine,
@@ -23,20 +21,11 @@ import {
 import { FONT, TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
 import { UNRECORDED_INK } from './layers'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, teeFinish, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
 
 /* ---------------------------------------------------------- tee view */
 
-/** Where the tee view's shortened stretch ends (core teeBreakYards), short of
- *  the nearest finish, the outer ring's near edge and the aim. */
-export function teeBreakOf(points: DispersionPoint[], stats: DispersionStats | null, avgAim: number, unitYd: number) {
-  const ys = points.map((p) => teeFinish(p, avgAim).y)
-  if (stats) ys.push(avgAim + stats.ring95.cy - ringExtent(stats.ring95).y)
-  return teeBreakYards([...ys, avgAim], unitYd)
-}
-
 const SHORTENED_PX = 56
-const MAX_POWER = 3
 const PROTRACTOR_DEG = [-4, 0, 4]
 
 // From the tee, still from above. The landing area is at one true scale; the
@@ -61,28 +50,11 @@ export function TeePlot(props: ChartProps) {
       return { p, ...f, path: cubic(S0, f.c.p1, f.c.p2, f.E) }
     })
     const avgEnd = stats ? { x: stats.avgLateralOffset, y: avgAim + stats.avgDistanceOffset } : null
-    const ys = shots.map((s) => s.E.y)
-    const xs = [0, ...shots.flatMap((s) => s.path.map((q) => q.x))]
-    for (const s of [stats, ghost?.stats]) {
-      if (!s) continue
-      const e = ringExtent(s.ring95)
-      ys.push(avgAim + s.ring95.cy - e.y, avgAim + s.ring95.cy + e.y)
-      xs.push(s.ring95.cx - e.x, s.ring95.cx + e.x)
-    }
-    const maxY = Math.max(...ys, avgAim) + 4 * unitYd
-    const brk = teeBreakOf(points, stats, avgAim, unitYd)
-    const lo = Math.min(...xs)
-    const hi = Math.max(...xs)
-    const centre = (lo + hi) / 2
-    const halfW = Math.max((hi - lo) / 2, 10) * 1.08
-    // Same rule as web: the shortened band is tall enough that its curve's power
-    // stays at or under MAX_POWER, or every flight would leave the tee sideways.
-    const H = TEE_Y - 14
-    const wide = (width - TL - TR) / 2 / halfW
-    const steep = Math.min(H / (maxY - brk + brk / MAX_POWER), wide)
-    const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
-    const scale = Math.min((H - comp) / (maxY - brk), wide)
-    return { avgEnd, shots, maxY, brk, comp, centre, scale }
+    const view = teeView(
+      { points, flights: shots.map((s) => s.path), stats, ghost: ghost?.stats ?? null, avgAim, yardsPerUnit: unitYd },
+      { left: TL, right: width - TR, top: 14, teeY: TEE_Y, minBandPx: SHORTENED_PX },
+    )
+    return { avgEnd, shots, view }
   }, [points, stats, ghost, avgAim, leftHanded, width, unitYd, TEE_Y, TL, TR])
 
   // Draw the flights on from the tee once per club (the page remounts this
@@ -103,13 +75,8 @@ export function TeePlot(props: ChartProps) {
     )
   }
 
-  const { avgEnd, shots, maxY, brk, comp, centre, scale } = geo
-  const midX = TL + (width - TL - TR) / 2
-  const x = (l: number) => midX + (l - centre) * scale
-  // Below the break a power curve, Y = comp·(d/brk)^r with r = scale·brk/comp,
-  // so its slope meets the true scale at the break and no flight kinks there.
-  const bend = brk > 0 ? (scale * brk) / comp : 1
-  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? comp * (Math.max(d, 0) / brk) ** bend : 0) : TEE_Y - comp - (d - brk) * scale)
+  const { avgEnd, shots, view } = geo
+  const { maxY, brk, comp, scale, x, y } = view
   const poly = (pts: FlightPoint[]) => pts.map((q, i) => `${i ? 'L' : 'M'} ${x(q.x).toFixed(1)} ${y(q.y).toFixed(1)}`).join(' ')
   const polyLen = (pts: FlightPoint[]) => {
     let s = 0
@@ -119,11 +86,7 @@ export function TeePlot(props: ChartProps) {
   const teeX = x(0)
   const breakY = TEE_Y - comp
   const u = unitYd
-  const ruleStep = (5 * u * scale >= 14 ? 5 : 10 * u * scale >= 12 ? 10 : 25) * u
-  const labelStep = (10 * u * scale >= 24 ? 10 : 25 * u * scale >= 24 ? 25 : 50) * u
-  const isMult = (v: number, m: number) => Math.abs(v / m - Math.round(v / m)) < 1e-6
-  const rules: number[] = []
-  for (let d = Math.ceil((brk + 1) / ruleStep) * ruleStep; d <= maxY; d += ruleStep) rules.push(d)
+  const { rules, barStep: barU } = teeAxis(scale, brk, maxY, u)
   const bounds = { x: TL + 2, y: 2, w: width - TL - TR - 4, h: breakY - 6 }
   const ringPx = (r: DispersionRing): RingPx => ({ cx: x(r.cx), cy: y(avgAim + r.cy), rx: r.rx * scale, ry: r.ry * scale, rot: r.rotationDeg })
 
@@ -165,9 +128,8 @@ export function TeePlot(props: ChartProps) {
   const ringPoints = props.recentIds ? points.filter((p) => props.recentIds!.has(p.id)) : points
   const inside = stats ? ringPoints.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
   const hotD = hot ? shown.find((d) => d.p.id === hot) : null
-  const barU = 10 * u * scale >= 30 ? 10 : 25
   const barW = barU * u * scale
-  const rayTo = brk > 0 ? brk : avgAim * 0.35
+  const rayTo = view.wedge.d
 
   return (
     <ChartFrame
@@ -182,10 +144,10 @@ export function TeePlot(props: ChartProps) {
       onOpenRound={props.onOpenRound}
       bounds={bounds}
     >
-      {rules.map((d) => (
-        <G key={d}>
-          <Line x1={TL} x2={width - TR} y1={y(d)} y2={y(d)} stroke={isMult(d, labelStep) ? RULE_MAJOR : RULE} strokeWidth={1} />
-          {isMult(d, labelStep) && <SvgText x={TL - 5} y={y(d) + 4} textAnchor="end" fontFamily={FONT.serif} fontSize={12} fill={P.inkDim}>{label(d)}</SvgText>}
+      {rules.map((r) => (
+        <G key={r.d}>
+          <Line x1={TL} x2={width - TR} y1={y(r.d * u)} y2={y(r.d * u)} stroke={r.label ? RULE_MAJOR : RULE} strokeWidth={1} />
+          {r.label && <SvgText x={TL - 5} y={y(r.d * u) + 4} textAnchor="end" fontFamily={FONT.serif} fontSize={12} fill={P.inkDim}>{label(r.d * u)}</SvgText>}
         </G>
       ))}
       <Line x1={TL} x2={TL} y1={y(maxY)} y2={breakY - 5} stroke={P.lineStrong} strokeWidth={1} />

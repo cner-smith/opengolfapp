@@ -10,11 +10,10 @@ import {
   flightControls,
   insideRing,
   shotWords,
-  startLineAngleDeg,
-  teeBreakYards,
+  teeAxis,
+  teeView,
   type DispersionPoint,
   type DispersionRing,
-  type DispersionStats,
   type FlightKind,
   type FlightPoint,
   type ShotShape,
@@ -93,7 +92,6 @@ const wedgeEdge = (lat: number, d: number) => Array.from({ length: 49 }, (_, i) 
 
 const TRIGHT = 12
 const SHORTENED_PX = 64
-const MAX_POWER = 3
 
 const mostCommon = <K extends string>(keys: readonly K[], values: (K | null | undefined)[]): K | null => {
   let best: K | null = null
@@ -122,34 +120,16 @@ export function TeePlot(props: ChartProps) {
   const geo = useMemo(() => {
     const { avgAim, hasStart, shots } = teeGeometry(points, leftHanded)
     const olderEnds = older.map((p) => ({ x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }))
-    const ringYs = (s: DispersionStats) => [avgAim + s.avgDistanceOffset - s.cone95.distance, avgAim + s.avgDistanceOffset + s.cone95.distance]
-    const ys = [...shots.map((s) => s.E.y), ...olderEnds.map((e) => e.y), ...(stats ? ringYs(stats) : []), avgAim]
-    const brk = teeBreakYards(ys, 1 / u)
-    const maxY = Math.max(...ys, 1) + 6
-    const wedge = Math.tan((Math.abs(startLineAngleDeg('push', leftHanded)) * Math.PI) / 180) * (brk || avgAim * 0.35)
-    const xs = [0, -wedge, wedge, ...shots.flatMap((s) => s.path.filter((q) => q.y >= brk).map((q) => q.x)), ...olderEnds.map((e) => e.x)]
-    if (stats) xs.push(stats.avgLateralOffset - stats.cone95.lateral, stats.avgLateralOffset + stats.cone95.lateral)
-    const lo = Math.min(...xs)
-    const hi = Math.max(...xs)
-    const halfW = Math.max((hi - lo) / 2, 10) * 1.1
-    // The shortened band is at least SHORTENED_PX tall, and tall enough that
-    // its curve's power stays at or under MAX_POWER: a steeper curve leaves the
-    // tee flat, and every flight would start sideways.
-    const H = TEE_Y - 16
-    const wide = (TW - TLEFT - TRIGHT) / 2 / halfW
-    const steep = Math.min(H / (maxY - brk + brk / MAX_POWER), wide)
-    const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
-    const scale = Math.min((H - comp) / (maxY - brk), wide)
-    return { avgAim, hasStart, shots, olderEnds, maxY, brk, comp, centre: (lo + hi) / 2, scale }
-  }, [points, older, stats, leftHanded, u, TW, TLEFT, TEE_Y])
+    const view = teeView(
+      { points: [...points, ...older], flights: shots.map((s) => s.path), stats, ghost: ghost?.stats ?? null, avgAim, yardsPerUnit: 1 / u },
+      { left: TLEFT, right: TW - TRIGHT, top: 16, teeY: TEE_Y, minBandPx: SHORTENED_PX },
+    )
+    return { avgAim, hasStart, shots, olderEnds, view }
+  }, [points, older, stats, ghost, leftHanded, u, TW, TLEFT, TEE_Y])
 
-  const { avgAim, shots, olderEnds, maxY, brk, comp, centre, scale } = geo
+  const { avgAim, shots, olderEnds, view } = geo
+  const { maxY, brk, comp, centre, scale, x, y } = view
   const midX = TLEFT + (TW - TLEFT - TRIGHT) / 2
-  const x = (l: number) => midX + (l - centre) * scale
-  // Below the break: comp·(d/brk)^r, with r chosen so its slope at the break
-  // equals the true scale above it (no kink in the flights).
-  const r = brk > 0 ? (scale * brk) / comp : 1
-  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? Math.pow(Math.max(d, 0) / brk, r) * comp : 0) : TEE_Y - comp - (d - brk) * scale)
   const line = (pts: FlightPoint[]) => pts.map((q, i) => `${i ? 'L' : 'M'} ${x(q.x).toFixed(1)} ${y(q.y).toFixed(1)}`).join(' ')
 
   const styled = shots.map((s) => ({ ...s, s: markStyle(s.p, props, dense), dx: x(s.E.x), dy: y(s.E.y) }))
@@ -181,21 +161,14 @@ export function TeePlot(props: ChartProps) {
 
   const teeX = x(0)
   const breakY = TEE_Y - comp
-  // Rules in the player's unit: every 5, 10 or 25, labelled every 10, 25 or 50.
   const stepPx = (s: number) => (s / u) * scale
-  const ruleStep = stepPx(5) >= 14 ? 5 : stepPx(10) >= 12 ? 10 : 25
-  const labelStep = stepPx(10) >= 26 ? 10 : stepPx(25) >= 26 ? 25 : 50
-  const rules: number[] = []
-  for (let d = Math.ceil((brk * u + 1) / ruleStep) * ruleStep; d <= maxY * u; d += ruleStep) rules.push(d)
+  const { ruleStep, barStep: barDisp, rules } = teeAxis(scale, brk, maxY, 1 / u)
   const latStep = ruleStep === 25 ? 10 : ruleStep
   const lat: number[] = []
   for (let v = Math.ceil(((centre - (midX - TLEFT) / scale) * u) / latStep) * latStep; x(v / u) <= TW - TRIGHT; v += latStep) if (x(v / u) >= TLEFT) lat.push(v)
   const bounds: Box = { x: TLEFT + 2, y: 2, w: TW - TLEFT - TRIGHT - 4, h: breakY - 6 }
-  const barDisp = stepPx(10) >= 30 ? 10 : 25
-
   // The protractor: a straight push or pull from the tee, as drawn here.
-  const wedgeD = brk || avgAim * 0.35
-  const wedgeX = Math.tan((Math.abs(startLineAngleDeg('push', leftHanded)) * Math.PI) / 180) * wedgeD
+  const { x: wedgeX, d: wedgeD } = view.wedge
 
   // Over 40 shots each flight is a faint hair and one typical flight per
   // visible group carries the reading.
@@ -235,10 +208,10 @@ export function TeePlot(props: ChartProps) {
         {lat.map((v) => (
           <line key={`v${v}`} x1={x(v / u)} x2={x(v / u)} y1={y(maxY)} y2={breakY} stroke={v === 0 ? 'transparent' : v % 10 === 0 ? RULE : '#F2EDE2'} strokeWidth={1} />
         ))}
-        {rules.map((d) => (
+        {rules.map(({ d, label: major }) => (
           <g key={d}>
-            <line x1={TLEFT} x2={TW - TRIGHT} y1={y(d / u)} y2={y(d / u)} stroke={d % labelStep === 0 ? RULE_MAJOR : RULE} strokeWidth={1} />
-            {d % labelStep === 0 && <text x={TLEFT - 6} y={y(d / u) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{label(d)}</text>}
+            <line x1={TLEFT} x2={TW - TRIGHT} y1={y(d / u)} y2={y(d / u)} stroke={major ? RULE_MAJOR : RULE} strokeWidth={1} />
+            {major && <text x={TLEFT - 6} y={y(d / u) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{label(d)}</text>}
           </g>
         ))}
         <line x1={TLEFT} x2={TLEFT} y1={y(maxY)} y2={brk > 0 ? breakY - 5 : TEE_Y} stroke={AXIS} strokeWidth={1} />

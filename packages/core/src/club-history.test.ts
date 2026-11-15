@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clubChangeCallouts, clubHistory, type ClubHistoryRow } from './club-history'
+import { clubChangeCallouts, clubHistory, clubHistoryHeadline, shapeStack, type ClubHistoryPeriod, type ClubHistoryRow } from './club-history'
 import type { ShotShape } from './constants'
 
 // Shots start on the equator and play due north. Distance shots (no aim)
@@ -169,5 +169,28 @@ describe('clubChangeCallouts', () => {
     ])
     const same = clubHistory([...month('07', side(8)), ...month('10', side(7))], '7i', { period: 'month' })
     expect(clubChangeCallouts(same, opts).sentences).toEqual([])
+  })
+})
+
+describe('clubHistoryHeadline', () => {
+  const may = { label: 'May' } as ClubHistoryPeriod
+  it.each([
+    [{ sentences: ['Your 7 iron goes 6 yd farther than in May.', 'b'], first: may, last: may }, 'month', 'Your 7 iron goes 6 yd farther than in May.'],
+    [{ sentences: [], first: may, last: may }, 'month', 'No change bigger than the noise since May.'],
+    [{ sentences: [], first: null, last: null }, 'month', 'A change shows once two months have 10 or more shots.'],
+    [null, { rounds: 10 }, 'A change shows once two windows of 10 rounds have 10 or more shots.'],
+  ] as const)('%#', (callouts, period, want) => {
+    expect(clubHistoryHeadline(callouts as never, period)).toBe(want)
+  })
+})
+
+describe('shapeStack', () => {
+  it('splits the column by share, fade at the foot', () => {
+    // 2 draw, 3 straight, 5 fade of 10 in 40 px: fade 20, straight 12, draw 8
+    expect(shapeStack({ draw: 2, straight: 3, fade: 5 }, 40)).toEqual({ recorded: 10, bars: { drawH: 8, straightH: 12, fadeH: 20 } })
+  })
+  it('shows only the count under 5 recorded shapes', () => {
+    expect(shapeStack({ draw: 1, straight: 2, fade: 1 }, 40)).toEqual({ recorded: 4, bars: null })
+    expect(shapeStack({ draw: 0, straight: 5, fade: 0 }, 40)).toEqual({ recorded: 5, bars: { drawH: 0, straightH: 40, fadeH: 0 } })
   })
 })

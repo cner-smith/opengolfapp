@@ -253,3 +253,25 @@ export function clubChangeCallouts(
 
   return { sentences: sentences.slice(0, 2), first, last }
 }
+
+/** The headline over the Club history charts: the first callout sentence, or
+ *  why there is none. */
+export function clubHistoryHeadline(callouts: ClubChangeCallouts | null, period: ClubHistoryPeriodKind): string {
+  if (callouts && callouts.sentences.length > 0) return callouts.sentences[0]!
+  if (callouts?.first) return `No change bigger than the noise since ${callouts.first.label}.`
+  const windows = period === 'month' ? 'months' : `windows of ${period.rounds} rounds`
+  return `A change shows once two ${windows} have ${CALLOUT_MIN_SHOTS} or more shots.`
+}
+
+/** The shape column's stack, px from the top: draw (hatched) on top, straight,
+ *  fade at the foot. Null under 5 recorded shapes, where only the count shows. */
+export function shapeStack(
+  shape: ClubHistoryPeriod['shape'],
+  height: number,
+): { recorded: number; bars: { drawH: number; straightH: number; fadeH: number } | null } {
+  const recorded = shape.draw + shape.straight + shape.fade
+  if (recorded < 5) return { recorded, bars: null }
+  const fadeH = (shape.fade / recorded) * height
+  const straightH = (shape.straight / recorded) * height
+  return { recorded, bars: { drawH: height - fadeH - straightH, straightH, fadeH } }
+}
