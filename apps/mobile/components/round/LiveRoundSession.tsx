@@ -273,7 +273,8 @@ export default function LiveRoundSession({
     const origin =
       (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
     if (!origin) return null
-    return teeBoxDots(origin, liveTeeToward(data.shots[0], finalState.aim, data.roundPin ?? data.storedPin))
+    const pin = data.roundPin ?? data.storedPin
+    return teeBoxDots(origin, liveTeeToward(data.shots[0], finalState.aim, pin))
   }, [
     data.tee?.lat,
     data.tee?.lng,
