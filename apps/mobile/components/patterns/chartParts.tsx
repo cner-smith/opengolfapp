@@ -57,6 +57,8 @@ export interface ChartProps {
   colourBy: ColourBy
   categories: Map<string, Category>
   hidden: Set<string>
+  /** The group the legend brought forward (its first tap); the others step back. */
+  focus: string | null
   /** With the recent layer on: the recent shots; the rest are drawn in pencil. */
   recentIds: Set<string> | null
   leftHanded: boolean
@@ -199,14 +201,16 @@ export const ACircle = Animated.createAnimatedComponent(Circle)
 export const ALine = Animated.createAnimatedComponent(Line)
 export const TWEEN = { duration: 320, easing: Easing.bezier(0.22, 1, 0.36, 1) }
 
-/** Fades its marks in or out (180 ms); `enter` fades them in on mount. */
-export function Fade({ on, enter = false, delay = 0, duration = 180, children }: { on: boolean; enter?: boolean; delay?: number; duration?: number; children: ReactNode }) {
+/** Fades its marks in or out (180 ms); `enter` fades them in on mount;
+ *  `level` is the opacity when on (a group stepped back behind the legend's
+ *  focus sits at 0.14, as on the web). */
+export function Fade({ on, level = 1, enter = false, delay = 0, duration = 180, children }: { on: boolean; level?: number; enter?: boolean; delay?: number; duration?: number; children: ReactNode }) {
   const reduce = useReducedMotion()
-  const o = useSharedValue(enter && !reduce ? 0 : on ? 1 : 0)
+  const o = useSharedValue(enter && !reduce ? 0 : on ? level : 0)
   useEffect(() => {
-    const to = on ? 1 : 0
+    const to = on ? level : 0
     o.value = reduce ? to : withDelay(delay, withTiming(to, { duration }))
-  }, [on, reduce, delay, duration, o])
+  }, [on, level, reduce, delay, duration, o])
   const ap = useAnimatedProps(() => ({ opacity: o.value }))
   return <AG animatedProps={ap}>{children}</AG>
 }
@@ -367,12 +371,14 @@ export interface MarkStyle {
   dense: boolean
 }
 
+/** The group of the older shots under Latest: in pencil whatever the colour,
+ *  never in the legend, never hidden or stepped back (the web's OlderDots). */
+export const OLDER = 'older'
+
 export function markStyle(p: DispersionPoint, props: ChartProps, dense: boolean): MarkStyle {
   const r = dense ? 2.4 : 4
-  if (props.colourBy === 'none') {
-    const old = props.recentIds != null && !props.recentIds.has(p.id)
-    return { key: NOT_RECORDED, color: old ? P.graphite : INK, glyph: old ? 'pencil' : 'dot', r, dense }
-  }
+  if (props.recentIds != null && !props.recentIds.has(p.id)) return { key: OLDER, color: UNRECORDED_INK, glyph: 'pencil', r: 2.2, dense }
+  if (props.colourBy === 'none') return { key: NOT_RECORDED, color: INK, glyph: 'dot', r, dense }
   const key = categoryOf(p, props.extras[p.id], props.colourBy)
   if (key === NOT_RECORDED) return { key, color: UNRECORDED_INK, glyph: 'unrecorded', r, dense }
   const c = props.categories.get(key)
@@ -388,7 +394,7 @@ export function Marker({ x, y, r, glyph, color, dense }: { x: number; y: number;
     `M ${x + dir * s * 1.3} ${y} L ${x - dir * s * 0.95} ${y - s * 1.2} L ${x - dir * s * 0.95} ${y + s * 1.2} Z`
   switch (glyph) {
     case 'pencil':
-      return <Circle cx={x} cy={y} r={r} fill={color} fillOpacity={0.35} />
+      return <Circle cx={x} cy={y} r={r} fill={color} fillOpacity={0.45} />
     case 'left':
       return <Path d={tri(-1, r)} {...solid} />
     case 'right':
@@ -421,6 +427,14 @@ export function Marker({ x, y, r, glyph, color, dense }: { x: number; y: number;
 }
 
 export const Mark = ({ x, y, s }: { x: number; y: number; s: MarkStyle }) => <Marker x={x} y={y} r={s.r} glyph={s.glyph} color={s.color} dense={s.dense} />
+
+/** Over 40 shots the marks shrink and the tee view draws typical flights;
+ *  under Latest only the latest count, as on the web. */
+export const isDense = (props: Pick<ChartProps, 'points' | 'recentIds'>) => (props.recentIds?.size ?? props.points.length) > DENSE
+
+/** Another group is brought forward (the legend's first tap), so this one steps back. */
+export const stepsBack = (props: Pick<ChartProps, 'focus' | 'hidden'>, key: string) =>
+  props.focus != null && !props.hidden.has(props.focus) && props.focus !== key && key !== OLDER
 
 /** Marks grouped by legend key, so hiding a group fades it as one. */
 export function groupBy<T extends { s: MarkStyle }>(items: T[]) {

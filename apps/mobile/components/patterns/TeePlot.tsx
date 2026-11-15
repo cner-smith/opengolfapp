@@ -8,11 +8,10 @@ import {
   cubic,
   flightControls,
   insideRing,
-  shapeTally,
   shotWords,
-  startLineTally,
   teeAxis,
   teeView,
+  typicalFlight,
   type DispersionRing,
   type FlightPoint,
   type ShotShape,
@@ -21,7 +20,7 @@ import {
 import { FONT, TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
 import { UNRECORDED_INK } from './layers'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, OLDER, isDense, stepsBack, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
 
 /* ---------------------------------------------------------- tee view */
 
@@ -40,7 +39,7 @@ export function TeePlot(props: ChartProps) {
   const TH = PLOT_H + legendHeight(width)
   const TL = LEFT
   const TR = RIGHT
-  const dense = points.length > DENSE
+  const dense = isDense(props)
   const avgAim = averageAimDistance(points)
 
   const geo = useMemo(() => {
@@ -106,24 +105,24 @@ export function TeePlot(props: ChartProps) {
   if (rGhost) taken.push(rGhost.box)
 
   // Over 40 shots the lines blur into a fan: one typical flight per visible
-  // group (its mean finish, commonest start line, its shape) carries the read.
+  // group of 3 or more (core typicalFlight: its mean finish, and the start
+  // line and shape its verdicts name) carries the read. Older shots under
+  // Latest are pencil, not a group.
+  const focusKey = props.focus != null && !props.hidden.has(props.focus) ? props.focus : null
   const typical = !dense || !layers.flights
     ? []
     : groupBy(shown)
-        .filter(([, items]) => items.length >= 3)
-        .map(([key, items]) => {
-          const ps = items.map((d) => d.p)
-          const E = { x: ps.reduce((a, p) => a + p.lateralOffsetYards, 0) / ps.length, y: avgAim + ps.reduce((a, p) => a + p.distanceOffsetYards, 0) / ps.length }
-          const sv = startLineTally(ps, leftHanded).verdict
-          const hv = shapeTally(ps, leftHanded).verdict
-          const start = props.colourBy === 'start' && key !== NOT_RECORDED ? (key as ShotStartLine) : sv && sv !== 'mixed' ? sv : null
-          const shape = props.colourBy === 'shape' && key !== NOT_RECORDED ? (key as ShotShape) : hv && hv !== 'mixed' ? hv : null
-          const c = flightControls(S0, E, start, shape, leftHanded)
+        .filter(([key]) => key !== OLDER)
+        .flatMap(([key, items]) => {
+          const fixed = key === NOT_RECORDED ? {} : props.colourBy === 'start' ? { startLine: key as ShotStartLine } : props.colourBy === 'shape' ? { shape: key as ShotShape } : {}
+          const t = typicalFlight(items.map((d) => d.p), avgAim, leftHanded, fixed)
+          if (!t) return []
+          const c = flightControls(S0, t.end, t.startLine, t.shape, leftHanded)
           const cat = props.categories.get(key)
           const text = coloured ? (cat ? `typical ${cat.label.toLowerCase()}` : 'typical, not recorded') : 'typical flight'
-          const at = placeNear(x(E.x), y(E.y), text, 12, dots, taken, bounds)
+          const at = placeNear(x(t.end.x), y(t.end.y), text, 12, dots, taken, bounds)
           taken.push(at.box)
-          return { key, d: poly(cubic(S0, c.p1, c.p2, E)), color: coloured ? cat?.color ?? UNRECORDED_INK : P.ink, text, at }
+          return [{ key, d: poly(cubic(S0, c.p1, c.p2, t.end)), color: coloured ? cat?.color ?? UNRECORDED_INK : P.ink, text, at }]
         })
   const ringPoints = props.recentIds ? points.filter((p) => props.recentIds!.has(p.id)) : points
   const inside = stats ? ringPoints.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
@@ -176,7 +175,7 @@ export function TeePlot(props: ChartProps) {
       <Fade on={layers.flights}>
         <G opacity={hot ? 0.3 : 1}>
           {groupBy(styled).map(([key, items]) => (
-            <Fade key={key} on={!props.hidden.has(key)} duration={150}>
+            <Fade key={key} on={!props.hidden.has(key)} level={stepsBack(props, key) && !dense ? 0.1 : 1} duration={150}>
               {items.map((d) => {
                 const stroke = coloured ? d.s.color : d.c.kind === 'none' ? UNRECORDED_INK : d.s.color
                 const old = d.s.glyph === 'pencil'
@@ -197,7 +196,7 @@ export function TeePlot(props: ChartProps) {
                           delay={order.get(d.p.id) ?? 0}
                           clock={clock}
                           color={stroke}
-                          opacity={lineOp * seg.op * (old ? 0.5 : 1)}
+                          opacity={(dense && focusKey === key ? 0.6 : lineOp) * seg.op * (old ? 0.5 : 1)}
                           width={lineW}
                         />
                       )
@@ -210,7 +209,7 @@ export function TeePlot(props: ChartProps) {
         </G>
       </Fade>
       {typical.map((t) => (
-        <Path key={`t${t.key}`} d={t.d} fill="none" stroke={t.color} strokeWidth={2.2} strokeLinecap="round" />
+        <Path key={`t${t.key}`} d={t.d} fill="none" stroke={t.color} strokeWidth={2.2} strokeLinecap="round" opacity={focusKey && focusKey !== t.key ? 0.2 : 1} />
       ))}
       {hotD && layers.flights && <Path d={poly(hotD.path)} fill="none" stroke={coloured ? hotD.s.color : P.ink} strokeWidth={2.4} strokeLinecap="round" strokeDasharray={hotD.c.kind === 'none' ? '4,3' : undefined} />}
       {stats && avgEnd && (
@@ -221,7 +220,7 @@ export function TeePlot(props: ChartProps) {
       )}
       <Fade on={layers.shots} enter delay={reduce ? 0 : DRAW_MS * 0.7} duration={200}>
         {groupBy(styled).map(([key, items]) => (
-          <Fade key={key} on={!props.hidden.has(key)} duration={150}>
+          <Fade key={key} on={!props.hidden.has(key)} level={stepsBack(props, key) ? 0.14 : 1} duration={150}>
             {items.map((d) => (
               <Mark key={d.p.id} x={d.dx} y={d.dy} s={d.s} />
             ))}

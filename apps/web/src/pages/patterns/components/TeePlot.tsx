@@ -1,7 +1,5 @@
 import { useMemo, useRef } from 'react'
 import {
-  SHOT_SHAPES,
-  SHOT_START_LINES,
   NOT_RECORDED,
   YARDS_TO_METERS,
   averageAimDistance,
@@ -12,6 +10,7 @@ import {
   shotWords,
   teeAxis,
   teeView,
+  typicalFlight,
   type DispersionPoint,
   type DispersionRing,
   type FlightKind,
@@ -93,19 +92,6 @@ const wedgeEdge = (lat: number, d: number) => Array.from({ length: 49 }, (_, i) 
 const TRIGHT = 12
 const SHORTENED_PX = 64
 
-const mostCommon = <K extends string>(keys: readonly K[], values: (K | null | undefined)[]): K | null => {
-  let best: K | null = null
-  let n = 0
-  for (const k of keys) {
-    const c = values.filter((v) => v === k).length
-    if (c > n) {
-      best = k
-      n = c
-    }
-  }
-  return best
-}
-
 export function TeePlot(props: ChartProps) {
   const { points, older, stats, ghost, unit, layers, extras, kinds, leftHanded, colourBy } = props
   const narrow = useNarrow()
@@ -171,8 +157,8 @@ export function TeePlot(props: ChartProps) {
   const { x: wedgeX, d: wedgeD } = view.wedge
 
   // Over 40 shots each flight is a faint hair and one typical flight per
-  // visible group carries the reading.
-  const typical = dense && layers.flights ? typicalFlights(visible, colourBy, props.hidden, props.colours, leftHanded) : []
+  // visible group of 3 or more (core typicalFlight) carries the reading.
+  const typical = dense && layers.flights ? typicalFlights(visible, avgAim, colourBy, props.hidden, props.colours, leftHanded) : []
   const lineOp = colourBy === 'none' ? 0.7 : 0.85
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
 
@@ -373,6 +359,7 @@ interface Typical {
 
 function typicalFlights(
   visible: (TeeShot & { s: ReturnType<typeof markStyle> })[],
+  avgAim: number,
   colourBy: ChartProps['colourBy'],
   hidden: Set<string>,
   colours: ChartProps['colours'],
@@ -386,14 +373,11 @@ function typicalFlights(
   }
   const out: Typical[] = []
   for (const [k, members] of groups) {
-    const E = {
-      x: members.reduce((a, m) => a + m.E.x, 0) / members.length,
-      y: members.reduce((a, m) => a + m.E.y, 0) / members.length,
-    }
-    const startLine = colourBy === 'start' ? (k as ShotStartLine) : mostCommon(SHOT_START_LINES, members.map((m) => m.p.startLine))
-    const shape = colourBy === 'shape' ? (k as ShotShape) : mostCommon(SHOT_SHAPES, members.map((m) => m.p.shape))
+    const fixed = colourBy === 'start' ? { startLine: k as ShotStartLine } : colourBy === 'shape' ? { shape: k as ShotShape } : {}
+    const t = typicalFlight(members.map((m) => m.p), avgAim, leftHanded, fixed)
+    if (!t) continue
     const word = colourBy === 'none' ? 'typical flight' : `typical ${labelOf(k)}`
-    out.push({ key: k, label: word, color: colourBy === 'none' ? INK : colours.get(k)?.color ?? INK, E, path: flightPath(E, startLine, shape, leftHanded).path })
+    out.push({ key: k, label: word, color: colourBy === 'none' ? INK : colours.get(k)?.color ?? INK, E: t.end, path: flightPath(t.end, t.startLine, t.shape, leftHanded).path })
   }
   return out
 }
