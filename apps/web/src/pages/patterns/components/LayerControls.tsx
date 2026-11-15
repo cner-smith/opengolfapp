@@ -88,9 +88,12 @@ function Toggle({ on, onClick, hint, children, onHover, compact, disabled }: {
       aria-describedby={id}
       title={hint}
       onClick={disabled ? undefined : onClick}
+      // Hover and keyboard focus only: a tap also focuses the button (Chrome),
+      // which would bring the group forward before the tap's own click and
+      // turn the first tap into a hide.
       onPointerEnter={onHover && ((e) => e.pointerType === 'mouse' && onHover(true))}
-      onPointerLeave={onHover && (() => onHover(false))}
-      onFocus={onHover && (() => onHover(true))}
+      onPointerLeave={onHover && ((e) => e.pointerType === 'mouse' && onHover(false))}
+      onFocus={onHover && ((e) => e.currentTarget.matches(':focus-visible') && onHover(true))}
       onBlur={onHover && (() => onHover(false))}
       className={`pat-tap ${FOCUS_RING} ${disabled ? '' : 'hover:border-caddie-line-strong'}`}
       style={{

@@ -107,3 +107,27 @@ test.describe('Shot patterns (signed in)', () => {
     expect(b.width).toBeGreaterThan(0)
   })
 })
+
+test.describe('Shot patterns on a touch screen (signed in)', () => {
+  test.use({ viewport: { width: 400, height: 860 }, hasTouch: true, isMobile: true })
+
+  test('the first tap on a legend group brings it forward, the second hides it', async ({ page }) => {
+    await page.goto('/patterns')
+    const seven = page.getByRole('radiogroup', { name: 'Club' }).getByRole('radio', { name: /^7-iron,/ })
+    await seven.tap()
+    await expect(seven).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('svg.pat-chart [data-shot]').first()).toBeAttached()
+    await page.getByRole('radiogroup', { name: 'Colour the shots by' }).getByRole('radio', { name: 'Shape' }).tap()
+    await expect(page.getByText('Tap a group once to bring it forward, twice to hide it.')).toBeVisible()
+    const group = page.getByRole('group', { name: 'Show or hide groups of shots' }).getByRole('button').first()
+    const stepped = () => page.locator('svg.pat-chart [data-shot]').evaluateAll((els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.5).length)
+    await expect.poll(stepped).toBe(0)
+    await group.tap()
+    // Still shown, and the other groups' shots step back.
+    await expect(group).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(stepped).toBeGreaterThan(0)
+    await group.tap()
+    await expect(group).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
