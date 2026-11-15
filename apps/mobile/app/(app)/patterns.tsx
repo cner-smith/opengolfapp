@@ -27,6 +27,7 @@ import {
   puttMissHeadline,
   puttMissTally,
   mostlyTeeShots,
+  practiceCategory,
   patternRowToShot,
   LIE_PHRASE,
   readQuality,
@@ -45,7 +46,6 @@ import {
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
-  type PlanCategory,
   type ShotContact,
   type ShotExtras,
   type ShotShape,
@@ -106,7 +106,6 @@ interface ShotRow {
   } | null
 }
 
-const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
 const RECENT = 20
 const NO_ROWS: ShotRow[] = []
 
@@ -435,7 +434,7 @@ export default function Patterns() {
     .filter(Boolean)
     .join(' ')
   const summary = [
-    `${cap(noun)} shot pattern, ${view === 'aim' ? 'around the aim' : 'from the tee'}: ${n} shots.`,
+    `${cap(noun)} shot pattern, ${view === 'aim' ? 'around the aim' : 'from the tee'}: ${n} shots${recentOn ? `, rings and numbers on the latest ${shownN}` : ''}.`,
     finding ?? '',
     shownStats ? `Two in three finish inside ${mag(shownStats.cone68.lateral * 2)} wide and ${mag(shownStats.cone68.distance * 2)} deep.` : '',
     legend.length ? `${COLOUR_BY.find((o) => o.value === colourBy)!.label}: ${legend.map((e) => `${e.label} ${e.count}`).join(', ')}.` : '',
@@ -488,7 +487,6 @@ export default function Patterns() {
     return ` ${n === 1 ? 'It' : `All ${n}`} ${where} finished ${sides.join(' and ')} of your usual average.`
   })()
   const doneLabel = filtersDoneWords(shownN, filtered, filterPhrase)
-  const practice: PlanCategory = tee || OFF_THE_TEE.includes(club) ? 'off_tee' : 'approach'
   const shapeValue = tallyWords(shapeTally(shown, leftHanded), SHOT_SHAPE_LABELS, shownN).value
 
   return (
@@ -607,7 +605,7 @@ export default function Patterns() {
               teeShots={tee}
               leftHanded={leftHanded}
               onColour={setColourBy}
-              practice={practice}
+              practice={practiceCategory(club, shown)}
               onExport={handleShare}
               sharing={sharing}
             />

@@ -12,6 +12,7 @@ import {
   type ShotContact,
   type ShotStartLine,
 } from './constants'
+import type { PlanCategory } from './practice-plan/types'
 import type { FlightKind } from './shot-flight'
 import {
   MIN_PUTT_MISSES_FOR_BAR,
@@ -65,6 +66,14 @@ export const distanceText = (yd: number, unit: DistanceUnit) => `${wholeDistance
  *  the player dropped it, so the finding speaks only of width. */
 export function mostlyTeeShots(points: DispersionPoint[]): boolean {
   return points.filter((p) => p.lieType === 'tee').length * 2 > points.length
+}
+
+const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
+
+/** Which drills "Practise it" points at: off the tee for the driver and woods,
+ *  or when most of these shots were tee shots; approach otherwise. */
+export function practiceCategory(club: Club, points: DispersionPoint[]): PlanCategory {
+  return OFF_THE_TEE.includes(club) || mostlyTeeShots(points) ? 'off_tee' : 'approach'
 }
 
 /**

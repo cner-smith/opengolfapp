@@ -19,6 +19,7 @@ import {
   findingLine,
   latestLine,
   mostlyTeeShots,
+  practiceCategory,
   puttMissHeadline,
   puttMissTally,
   readQuality,
@@ -35,7 +36,6 @@ import {
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
-  type PlanCategory,
 } from '@oga/core'
 import { useClubLadder, useMissedPutts, useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
@@ -60,7 +60,6 @@ import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer
 const SHARE_CARD_W = 1200
 const SHARE_CARD_H = 630
 const RECENT = 20
-const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
 
 type View = 'aim' | 'tee'
 type Scope = 'all' | 'recent'
@@ -359,7 +358,6 @@ export function ShotPatternsPage() {
   )
   const scopeControl = rva ? <ScopeControl value={scope} onChange={setScope} total={filteredPoints.length} /> : null
   const recentLine = rva ? latestLine(rva, RECENT, filteredPoints.length, unit) : null
-  const practice: PlanCategory = teeShots || OFF_THE_TEE.includes(club) ? 'off_tee' : 'approach'
 
   return (
     <div>
@@ -465,9 +463,10 @@ export function ShotPatternsPage() {
             </p>
           ) : null}
 
+          {/* The web library can't open on a category yet, so this lands on all drills. */}
           {stats && (
             <Link to="/practice/drills" className={`flex items-center text-caddie-ink ${FOCUS_RING}`} style={{ minHeight: 48, borderBottom: '1px solid #D9D2BF', fontSize: 15, textDecoration: 'none' }}>
-              <span style={{ flex: 1 }}>Practise it: {CATEGORY_LABEL[practice].toLowerCase()} drills</span>
+              <span style={{ flex: 1 }}>Practise it: {CATEGORY_LABEL[practiceCategory(club, points)].toLowerCase()} drills</span>
               <span className="font-serif" aria-hidden style={{ fontSize: 20 }}>→</span>
             </Link>
           )}

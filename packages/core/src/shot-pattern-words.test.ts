@@ -12,6 +12,7 @@ import {
   latestLine,
   puttMissHeadline,
   mostlyTeeShots,
+  practiceCategory,
   readQuality,
   recordedNote,
   shortDate,
@@ -118,6 +119,14 @@ describe('mostlyTeeShots', () => {
   it('needs more than half from the tee', () => {
     expect(mostlyTeeShots([pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'tee' }), pt(0, 0)])).toBe(true)
     expect(mostlyTeeShots([pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'fairway' })])).toBe(false)
+  })
+})
+
+describe('practiceCategory', () => {
+  it('off the tee for a wood, or for mostly tee shots; approach otherwise', () => {
+    expect(practiceCategory('3w', [pt(0, 0, { lieType: 'fairway' })])).toBe('off_tee')
+    expect(practiceCategory('7i', [pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'tee' }), pt(0, 0)])).toBe('off_tee')
+    expect(practiceCategory('7i', [pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'fairway' })])).toBe('approach')
   })
 })
 
