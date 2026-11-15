@@ -1,5 +1,8 @@
+import { clubNoun, type ShotShape, type ShotStartLine } from './constants'
 import { startLineAngleDeg, teeBreakYards, type FlightPoint } from './shot-flight'
-import type { DispersionPoint, DispersionStats } from './shot-patterns'
+import { distanceUnitAbbr } from './shot-pattern-words'
+import { shapeTally, startLineTally, type DispersionPoint, type DispersionStats } from './shot-patterns'
+import type { DistanceUnit } from './types'
 
 // The Patterns charts' geometry, shared by web and the app. Yards in the aim
 // frame (x right, y along); `yardsPerUnit` is yards per display unit (1 for
@@ -206,5 +209,70 @@ export function bracketLabelAt(
   return {
     acrossX: clamp((box.l + box.r) / 2, area.left + 48, area.left + area.size - 48),
     deepY: clamp((box.t + box.b) / 2, area.top + 14, area.top + area.size - 16),
+  }
+}
+
+/** A group needs this many shots before the tee view draws its typical flight. */
+export const MIN_SHOTS_FOR_TYPICAL_FLIGHT = 3
+
+export interface TypicalFlight {
+  /** The group's mean finish in the tee frame (x right, y from the tee). */
+  end: FlightPoint
+  startLine: ShotStartLine | null
+  shape: ShotShape | null
+}
+
+/**
+ * One group's typical flight on the tee view (drawn over 40 shots, one per
+ * group): its mean finish, aimed at `avgAim`, leaving on the start line and
+ * bending by the shape that the group's verdicts name (startLineTally /
+ * shapeTally: the commonest holds half of 5+ recorded, so the line never says
+ * more than the numbers do). A group coloured by start line or shape passes
+ * its own value in `fixed`. Null under MIN_SHOTS_FOR_TYPICAL_FLIGHT shots.
+ */
+export function typicalFlight(
+  points: readonly DispersionPoint[],
+  avgAim: number,
+  leftHanded: boolean,
+  fixed: { startLine?: ShotStartLine; shape?: ShotShape } = {},
+): TypicalFlight | null {
+  if (points.length < MIN_SHOTS_FOR_TYPICAL_FLIGHT) return null
+  const mean = (f: (p: DispersionPoint) => number) => points.reduce((a, p) => a + f(p), 0) / points.length
+  const named = <K extends string>(v: K | 'mixed' | null): K | null => (v == null || v === 'mixed' ? null : v)
+  return {
+    end: { x: mean((p) => p.lateralOffsetYards), y: avgAim + mean((p) => p.distanceOffsetYards) },
+    startLine: fixed.startLine ?? named(startLineTally([...points], leftHanded).verdict),
+    shape: fixed.shape ?? named(shapeTally([...points], leftHanded).verdict),
+  }
+}
+
+/** The widest gap note shows past this many display units (yards or metres). */
+const WIDE_GAP_UNITS = 25
+
+/**
+ * The Patterns club ladder's notes. `typical` is each club's typical distance
+ * in the player's unit (null without a number). `key` explains the small gap
+ * numbers once two neighbouring clubs both have one; `widest` names the
+ * biggest step between numbered clubs (skipping clubs without a number, never
+ * the putter) when it is over 25 units.
+ */
+export function clubLadderNotes<C extends string>(
+  clubs: readonly C[],
+  typical: (club: C) => number | null,
+  unit: DistanceUnit,
+): { key: string | null; widest: string | null } {
+  const numbered = clubs.filter((c) => c !== 'putter' && typical(c) != null)
+  let widest: { from: C; to: C; size: number } | null = null
+  for (let i = 1; i < numbered.length; i++) {
+    const size = typical(numbered[i - 1]!)! - typical(numbered[i]!)!
+    if (!widest || size > widest.size) widest = { from: numbered[i - 1]!, to: numbered[i]!, size }
+  }
+  const neighbours = clubs.some((c, j) => j > 0 && c !== 'putter' && typical(c) != null && typical(clubs[j - 1]!) != null)
+  return {
+    key: neighbours ? 'The small number on each rule is the gap between clubs.' : null,
+    widest:
+      widest && widest.size > WIDE_GAP_UNITS
+        ? `${widest.size} ${distanceUnitAbbr(unit)} between your ${clubNoun(widest.from)} and ${clubNoun(widest.to)}, the widest gap in the bag.`
+        : null,
   }
 }

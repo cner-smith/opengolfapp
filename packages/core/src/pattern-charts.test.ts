@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { aimGrid, bracketLabelAt, ringBracket, teeAxis, teeBreakFor, teeView, type TeePlotBox } from './pattern-charts'
+import { aimGrid, bracketLabelAt, clubLadderNotes, ringBracket, teeAxis, teeBreakFor, teeView, typicalFlight, type TeePlotBox } from './pattern-charts'
+import type { ShotShape, ShotStartLine } from './constants'
 import { cubic } from './shot-flight'
 import { computeDispersionStats, ringExtent, type DispersionPoint } from './shot-patterns'
 
@@ -251,5 +252,79 @@ describe('aim brackets', () => {
     // clamps: across in [98, 302], deep in [26, 296]
     expect(bracketLabelAt({ l: 40, r: 60, t: 0, b: 10 }, area)).toEqual({ acrossX: 98, deepY: 26 })
     expect(bracketLabelAt({ l: 330, r: 350, t: 300, b: 330 }, area)).toEqual({ acrossX: 302, deepY: 296 })
+  })
+})
+
+describe('typicalFlight', () => {
+  // A shot at (lat, dist) from the aim with its recorded start line and shape.
+  const shot = (lat: number, dist: number, startLine: ShotStartLine | null, shape: ShotShape | null): DispersionPoint =>
+    ({ ...pt(lat, dist), id: `${lat},${dist},${startLine},${shape}`, startLine, shape }) as DispersionPoint
+
+  it('needs 3 shots in the group', () => {
+    const two = [shot(-6, 4, 'push', 'fade'), shot(0, -2, 'push', 'fade')]
+    expect(typicalFlight(two, 200, false)).toBeNull()
+    // the third shot draws it: mean (−6 + 0 + 9) / 3 = 1 across, 200 + (4 − 2 + 7) / 3 = 203 along
+    const three = [...two, shot(9, 7, 'push', 'fade')]
+    expect(typicalFlight(three, 200, false)!.end).toEqual({ x: 1, y: 203 })
+  })
+
+  it('names a start line or shape only when the verdict does (5+ recorded, half of them)', () => {
+    // 3 pushed fades: all one way, but only 3 recorded (< 5), so no verdict: a plain line
+    const three = [shot(-6, 4, 'push', 'fade'), shot(0, -2, 'push', 'fade'), shot(9, 7, 'push', 'fade')]
+    expect(typicalFlight(three, 200, false)).toMatchObject({ startLine: null, shape: null })
+    // 5 recorded: push 3 of 5 (6 ≥ 5, 3 > 2) → push; fade 2, draw 2, straight 1 → no half → mixed → none
+    const five = [
+      shot(0, 0, 'push', 'fade'),
+      shot(0, 0, 'push', 'fade'),
+      shot(0, 0, 'push', 'draw'),
+      shot(0, 0, 'on_line', 'draw'),
+      shot(0, 0, 'on_line', 'straight'),
+    ]
+    expect(typicalFlight(five, 150, false)).toMatchObject({ startLine: 'push', shape: null })
+  })
+
+  it('counts recorded shots, not shots: 4 fades and 2 unrecorded have no shape verdict', () => {
+    const six = [1, 2, 3, 4].map((i) => shot(i, 0, null, 'fade')).concat([shot(5, 0, null, null), shot(6, 0, null, null)])
+    expect(typicalFlight(six, 150, false)).toMatchObject({ startLine: null, shape: null })
+    // a fifth recorded fade gives the verdict
+    expect(typicalFlight([...six, shot(7, 0, null, 'fade')], 150, false)!.shape).toBe('fade')
+  })
+
+  it("a group coloured by start line or shape keeps its own value", () => {
+    const five = [1, 2, 3, 4, 5].map((i) => shot(i, 0, 'push', 'fade'))
+    expect(typicalFlight(five, 150, false, { startLine: 'pull' })).toMatchObject({ startLine: 'pull', shape: 'fade' })
+    expect(typicalFlight(five, 150, false, { shape: 'hook' })).toMatchObject({ startLine: 'push', shape: 'hook' })
+  })
+})
+
+describe('clubLadderNotes', () => {
+  const ladder = (nums: Record<string, number | null>) => (c: string) => nums[c] ?? null
+  const clubs = ['driver', '3w', '5i', '7i', 'putter']
+
+  it('explains the gap numbers and names the widest gap, skipping clubs with no number', () => {
+    // driver 250 → 3w 225 = 25; 3w 225 → 7i 160 = 65 (5i has no number) → widest 65
+    const notes = clubLadderNotes(clubs, ladder({ driver: 250, '3w': 225, '7i': 160 }), 'yards')
+    expect(notes).toEqual({
+      key: 'The small number on each rule is the gap between clubs.',
+      widest: '65 yd between your 3-wood and 7-iron, the widest gap in the bag.',
+    })
+  })
+
+  it('names the widest gap only past 25 units', () => {
+    // 250 → 225 = 25 (not past 25); 225 → 199 = 26 (past)
+    expect(clubLadderNotes(['driver', '3w'], ladder({ driver: 250, '3w': 225 }), 'yards').widest).toBeNull()
+    expect(clubLadderNotes(['driver', '3w'], ladder({ driver: 251, '3w': 225 }), 'meters').widest).toBe(
+      '26 m between your driver and 3-wood, the widest gap in the bag.',
+    )
+  })
+
+  it('has no key when no two neighbours both have a number; never counts the putter', () => {
+    // driver 250, 3w none, 5i 190: no printed gap number, but a widest gap of 60
+    expect(clubLadderNotes(['driver', '3w', '5i'], ladder({ driver: 250, '5i': 190 }), 'yards')).toEqual({
+      key: null,
+      widest: '60 yd between your driver and 5-iron, the widest gap in the bag.',
+    })
+    // the putter's number (missed putts) is not a distance
+    expect(clubLadderNotes(['7i', 'putter'], ladder({ '7i': 160, putter: 3 }), 'yards')).toEqual({ key: null, widest: null })
   })
 })

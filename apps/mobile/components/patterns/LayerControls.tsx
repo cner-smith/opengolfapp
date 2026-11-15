@@ -178,8 +178,9 @@ export function ScopeControl({ value, onChange, total, latest }: { value: Scope;
   return <RadioWords label="Which shots" options={options} value={value} onChange={onChange} underline={P.inkDim} />
 }
 
-/** Under the chart: "Show" and one toggle per group with its count. */
-export function LegendBand({ entries, hidden, onToggle, note }: { entries: LegendEntry[]; hidden: Set<string>; onToggle: (k: string) => void; note: string }) {
+/** Under the chart: "Show" and one toggle per group with its count. The first
+ *  tap brings a group forward, the second hides it (the web's touch rule). */
+export function LegendBand({ entries, hidden, focus, onTap, note }: { entries: LegendEntry[]; hidden: Set<string>; focus: string | null; onTap: (k: string) => void; note: string }) {
   return (
     <View style={{ paddingHorizontal: 10, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderColor: '#ECE6D8', gap: 8 }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
@@ -187,8 +188,10 @@ export function LegendBand({ entries, hidden, onToggle, note }: { entries: Legen
         {entries.map((e) => {
           const on = !hidden.has(e.key)
           const group = e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)
+          const shots = `${group} shot${e.count === 1 ? '' : 's'}`
+          const hint = !on ? `Shows the ${shots}` : focus === e.key ? `Hides the ${shots}` : `Brings the ${shots} forward; tap again to hide them`
           return (
-            <Toggle key={e.key} on={on} onPress={() => onToggle(e.key)} label={`${e.label}, ${e.count}`} hint={`${on ? 'Hides' : 'Shows'} the ${group} shot${e.count === 1 ? '' : 's'}`}>
+            <Toggle key={e.key} on={on} onPress={() => onTap(e.key)} label={`${e.label}, ${e.count}`} hint={hint}>
               <View style={{ opacity: on ? 1 : 0.35 }}>
                 <Swatch e={e} />
               </View>
@@ -200,7 +203,7 @@ export function LegendBand({ entries, hidden, onToggle, note }: { entries: Legen
           )
         })}
       </View>
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>{note} Tap a group to hide it.</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>{note} Tap a group once to bring it forward, twice to hide it.</Text>
     </View>
   )
 }

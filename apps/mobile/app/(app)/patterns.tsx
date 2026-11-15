@@ -164,10 +164,14 @@ export default function Patterns() {
   const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
   const [colourBy, setColourBy] = useState<ColourBy>('none')
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [focus, setFocus] = useState<string | null>(null)
   const [hot, setHot] = useState<string | null>(null)
   const [listOpen, setListOpen] = useState(false)
   const [scope, setScope] = useState<Scope>('all')
-  useEffect(() => setHidden(new Set()), [colourBy, club])
+  useEffect(() => {
+    setHidden(new Set())
+    setFocus(null)
+  }, [colourBy, club])
   useEffect(() => setHot(null), [club, view, lieType, forward, side])
   // Rows are kept with the club they belong to, so a new club never shows the
   // last one's shots, finding or share card while it loads.
@@ -284,7 +288,7 @@ export default function Patterns() {
       onChange={setClub}
       typical={ladderNumber}
       aimed={aimed}
-      unitWords={metres ? 'metres' : 'yards'}
+      unit={unit}
       width={screenWidth - 36}
       missedPutts={putts && !putts.error ? puttTally.misses : null}
     />
@@ -381,11 +385,12 @@ export default function Patterns() {
   const subline = `${shownN} shot${shownN === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${shownStats ? `: ${readQuality(shownN)}` : ''}.`
   const recentLine = rva ? latestLine(rva, RECENT, n, unit) : null
 
-  // The legend: each group of shots under the chosen colour, with its count.
+  // The legend: each group of shots under the chosen colour, with its count
+  // (under Latest, the latest only: the older ones are in pencil).
   const cats = styledCategories(colourBy, leftHanded)
   const catMap = new Map(cats.map((c) => [c.key, c]))
   const counts = new Map<string, number>()
-  for (const p of points) {
+  for (const p of shown) {
     const k = categoryOf(p, extras[p.id], colourBy)
     counts.set(k, (counts.get(k) ?? 0) + 1)
   }
@@ -396,7 +401,7 @@ export default function Patterns() {
           ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
           ...(counts.has(NOT_RECORDED) ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }] : []),
         ]
-  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, points, extras, noun)
+  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, shown, extras, noun)
   const available: Layer[] = [...(['shots', 'rings', 'average'] as Layer[]), ...(view === 'tee' ? (['flights'] as Layer[]) : [])]
   const disabled = new Set<Layer>(stats ? [] : ['rings', 'average'])
   const toggleGroup = (k: string) =>
@@ -406,6 +411,12 @@ export default function Patterns() {
       else next.add(k)
       return next
     })
+  // As on the web on a touch screen: the first tap brings a group forward, the second hides it.
+  const tapGroup = (k: string) => {
+    if (!hidden.has(k) && focus !== k) return setFocus(k)
+    toggleGroup(k)
+    setFocus(null)
+  }
 
   // How each flight's record reads (a conflict is flagged in every readout).
   const avgAim = averageAimDistance(points)
@@ -459,6 +470,7 @@ export default function Patterns() {
     colourBy,
     categories: catMap,
     hidden,
+    focus,
     recentIds,
     leftHanded,
     width: chartWidth,
@@ -556,7 +568,7 @@ export default function Patterns() {
                   <TeePlot key={club} {...chartProps} />
                 )}
               </View>
-              {recorded && legend.length > 0 && <LegendBand entries={legend} hidden={hidden} onToggle={toggleGroup} note={recorded.note} />}
+              {recorded && legend.length > 0 && <LegendBand entries={legend} hidden={hidden} focus={focus} onTap={tapGroup} note={recorded.note} />}
             </View>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 8 }]}>
               {caption}

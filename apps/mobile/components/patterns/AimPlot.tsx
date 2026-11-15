@@ -2,7 +2,7 @@ import { G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
 import { aimGrid, bracketLabelAt, insideRing, ringBracket, shotWords, wholeDistance, type DispersionRing } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { LEFT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
+import { LEFT, RULE, RULE_MAJOR, isDense, stepsBack, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 
@@ -18,7 +18,7 @@ export function AimPlot(props: ChartProps) {
   const { points, stats, ghost, layers, width, unitYd, label, unit, empty, hot, onHot } = props
   const area = width - LEFT - RIGHT
   const h = TOP + area + BOTTOM + LEGEND_H
-  const dense = points.length > DENSE
+  const dense = isDense(props)
   // The scale holds both rings (and the ghost) whether or not they are drawn,
   // so a toggle never rescales the chart.
   const { scale, step, rules } = aimGrid(points, stats, ghost?.stats ?? null, unitYd, area)
@@ -113,7 +113,7 @@ export function AimPlot(props: ChartProps) {
       </Fade>
       <Fade on={layers.shots} key={`dots-${points.length}-${points[0]?.id ?? ''}`} enter duration={200}>
         {groupBy(styled).map(([key, items]) => (
-          <Fade key={key} on={!props.hidden.has(key)} duration={150}>
+          <Fade key={key} on={!props.hidden.has(key)} level={stepsBack(props, key) ? 0.14 : 1} duration={150}>
             {items.map((d) => (
               <Mark key={d.p.id} x={d.x} y={d.y} s={d.s} />
             ))}
