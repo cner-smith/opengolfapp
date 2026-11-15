@@ -78,6 +78,7 @@ describe('liveHoleShots: one list of the live hole shots', () => {
       start: DROP,
       ob: false,
       captured: { club: null, lie_type: null, putt_result: null },
+      puttFt: null,
     })
   })
 
@@ -94,6 +95,15 @@ describe('liveHoleShots: one list of the live hole shots', () => {
     const r = liveHoleShots(HS, server(row('s1', TEE)), [queued(undefined, FAIRWAY), '{not json'])
     expect(ids(r)).toEqual(['s1'])
     expect(r.count).toBe(2)
+  })
+
+  it('carries the saved putt length, server or queued; a cache row without it reads null', () => {
+    const r = liveHoleShots(
+      HS,
+      server(row('s1', TEE), row('s2', GREEN, { lie_type: 'green', putt_distance_ft: 18 })),
+      [queued('q3', GREEN, { lie_type: 'green', putt_distance_ft: 4 })],
+    )
+    expect(r.shots.map((s) => s.puttFt)).toEqual([null, 18, 4])
   })
 
   it('carries the stored club, lie and putt result per shot (#1038)', () => {

@@ -4,12 +4,10 @@ import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
   aimPlateSpot,
+  aimStrokesGained,
   bearingDegrees,
-  calculateShotSG,
   fanPlates,
   flagCupK,
-  getExpectedStrokes,
-  startCategory,
   wholeDistance,
   NEAR_GREEN_YARDS,
   type ScreenBox,
@@ -413,28 +411,16 @@ export function HoleMap({
     return distanceYards(aim, effectivePin)
   }, [effectivePin, aim])
 
-  // Live strokes readout: expected strokes to hole out from the ball, and
-  // the best-case SG of advancing to the aim — expected(Ds) − expected(Dt)
-  // − 1, i.e. calculateShotSG. Category is a distance band (no polygons):
-  // within NEAR_GREEN_YARDS → around_green ("GRN"), else approach ("FWY").
-  // HONEST: this is "value of reaching the target if struck clean", not a
-  // dispersion-weighted SG. Null (→ "—") until a pin + baseline resolve.
-  const liveStrokes = useMemo(() => {
-    if (pinDistance == null) return { expected: null, sg: null, lieLabel: null }
-    const startCat = startCategory(pinDistance, teeShot)
-    const expected = getExpectedStrokes(startCat, pinDistance, undefined, handicap)
-    if (aimToPinYards == null || expected == null) {
-      return { expected, sg: null, lieLabel: null }
-    }
-    const targetCat = aimToPinYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
-    const targetExpected = getExpectedStrokes(targetCat, aimToPinYards, undefined, handicap)
-    if (targetExpected == null) return { expected, sg: null, lieLabel: null }
+  // The aim pill's strokes gained: the value of reaching the aim if struck
+  // clean (aimStrokesGained). Its word says where the aim sits: inside the
+  // green radius "green", else "fairway". Null (→ no sublabel) until a pin.
+  const aimSg = useMemo(() => {
+    if (pinDistance == null || aimToPinYards == null) return { sg: null, lieLabel: null }
     return {
-      expected,
-      sg: calculateShotSG(expected, targetExpected),
-      lieLabel: targetCat === 'around_green' ? 'green' : 'fairway',
+      sg: aimStrokesGained({ startYards: pinDistance, aimToPinYards, teeShot, handicap }),
+      lieLabel: aimToPinYards <= NEAR_GREEN_YARDS ? 'green' : 'fairway',
     }
-  }, [pinDistance, aimToPinYards, handicap])
+  }, [pinDistance, aimToPinYards, teeShot, handicap])
 
 
   const showAim = isAimPhase || isPlaceBallPhase
@@ -840,8 +826,8 @@ export function HoleMap({
             <AimTag
               at={aimPlateAt}
               display={toDisplay(aimDistanceYards, 1)}
-              lie={liveStrokes.lieLabel}
-              sg={liveStrokes.sg}
+              lie={aimSg.lieLabel}
+              sg={aimSg.sg}
               spread={spread}
               lefty={lefty}
               toward={aim ?? undefined}

@@ -52,6 +52,8 @@ export interface ExistingShot {
   /** Penalty-stroke flag. Read (not re-derived) so saveReviewedHole's
    *  replace-all rewrite can preserve it — see useRoundActions. */
   penalty?: boolean | null
+  /** A putt's saved length in feet (the hero reads it before the map distance). */
+  savedPuttFt?: number | null
   /** Club type, for the selected shot's callout (#1217). */
   club?: string | null
   /** One-line summary for the shot stepper ("pw · fairway · 132 yd to the pin"). */

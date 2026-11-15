@@ -97,6 +97,8 @@ export interface LiveShotRow {
   start_lng: number | null
   ob: boolean | null
   putt_result: string | null
+  /** Optional: offline caches written before it was read lack it. */
+  putt_distance_ft?: number | null
 }
 
 /** A shot on the live hole: where it was played from and what the round stored for it. */
@@ -105,6 +107,8 @@ export interface LiveHoleShot {
   start: LatLng
   ob: boolean
   captured: CapturedShot
+  /** The putt length saved for it, if any (the map's readout shows it first). */
+  puttFt: number | null
 }
 
 export interface LiveHoleShots {
@@ -144,6 +148,7 @@ export function liveHoleShots(
       start_lng: p.start_lng ?? null,
       ob: p.ob ?? null,
       putt_result: p.putt_result ?? null,
+      putt_distance_ft: p.putt_distance_ft ?? null,
     })
   }
   const shots = rows.flatMap((r): LiveHoleShot[] =>
@@ -153,6 +158,7 @@ export function liveHoleShots(
           start: { lat: r.start_lat, lng: r.start_lng },
           ob: r.ob === true,
           captured: { club: r.club, lie_type: r.lie_type, putt_result: r.putt_result },
+          puttFt: r.putt_distance_ft ?? null,
         }]
       : [],
   )

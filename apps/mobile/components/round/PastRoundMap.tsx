@@ -2,20 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, View } from 'react-native'
 import {
   DEFAULT_HANDICAP,
-  bearingDegrees,
-  destinationYards,
+  ballReadout,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
-  getExpectedStrokes,
-  startCategory,
   isPuttShot,
+  isTeeLineShot,
   obCount,
   plateWidth,
   projectShotMove,
   resolveHole,
+  savedPuttFt,
   shortClubLabel,
   summarizeShotStep,
+  teeBoxDots,
   type DistanceUnit,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -83,10 +83,6 @@ type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
 // Mode rocker's bottom over the map: 8 above the footer per §19.4, plus the
 // Mapbox logo's strip (bottom-left of the map, which ToS keeps visible).
 const ROCKER_BOTTOM = 36
-
-// Half-width of the tee box (each dot sits this far to either side of the
-// tee shot, perpendicular to the line of play). ~4 yd ≈ a real teeing ground.
-const TEE_BOX_HALF_YARDS = 4
 
 interface PastRoundMapProps {
   roundId: string
@@ -316,15 +312,7 @@ export function PastRoundMap({
   // resort when no first shot exists yet. Oriented toward that shot's aim, then pin.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
     const origin = placed[0]?.start ?? tee
-    if (!origin) return null
-    const toward = placed[0]?.aim ?? effectivePin
-    const heading = toward
-      ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
-      : 0
-    return [
-      destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
-      destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
-    ]
+    return origin ? teeBoxDots(origin, placed[0]?.aim ?? effectivePin) : null
   }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot
@@ -675,25 +663,24 @@ export function PastRoundMap({
   const heroRow = heroShot?.id ? shots.find((s) => s.id === heroShot.id) ?? null : null
   const heroYards =
     heroShot?.start && effectivePin ? distanceYards(heroShot.start, effectivePin) : null
-  const heroPutt = isPuttShot(heroRow?.lie_type ?? null)
-  const heroTee = (par === 4 || par === 5) && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
+  const heroTee = isTeeLineShot(par, heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
   // A putt reads its saved putt length, in putt units, so the hero, the flag
   // callout and the stepper ("Putt · 3 ft") show one number.
-  const heroFeet = heroPutt
-    ? heroRow?.putt_distance_ft ?? heroRow?.distance_to_target ?? (heroYards == null ? null : heroYards * 3)
-    : null
+  const hero = ballReadout({
+    toPinYards: heroYards,
+    putt: isPuttShot(heroRow?.lie_type ?? null),
+    savedPuttFt: heroRow ? savedPuttFt(heroRow) : null,
+    teeShot: heroTee,
+    handicap,
+  })
+  const heroFeet = hero?.puttFt ?? null
   const heroDistance =
     heroFeet != null
       ? splitDisplay(formatPuttDistance(heroFeet, unit))
-      : heroYards == null
+      : hero?.yards == null
         ? null
-        : splitDisplay(formatDistance(heroYards, unit, 1))
-  const expected =
-    heroFeet != null
-      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
-      : heroYards == null
-        ? null
-        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
+        : splitDisplay(formatDistance(hero.yards, unit, 1))
+  const expected = hero?.expected ?? null
 
   // Corner (§19.9 A). While logging, the map keeps hole_scores.score equal
   // to the placed shots + penalties (syncScore), so that running tally reads

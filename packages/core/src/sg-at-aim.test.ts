@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expectedStrokesFromPin, sgAtAim } from './sg-at-aim'
+import { aimStrokesGained, expectedStrokesFromPin, sgAtAim } from './sg-at-aim'
 import type { AimRelativeDispersion } from './shot-patterns'
 
 const HCP = 15
@@ -81,5 +81,28 @@ describe('sgAtAim', () => {
     const pts = [{ alongYards: 0, perpYards: 0 }]
     expect(sgAtAim({ tee, aim: pin, pin, dispersion: disp(pts, 14), handicap: HCP }).confidence).toBe('low')
     expect(sgAtAim({ tee, aim: pin, pin, dispersion: disp(pts, 15), handicap: HCP }).confidence).toBe('high')
+  })
+})
+
+describe('aimStrokesGained', () => {
+  // Start 150 yd, approach: APPROACH[15][150] = 3.95.
+  it('an aim inside 4 yd reads the putting curve (no hard switch, Q2)', () => {
+    // 3 yd = 9 ft: PUTTING 8 1.52, 10 1.65 → 1.585. 3.95 − 1.585 − 1 = 1.365
+    // (the old switch read around-green 2.60 here: 0.35)
+    expect(aimStrokesGained({ startYards: 150, aimToPinYards: 3, teeShot: false, handicap: HCP })).toBeCloseTo(1.365, 6)
+  })
+  it('an aim at 5 yd reads the 4–6 yd blend', () => {
+    // blend at 5 yd = 2.26 (worked above). 3.95 − 2.26 − 1 = 0.69
+    expect(aimStrokesGained({ startYards: 150, aimToPinYards: 5, teeShot: false, handicap: HCP })).toBeCloseTo(0.69, 6)
+  })
+  it('an aim off the green reads around-green, then approach', () => {
+    // AROUND_GREEN[15][20] = 2.97: 3.95 − 2.97 − 1 = −0.02
+    expect(aimStrokesGained({ startYards: 150, aimToPinYards: 20, teeShot: false, handicap: HCP })).toBeCloseTo(-0.02, 6)
+    // APPROACH[15][100] = 3.54; start 137.4 reads at 137 = 3.8408: 3.8408 − 3.54 − 1 = −0.6992
+    expect(aimStrokesGained({ startYards: 137.4, aimToPinYards: 100, teeShot: false, handicap: HCP })).toBeCloseTo(-0.6992, 6)
+  })
+  it('a par 4/5 tee shot starts from the tee line', () => {
+    // tee line 400 yd = 5.43, aim 150 yd = 3.95: 5.43 − 3.95 − 1 = 0.48
+    expect(aimStrokesGained({ startYards: 400, aimToPinYards: 150, teeShot: true, handicap: HCP })).toBeCloseTo(0.48, 6)
   })
 })

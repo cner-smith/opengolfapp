@@ -82,7 +82,7 @@ type CachedRoundData = {
 // The shot columns the hole screen reads (the select below).
 type LiteShot = Pick<
   Database['public']['Tables']['shots']['Row'],
-  'id' | 'club' | 'lie_type' | 'shot_number' | 'start_lat' | 'start_lng' | 'ob' | 'putt_result'
+  'id' | 'club' | 'lie_type' | 'shot_number' | 'start_lat' | 'start_lng' | 'ob' | 'putt_result' | 'putt_distance_ft'
 >
 
 function payloadOf(row: PendingShot): ShotPayload | null {
@@ -416,7 +416,7 @@ export function useHoleData(
         const fetchShots = () =>
           supabase
             .from('shots')
-            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
+            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result, putt_distance_ft')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
         // Signed in from the stored session (#1005): with this hole cached,
@@ -548,6 +548,7 @@ export function useHoleData(
         start_lng: p.start_lng ?? null,
         ob: p.ob ?? false,
         putt_result: p.putt_result ?? null,
+        putt_distance_ft: p.putt_distance_ft ?? null,
       }]
     })
     void writeCache(offlineKeys.holeShots(userId, id, hsId), [...remote.rows, ...queued])

@@ -6,6 +6,7 @@ import {
   destinationYards,
   aimPlateSpot,
   scatterGeoJSON,
+  teeBoxDots,
 } from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
 
@@ -203,5 +204,30 @@ describe('aimPlateSpot', () => {
 
   it('sits on the aim line, toward the ball', () => {
     expect(angGap(back(120, 45).brg, 180)).toBeLessThan(0.5)
+  })
+})
+
+describe('teeBoxDots', () => {
+  const near = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    haversineYards(a.lat, a.lng, b.lat, b.lng)
+  it('puts a dot 4 yd either side, square to the line of play', () => {
+    // Heading north (0°): the dots sit at 270° (west) then 90° (east), 8 yd apart.
+    const [a, b] = teeBoxDots(ORIGIN, { lat: 41, lng: -75 })
+    expect(near(ORIGIN, a)).toBeCloseTo(4, 3)
+    expect(near(ORIGIN, b)).toBeCloseTo(4, 3)
+    expect(near(a, b)).toBeCloseTo(8, 3)
+    expect(a.lng).toBeLessThan(ORIGIN.lng)
+    expect(b.lng).toBeGreaterThan(ORIGIN.lng)
+    expect(a.lat).toBeCloseTo(ORIGIN.lat, 6)
+  })
+  it('turns with the line of play', () => {
+    // Heading east (90°): first dot at 0° (north), second at 180° (south).
+    const [a, b] = teeBoxDots(ORIGIN, destinationYards(ORIGIN, 90, 300))
+    expect(a.lat).toBeGreaterThan(ORIGIN.lat)
+    expect(b.lat).toBeLessThan(ORIGIN.lat)
+    expect(a.lng).toBeCloseTo(ORIGIN.lng, 6)
+  })
+  it('faces north with nothing to face', () => {
+    expect(teeBoxDots(ORIGIN, null)).toEqual(teeBoxDots(ORIGIN, { lat: 41, lng: -75 }))
   })
 })

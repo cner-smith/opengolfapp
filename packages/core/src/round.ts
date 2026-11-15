@@ -398,6 +398,14 @@ export interface ShotSummaryFields {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/** A putt row's saved length in feet: putt_distance_ft, else the legacy
+ *  distance_to_target older putts kept it in. */
+export function savedPuttFt(
+  shot: Pick<ShotSummaryFields, 'putt_distance_ft' | 'distance_to_target'>,
+): number | null {
+  return shot.putt_distance_ft ?? shot.distance_to_target ?? null
+}
+
 // One-line putt summary parts — unit-aware distance + result, e.g.
 // ["4 ft", "Made"] or ["12 ft", "Short Left"]. The miss is derived
 // axes-first (putt_distance_result / putt_direction_result are the canonical
@@ -408,7 +416,7 @@ export function summarizePuttParts(
   shot: ShotSummaryFields,
   unit: DistanceUnit,
 ): string[] {
-  const feet = shot.putt_distance_ft ?? shot.distance_to_target
+  const feet = savedPuttFt(shot)
   const distance = feet != null ? formatPuttDistance(feet, unit) : null
   let result: string | null
   if (shot.putt_result === 'made') {
