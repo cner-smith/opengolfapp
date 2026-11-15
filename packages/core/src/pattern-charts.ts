@@ -86,6 +86,7 @@ export function teeView(
   const maxY = Math.max(...ys) + PAD_BEYOND_UNITS * yardsPerUnit
 
   const wedgeD = brk || avgAim * WEDGE_SHARE
+  // The wedge is symmetric (± the push angle), so the hand doesn't matter.
   const wedgeX = Math.tan((Math.abs(startLineAngleDeg('push', false)) * Math.PI) / 180) * wedgeD
   const xs = [
     0,

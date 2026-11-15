@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clubChangeCallouts, clubHistory, clubHistoryHeadline, shapeStack, type ClubHistoryPeriod, type ClubHistoryRow } from './club-history'
+import { clubChangeCallouts, clubHistory, clubHistoryHeadline, shapeStack, type ClubChangeCallouts, type ClubHistoryPeriod, type ClubHistoryPeriodKind, type ClubHistoryRow } from './club-history'
 import type { ShotShape } from './constants'
 
 // Shots start on the equator and play due north. Distance shots (no aim)
@@ -174,13 +174,14 @@ describe('clubChangeCallouts', () => {
 
 describe('clubHistoryHeadline', () => {
   const may = { label: 'May' } as ClubHistoryPeriod
-  it.each([
+  const cases: [ClubChangeCallouts | null, ClubHistoryPeriodKind, string][] = [
     [{ sentences: ['Your 7 iron goes 6 yd farther than in May.', 'b'], first: may, last: may }, 'month', 'Your 7 iron goes 6 yd farther than in May.'],
     [{ sentences: [], first: may, last: may }, 'month', 'No change bigger than the noise since May.'],
     [{ sentences: [], first: null, last: null }, 'month', 'A change shows once two months have 10 or more shots.'],
     [null, { rounds: 10 }, 'A change shows once two windows of 10 rounds have 10 or more shots.'],
-  ] as const)('%#', (callouts, period, want) => {
-    expect(clubHistoryHeadline(callouts as never, period)).toBe(want)
+  ]
+  it.each(cases)('%#', (callouts, period, want) => {
+    expect(clubHistoryHeadline(callouts, period)).toBe(want)
   })
 })
 
