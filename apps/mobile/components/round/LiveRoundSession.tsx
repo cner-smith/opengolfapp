@@ -13,6 +13,7 @@ import {
   insertedShotStart,
   isPuttShot,
   isTeeLineShot,
+  liveTeeToward,
   teeBoxDots,
   type CaptureMode,
 } from '@oga/core'
@@ -258,10 +259,11 @@ export default function LiveRoundSession({
     finalState.ball?.lng,
   ])
 
-  // Two-dot tee box flanking the tee, oriented down the line of play (toward the
-  // aim, else the pin). The marker ALWAYS derives from where the player actually
-  // teed off — the FIRST shot's start — never the surveyed holes.tee_lat (real
-  // tee boxes move daily; the stored coord lies about where you hit from).
+  // Two-dot tee box flanking the tee, oriented down shot 1's line (its saved
+  // aim, else the pin; while placing shot 1, the live aim), as on web (#1483).
+  // The marker ALWAYS derives from where the player actually teed off — the
+  // FIRST shot's start — never the surveyed holes.tee_lat (real tee boxes move
+  // daily; the stored coord lies about where you hit from).
   // While placing shot 1 that's the live ball as you drag it, so the marker
   // tracks it reactively. After shot 1, `data.tee` is the SAVED first-shot
   // start (= previousShots[0]). The stored course tee inside `data.tee` is
@@ -271,11 +273,12 @@ export default function LiveRoundSession({
     const origin =
       (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
     if (!origin) return null
-    return teeBoxDots(origin, finalState.aim ?? data.roundPin ?? data.storedPin)
+    return teeBoxDots(origin, liveTeeToward(data.shots[0], finalState.aim, data.roundPin ?? data.storedPin))
   }, [
     data.tee?.lat,
     data.tee?.lng,
     data.shotNumber,
+    data.shots,
     finalState.ball?.lat,
     finalState.ball?.lng,
     finalState.aim?.lat,
