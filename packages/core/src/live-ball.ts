@@ -180,19 +180,6 @@ export function liveHoleShots(
   }
 }
 
-/**
- * Where the live tee box points (#1483): down shot 1's line, as on web and the past-round
- * map. Once the tee shot is saved that is its saved aim, else the pin; the aim of a later
- * shot never turns it. While the tee shot is still being placed, its live aim.
- */
-export function liveTeeToward(
-  teeShot: LiveHoleShot | undefined,
-  liveAim: LatLng | null,
-  pin: LatLng | null,
-): LatLng | null {
-  return (teeShot ? teeShot.aim : liveAim) ?? pin
-}
-
 type QueuedPayload = Partial<LiveShotRow> & { hole_score_id?: string; id?: string }
 
 function parseQueued(raw: string): QueuedPayload | null {

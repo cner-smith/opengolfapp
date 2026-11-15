@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { liveHoleShots, liveTeeToward, type LiveShotRow } from '../live-ball'
-import { destinationYards, teeBoxDots } from '../shot-dispersion-geo'
+import { liveHoleShots, type LiveShotRow } from '../live-ball'
 
 // Positions near Whistling Straits hole 1.
 const TEE = { lat: 43.849856, lng: -87.734575 }
@@ -157,37 +156,5 @@ describe('liveHoleShots: saved aims (#1483)', () => {
       [queued('q4', DROP, { aim_lat: GREEN.lat, aim_lng: GREEN.lng })],
     )
     expect(r.shots.map((s) => s.aim)).toEqual([FAIRWAY, null, null, GREEN])
-  })
-})
-
-describe('liveTeeToward: the live tee box points down shot 1\'s line (#1483)', () => {
-  const tee = { id: 's1', start: TEE, ob: false, captured: { club: null, lie_type: null, putt_result: null }, puttFt: null }
-  const PIN = GREEN
-
-  it("once shot 1 is saved, its aim; the aim of the shot being placed doesn't turn it", () => {
-    expect(liveTeeToward({ ...tee, aim: FAIRWAY }, DROP, PIN)).toEqual(FAIRWAY)
-  })
-
-  it("shot 1 saved without an aim: the pin, not the next shot's aim", () => {
-    expect(liveTeeToward({ ...tee, aim: null }, DROP, PIN)).toEqual(PIN)
-  })
-
-  it('while shot 1 is being placed: its live aim, else the pin', () => {
-    expect(liveTeeToward(undefined, FAIRWAY, PIN)).toEqual(FAIRWAY)
-    expect(liveTeeToward(undefined, null, PIN)).toEqual(PIN)
-    expect(liveTeeToward(undefined, null, null)).toBeNull()
-  })
-
-  it('the dots stay square to shot 1 when shot 2 aims 90° off it', () => {
-    // Shot 1 aimed due north (0°) from the tee: the dots sit due west then due east of the
-    // tee (same latitude). Shot 2 is aimed due east of the tee; pointed at it, the dots
-    // would sit north and south instead.
-    const shot1Aim = destinationYards(TEE, 0, 250)
-    const shot2Aim = destinationYards(TEE, 90, 250)
-    const [a, b] = teeBoxDots(TEE, liveTeeToward({ ...tee, aim: shot1Aim }, shot2Aim, PIN))
-    expect(a.lat).toBeCloseTo(TEE.lat, 6)
-    expect(b.lat).toBeCloseTo(TEE.lat, 6)
-    expect(a.lng).toBeLessThan(TEE.lng)
-    expect(b.lng).toBeGreaterThan(TEE.lng)
   })
 })
