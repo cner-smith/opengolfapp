@@ -130,4 +130,3 @@ test.describe('Shot patterns on a touch screen (signed in)', () => {
     await expect(group).toHaveAttribute('aria-pressed', 'false')
   })
 })
-

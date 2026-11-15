@@ -201,9 +201,9 @@ export const ACircle = Animated.createAnimatedComponent(Circle)
 export const ALine = Animated.createAnimatedComponent(Line)
 export const TWEEN = { duration: 320, easing: Easing.bezier(0.22, 1, 0.36, 1) }
 
-/** Fades its marks in or out (180 ms); `enter` fades them in on mount. */
-/** Fades its children in or out; `level` is the opacity when on (a group
- *  stepped back behind the legend's focus sits at 0.14, as on the web). */
+/** Fades its marks in or out (180 ms); `enter` fades them in on mount;
+ *  `level` is the opacity when on (a group stepped back behind the legend's
+ *  focus sits at 0.14, as on the web). */
 export function Fade({ on, level = 1, enter = false, delay = 0, duration = 180, children }: { on: boolean; level?: number; enter?: boolean; delay?: number; duration?: number; children: ReactNode }) {
   const reduce = useReducedMotion()
   const o = useSharedValue(enter && !reduce ? 0 : on ? level : 0)
@@ -428,7 +428,6 @@ export function Marker({ x, y, r, glyph, color, dense }: { x: number; y: number;
 
 export const Mark = ({ x, y, s }: { x: number; y: number; s: MarkStyle }) => <Marker x={x} y={y} r={s.r} glyph={s.glyph} color={s.color} dense={s.dense} />
 
-/** Marks grouped by legend key, so hiding a group fades it as one. */
 /** Over 40 shots the marks shrink and the tee view draws typical flights;
  *  under Latest only the latest count, as on the web. */
 export const isDense = (props: Pick<ChartProps, 'points' | 'recentIds'>) => (props.recentIds?.size ?? props.points.length) > DENSE
@@ -437,6 +436,7 @@ export const isDense = (props: Pick<ChartProps, 'points' | 'recentIds'>) => (pro
 export const stepsBack = (props: Pick<ChartProps, 'focus' | 'hidden'>, key: string) =>
   props.focus != null && !props.hidden.has(props.focus) && props.focus !== key && key !== OLDER
 
+/** Marks grouped by legend key, so hiding a group fades it as one. */
 export function groupBy<T extends { s: MarkStyle }>(items: T[]) {
   const m = new Map<string, T[]>()
   for (const it of items) m.set(it.s.key, [...(m.get(it.s.key) ?? []), it])
