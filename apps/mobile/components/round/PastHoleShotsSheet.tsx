@@ -358,17 +358,6 @@ function ShotRowView({
   )
 }
 
-// The sheet's columns from the shared shot-editor rule (core
-// draftToShotUpdate). Three it has never written are left as stored until the
-// owner picks a rule (web writes them, #1460): a putt's distance_to_target
-// (web: null), the legacy lie_slope (web: null) and a putt's aim offset (this
-// sheet can't edit it; web stores an unset aim as 0).
-function sheetShotUpdate(draft: DraftShot): ShotUpdate {
-  const { distance_to_target, lie_slope: _legacySlope, aim_offset_yards, ...update } = draftToShotUpdate(draft)
-  if (isPuttShot(draft.lieType)) return update
-  return { ...update, distance_to_target, aim_offset_yards }
-}
-
 interface EditShotSheetProps {
   shot: ShotRow
   allShots: ShotRow[]
@@ -436,7 +425,7 @@ function EditShotSheet({
         : null
   const subtitle = [holeNumber != null ? `Hole ${holeNumber}` : null, toPin].filter(Boolean).join(' · ')
 
-  const buildUpdates = () => sheetShotUpdate(draft)
+  const buildUpdates = () => draftToShotUpdate(draft)
 
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
 
