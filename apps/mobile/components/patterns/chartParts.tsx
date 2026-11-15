@@ -377,7 +377,7 @@ export const OLDER = 'older'
 
 export function markStyle(p: DispersionPoint, props: ChartProps, dense: boolean): MarkStyle {
   const r = dense ? 2.4 : 4
-  if (props.recentIds != null && !props.recentIds.has(p.id)) return { key: OLDER, color: P.graphite, glyph: 'pencil', r, dense }
+  if (props.recentIds != null && !props.recentIds.has(p.id)) return { key: OLDER, color: UNRECORDED_INK, glyph: 'pencil', r: 2.2, dense }
   if (props.colourBy === 'none') return { key: NOT_RECORDED, color: INK, glyph: 'dot', r, dense }
   const key = categoryOf(p, props.extras[p.id], props.colourBy)
   if (key === NOT_RECORDED) return { key, color: UNRECORDED_INK, glyph: 'unrecorded', r, dense }
@@ -394,7 +394,7 @@ export function Marker({ x, y, r, glyph, color, dense }: { x: number; y: number;
     `M ${x + dir * s * 1.3} ${y} L ${x - dir * s * 0.95} ${y - s * 1.2} L ${x - dir * s * 0.95} ${y + s * 1.2} Z`
   switch (glyph) {
     case 'pencil':
-      return <Circle cx={x} cy={y} r={r} fill={color} fillOpacity={0.35} />
+      return <Circle cx={x} cy={y} r={r} fill={color} fillOpacity={0.45} />
     case 'left':
       return <Path d={tri(-1, r)} {...solid} />
     case 'right':
