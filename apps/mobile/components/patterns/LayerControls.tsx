@@ -9,17 +9,17 @@ import { Marker } from './chartParts'
 import { NOT_RECORDED, countWord, type ColourBy } from '@oga/core'
 import { COLOUR_BY, type Category, type Layer } from './layers'
 
-// The chart's layer bar and colour row, as compact rows of icon-and-word
-// toggles. A layer shows or hides one kind of mark; once a colour is chosen
-// the colour row becomes the legend, and each entry shows or hides one group
-// of shots. Each says what it hides.
+// The chart's controls, as the web page draws them: a layer bar of
+// icon-and-word toggles, "Colour" and "All N | Latest 20" as radio words, and
+// under the chart a legend band ("Show") whose entries each show or hide one
+// group of shots. Each toggle says what it hides. Off = a solid hairline and
+// a faded icon; dashed only for "needs five shots"; on = the web's fill.
 
 export const LAYER_INFO: Record<Layer, { label: string; hides: string }> = {
   shots: { label: 'Shots', hides: 'the dot where each shot finished' },
   rings: { label: 'Rings', hides: 'the two rings (two shots in three, and nearly all)' },
   average: { label: 'Average', hides: 'the average finish and its line from the aim' },
   flights: { label: 'Flights', hides: 'the line of each shot from where it was hit' },
-  recent: { label: 'Recent 20', hides: 'the rings of your 20 most recent shots, drawn over all of them' },
 }
 
 function Glyph({ layer }: { layer: Layer }) {
@@ -45,12 +45,6 @@ function Glyph({ layer }: { layer: Layer }) {
         </>
       )}
       {layer === 'flights' && <Path d="M4 13 Q4 3 16 1.5" stroke={P.ink} strokeWidth={1.4} strokeLinecap="round" />}
-      {layer === 'recent' && (
-        <>
-          <Ellipse cx={10} cy={7} rx={9} ry={6} stroke={P.lineStrong} strokeDasharray="2,2" />
-          <Ellipse cx={10} cy={7} rx={5.5} ry={4} stroke={P.forest} strokeWidth={1.4} />
-        </>
-      )}
     </Svg>
   )
 }
@@ -76,14 +70,17 @@ function Toggle({ on, onPress, label, hint, disabled, children }: { on: boolean;
         borderRadius: 2,
         borderWidth: 1,
         borderStyle: disabled ? 'dashed' : 'solid',
-        borderColor: P.line,
-        backgroundColor: on && !disabled ? P.raised : 'transparent',
+        borderColor: on && !disabled ? P.lineStrong : P.line,
+        backgroundColor: on && !disabled ? ON_FILL : 'transparent',
       }}
     >
       {children}
     </PressableTouch>
   )
 }
+
+// The web toggle's on fill (#EBE5D6).
+const ON_FILL = '#EBE5D6'
 
 const word = (on: boolean, disabled?: boolean) => [TYPE.body, { fontSize: 13, color: disabled ? P.ink35 : on ? P.ink : P.inkDim }]
 
@@ -127,68 +124,83 @@ function Swatch({ e }: { e: LegendEntry }) {
   )
 }
 
-/** "Colour  None · Shape · Start line · Contact"; with a colour chosen, the
- *  same row is the legend: one toggle per group with its count, and ✕. */
-export function ColourRow({ colourBy, onColourBy, entries, hidden, onToggle }: {
-  colourBy: ColourBy
-  onColourBy: (c: ColourBy) => void
-  entries: LegendEntry[]
-  hidden: Set<string>
-  onToggle: (k: string) => void
+/** Underlined radio words, the web's: the chosen one inked and underlined. */
+function RadioWords<T extends string>({ label, options, value, onChange, underline }: {
+  label: string
+  options: readonly { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  underline: string
 }) {
-  if (colourBy === 'none') {
-    return (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginRight: 2 }]}>Colour</Text>
-        {COLOUR_BY.filter((o) => o.value !== 'none').map((o) => (
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14 }}>
+      {options.map((o) => {
+        const on = o.value === value
+        return (
           <PressableTouch
             key={o.value}
-            accessibilityRole="button"
-            accessibilityLabel={`Colour by ${o.label.toLowerCase()}`}
-            accessibilityHint="Colours each shot, and lists the groups to show or hide"
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={o.label}
             onPress={() => {
+              if (on) return
               haptic('tick')
-              onColourBy(o.value)
+              onChange(o.value)
             }}
-            style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: P.line, borderRadius: 2 }}
+            style={{ minHeight: 44, justifyContent: 'center', borderBottomWidth: 2, borderColor: on ? underline : 'transparent' }}
           >
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{o.label}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[on ? TYPE.bodyBold : TYPE.body, { fontSize: 13, color: on ? P.ink : P.inkDim }]}>{o.label}</Text>
           </PressableTouch>
-        ))}
-      </View>
-    )
-  }
-  const by = COLOUR_BY.find((o) => o.value === colourBy)!.label
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { fontSize: 13, color: P.ink, marginRight: 2 }]}>{by}</Text>
-      {entries.map((e) => {
-        const on = !hidden.has(e.key)
-        const group = e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)
-        return (
-          <Toggle key={e.key} on={on} onPress={() => onToggle(e.key)} label={`${e.label}, ${e.count}`} hint={`${on ? 'Hides' : 'Shows'} the ${group} shot${e.count === 1 ? '' : 's'}`}>
-            <View style={{ opacity: on ? 1 : 0.35 }}>
-              <Swatch e={e} />
-            </View>
-            <Text maxFontSizeMultiplier={FONT_CAP} style={word(on)}>
-              {e.label}
-            </Text>
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { fontSize: 13, color: on ? P.ink : P.inkDim }]}>{e.count}</Text>
-          </Toggle>
         )
       })}
-      <PressableTouch
-        accessibilityRole="button"
-        accessibilityLabel="Stop colouring the shots"
-        onPress={() => {
-          haptic('tick')
-          onColourBy('none')
-        }}
-        hitSlop={4}
-        style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 16, color: P.inkDim }]}>✕</Text>
-      </PressableTouch>
+    </View>
+  )
+}
+
+/** "Colour  None · Shape · Start line · Contact", always shown. */
+export function ColourControl({ value, onChange }: { value: ColourBy; onChange: (c: ColourBy) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14 }}>
+      <Text importantForAccessibility="no" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim }]}>Colour</Text>
+      <RadioWords label="Colour the shots by" options={COLOUR_BY} value={value} onChange={onChange} underline={P.ink} />
+    </View>
+  )
+}
+
+export type Scope = 'all' | 'recent'
+
+/** "All 24 | Latest 20": every shot, or the latest against a ghost of all. */
+export function ScopeControl({ value, onChange, total, latest }: { value: Scope; onChange: (s: Scope) => void; total: number; latest: number }) {
+  const options = [
+    { value: 'all' as const, label: `All ${total}` },
+    { value: 'recent' as const, label: `Latest ${latest}` },
+  ]
+  return <RadioWords label="Which shots" options={options} value={value} onChange={onChange} underline={P.inkDim} />
+}
+
+/** Under the chart: "Show" and one toggle per group with its count. */
+export function LegendBand({ entries, hidden, onToggle, note }: { entries: LegendEntry[]; hidden: Set<string>; onToggle: (k: string) => void; note: string }) {
+  return (
+    <View style={{ paddingHorizontal: 10, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderColor: '#ECE6D8', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+        <Text importantForAccessibility="no" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginRight: 2 }]}>Show</Text>
+        {entries.map((e) => {
+          const on = !hidden.has(e.key)
+          const group = e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)
+          return (
+            <Toggle key={e.key} on={on} onPress={() => onToggle(e.key)} label={`${e.label}, ${e.count}`} hint={`${on ? 'Hides' : 'Shows'} the ${group} shot${e.count === 1 ? '' : 's'}`}>
+              <View style={{ opacity: on ? 1 : 0.35 }}>
+                <Swatch e={e} />
+              </View>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={word(on)}>
+                {e.label}
+              </Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { fontSize: 13, color: on ? P.ink : P.inkDim }]}>{e.count}</Text>
+            </Toggle>
+          )
+        })}
+      </View>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>{note} Tap a group to hide it.</Text>
     </View>
   )
 }

@@ -92,6 +92,7 @@ export function FilterSheet({
   const scrimStyle = useAnimatedStyle(() => ({ opacity: scrim.value }))
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: drop.value }] }))
   const filtered = lieType != null || forward != null || side != null
+  const anySlope = forward == null && side == null
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -140,10 +141,19 @@ export function FilterSheet({
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginTop: 18, marginBottom: 8 }]}>
             Slope
           </Text>
+          <Key
+            accessibilityLabel="Any slope"
+            latched={anySlope}
+            onPress={() => {
+              onForward(null)
+              onSide(null)
+            }}
+            style={{ alignSelf: 'flex-start', marginBottom: 8 }}
+            faceStyle={{ minHeight: 44, paddingHorizontal: 12 }}
+          >
+            <KeyText size={13} bold={anySlope}>Any slope</KeyText>
+          </Key>
           <SlopeGrid forward={forward} side={side} onForward={onForward} onSide={onSide} />
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.inkDim, marginTop: 6 }]}>
-            Tap a chosen slope again to clear it.
-          </Text>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
             {filtered && (
               <Key accessibilityLabel="Clear filters" onPress={onClear} faceStyle={{ minHeight: 48, paddingHorizontal: 16 }}>

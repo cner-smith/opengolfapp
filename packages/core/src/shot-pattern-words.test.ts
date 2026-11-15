@@ -7,9 +7,12 @@ import {
   countWord,
   distanceText,
   distanceUnitAbbr,
+  filtersDoneWords,
   findingLine,
+  latestLine,
   puttMissHeadline,
   mostlyTeeShots,
+  practiceCategory,
   readQuality,
   recordedNote,
   shortDate,
@@ -19,7 +22,7 @@ import {
   wholeDistance,
   type ShotExtras,
 } from './shot-pattern-words'
-import type { PuttMissCounts, PuttMissTally } from './shot-patterns'
+import type { PuttMissCounts, PuttMissTally, RecentVsAll } from './shot-patterns'
 import { SHOT_SHAPE_LABELS, SHOT_START_LINE_LABELS } from './constants'
 import { computeDispersionStats, shapeTally, startLineTally, type DispersionPoint } from './shot-patterns'
 
@@ -119,9 +122,45 @@ describe('mostlyTeeShots', () => {
   })
 })
 
+describe('practiceCategory', () => {
+  it('off the tee for a wood, or for mostly tee shots; approach otherwise', () => {
+    expect(practiceCategory('3w', [pt(0, 0, { lieType: 'fairway' })])).toBe('off_tee')
+    expect(practiceCategory('7i', [pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'tee' }), pt(0, 0)])).toBe('off_tee')
+    expect(practiceCategory('7i', [pt(0, 0, { lieType: 'tee' }), pt(0, 0, { lieType: 'fairway' })])).toBe('approach')
+  })
+})
+
 describe('readQuality', () => {
   it('early under 10, fair under 30, solid from 30', () => {
     expect([9, 10, 29, 30].map(readQuality)).toEqual(['an early read', 'a fair read', 'a fair read', 'a solid read'])
+  })
+})
+
+describe('latestLine', () => {
+  // Only the two 68% half-widths are read; the line gives full widths (×2).
+  const rva = (recent: number, all: number) => ({ recent: { cone68: { lateral: recent } }, all: { cone68: { lateral: all } } }) as unknown as RecentVsAll
+  it('narrower than all of them: down from', () => {
+    // 2·12 = 24 now, 2·15.5 = 31 over all.
+    expect(latestLine(rva(12, 15.5), 20, 98, 'yards')).toBe('Your latest 20: two in three inside 24 yd wide, down from 31 over all 98.')
+  })
+  it('wider: up from, in metres', () => {
+    // 2·15 = 30 yd = 27.4 m → 27; 2·10 = 20 yd = 18.3 m → 18.
+    expect(latestLine(rva(15, 10), 20, 24, 'meters')).toBe('Your latest 20: two in three inside 27 m wide, up from 18 over all 24.')
+  })
+  it('under a yard apart: about the same', () => {
+    // 2·12 = 24 vs 2·12.4 = 24.8: 0.8 yd apart.
+    expect(latestLine(rva(12, 12.4), 20, 30, 'yards')).toBe('Your latest 20: two in three inside 24 yd wide, about the same as 25 over all 30.')
+  })
+})
+
+describe('filtersDoneWords', () => {
+  it('a pattern, or no filter on: show the count', () => {
+    expect(filtersDoneWords(5, true, 'from the rough')).toBe('Show 5 shots')
+    expect(filtersDoneWords(1, false, '')).toBe('Show 1 shot')
+  })
+  it('a filter with too few: only n, or none', () => {
+    expect(filtersDoneWords(4, true, 'from the rough, uphill')).toBe('Only 4 from the rough, uphill')
+    expect(filtersDoneWords(0, true, 'from the rough')).toBe('No shots from the rough')
   })
 })
 

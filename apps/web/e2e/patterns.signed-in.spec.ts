@@ -58,17 +58,42 @@ test.describe('Shot patterns (signed in)', () => {
     await expect.poll(() => holder.evaluate((el) => getComputedStyle(el).opacity)).toBe('0')
   })
 
-  test('the table has one row per shot', async ({ page }) => {
+  test('the list key opens a table with one row per shot', async ({ page }) => {
     await open7i(page)
     const status = await page.getByRole('status').filter({ hasText: 'Showing' }).textContent()
     const n = Number(status?.match(/Showing (\d+) 7-iron/)?.[1])
     expect(n).toBeGreaterThan(0)
     const table = page.getByRole('table', { name: /7-iron shots, newest first/ })
     await expect(table).toHaveCount(0)
-    await page.getByRole('button', { name: 'Show the shots as a table' }).click()
-    await expect(page.getByRole('button', { name: 'Hide the table' })).toHaveAttribute('aria-expanded', 'true')
+    await page.getByRole('button', { name: 'List the shots' }).click()
+    await expect(page.getByRole('button', { name: 'Hide the list' })).toHaveAttribute('aria-expanded', 'true')
     expect((await box(page, table)).height).toBeGreaterThan(0)
     await expect(table.locator('tbody tr')).toHaveCount(n)
+  })
+
+  test('a layer toggle that is off has a solid edge; dashed is only for needs five shots', async ({ page }) => {
+    await open7i(page)
+    const rings = page.getByRole('group', { name: 'Show on the chart' }).getByRole('button', { name: 'Rings' })
+    await rings.click()
+    await expect(rings).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(() => rings.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('solid')
+    await expect.poll(() => rings.locator('svg').evaluate((el) => getComputedStyle(el).opacity)).toBe('0.35')
+  })
+
+  test('on a phone the Filters key counts the filters and the sheet clears them', async ({ page }) => {
+    await page.setViewportSize({ width: 400, height: 860 })
+    await open7i(page)
+    const filters = page.getByRole('button', { name: /^Filters/ })
+    await expect(filters).toHaveText('Filters')
+    await filters.click()
+    const sheet = page.getByRole('dialog', { name: 'Filters' })
+    await expect(sheet.getByRole('button', { name: 'Clear filters' })).toHaveCount(0)
+    await sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Rough' }).click()
+    await sheet.getByRole('button', { name: 'Clear filters' }).click()
+    await expect(sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Any' })).toHaveAttribute('aria-pressed', 'true')
+    await sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Rough' }).click()
+    await page.keyboard.press('Escape')
+    await expect(filters).toHaveText('Filters · 1')
   })
 
   test('the tee view draws from where the ball was hit', async ({ page }) => {

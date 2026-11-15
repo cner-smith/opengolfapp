@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   CLUBS,
   DEFAULT_BAG,
@@ -15,8 +15,11 @@ import {
   clubTypicalDistance,
   countWord,
   distanceText as dist,
+  filtersDoneWords,
   findingLine,
+  latestLine,
   mostlyTeeShots,
+  practiceCategory,
   puttMissHeadline,
   puttMissTally,
   readQuality,
@@ -39,6 +42,7 @@ import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useProfile } from '../../hooks/useProfile'
+import { CATEGORY_LABEL } from '../practice/drillDisplay'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 import { PatternExplainer, PatternProgress, PatternsEmpty } from './components/PatternsPreview'
 import { ClubLadder } from './components/ClubLadder'
@@ -143,7 +147,7 @@ export function ShotPatternsPage() {
   const teeShots = mostlyTeeShots(points)
 
   const slopes = [lieSlopeForward, lieSlopeSide].filter(Boolean).map((v) => v!.replace(/_/g, ' '))
-  const filterSummary = [lieType ? cap(lieType) : '', ...slopes].filter(Boolean).join(' · ')
+  const filterCount = (lieType ? 1 : 0) + slopes.length
   // "from the rough, uphill": the filters in a sentence.
   const filterPhrase = [lieType ? `from ${LIE_PHRASE[lieType]}` : '', ...slopes].filter(Boolean).join(', ')
   const clearFilters = () => {
@@ -353,7 +357,7 @@ export function ShotPatternsPage() {
     </div>
   )
   const scopeControl = rva ? <ScopeControl value={scope} onChange={setScope} total={filteredPoints.length} /> : null
-  const recentLine = rva ? recentWords(rva.recent, rva.all, filteredPoints.length, unit) : null
+  const recentLine = rva ? latestLine(rva, RECENT, filteredPoints.length, unit) : null
 
   return (
     <div>
@@ -372,7 +376,7 @@ export function ShotPatternsPage() {
 
       {ladderRow}
 
-      {/* Tabs left; desktop: which shots, lie and slope right; phone: one Filters button. */}
+      {/* Tabs left; desktop: lie and slope right; phone: one Filters key. */}
       <div className="flex items-end flex-wrap" style={{ gap: 18, marginTop: 16, borderBottom: '1px solid #D9D2BF' }}>
         <ViewTabs value={view} onChange={setView} tabId={ids.tab} panelId={ids.panel} />
         <div className="flex-1" />
@@ -382,17 +386,17 @@ export function ShotPatternsPage() {
           <SlopePopover summary={slopes.map(cap).join(', ') || 'Any'}>{slopeGrid}</SlopePopover>
         </div>
         <div className="lg:hidden flex items-center" style={{ gap: 8, paddingBottom: 6, minWidth: 0 }}>
-          {filterSummary && <span className="text-caddie-ink-dim" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{filterSummary}</span>}
           <button
             ref={filtersButton}
             type="button"
             aria-haspopup="dialog"
             aria-expanded={sheetOpen}
+            aria-label={filtered ? `Filters, ${filterCount} on: ${filterPhrase}` : 'Filters'}
             onClick={() => setSheetOpen(true)}
-            className={`pat-tap ${FOCUS_RING}`}
-            style={{ ...chipStyle(filtered || recentOn), padding: '8px 12px', fontSize: 13, flex: 'none' }}
+            className="key key-sm"
+            style={{ flex: 'none', ...(filtered ? LATCHED : null) }}
           >
-            Filters
+            {filtered ? `Filters · ${filterCount}` : 'Filters'}
           </button>
         </div>
       </div>
@@ -403,7 +407,7 @@ export function ShotPatternsPage() {
             <div className="flex flex-wrap items-center justify-between" style={{ gap: 10, padding: '10px 10px 8px', borderBottom: '1px solid #ECE6D8' }}>
               <LayerBar layers={layers} available={available} disabled={disabled} onToggle={toggleLayer} compact={narrow} />
               {points.length > 0 && <ColourByControl value={colourBy} onChange={setColourBy} compact={narrow} />}
-              {scopeControl && <div className="hidden lg:block">{scopeControl}</div>}
+              {scopeControl}
             </div>
             <div style={{ padding: '12px 12px 6px' }}>
               <span id={ids.label} className="sr-only">{`${cap(noun)} shots, ${VIEWS.find((v) => v.value === view)!.label.toLowerCase()}`}</span>
@@ -424,14 +428,8 @@ export function ShotPatternsPage() {
           </div>
           <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>{caption}</p>
           {points.length > 0 && (
-            <button
-              type="button"
-              aria-expanded={showTable}
-              onClick={() => setShowTable((s) => !s)}
-              className={`text-caddie-ink ${FOCUS_RING}`}
-              style={{ background: 'none', border: 'none', padding: '4px 0', fontSize: 13, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}
-            >
-              {showTable ? 'Hide the table' : 'Show the shots as a table'}
+            <button type="button" aria-expanded={showTable} onClick={() => setShowTable((s) => !s)} className="key key-sm" style={{ marginTop: 10 }}>
+              {showTable ? 'Hide the list' : 'List the shots'}
             </button>
           )}
           {showTable && <ShotTable points={points} extras={extras} unit={unit} kinds={kinds} caption={`Your ${points.length} ${noun} shots, newest first`} />}
@@ -465,6 +463,13 @@ export function ShotPatternsPage() {
             </p>
           ) : null}
 
+          {/* The web library can't open on a category yet, so this lands on all drills. */}
+          {stats && (
+            <Link to="/practice/drills" className={`flex items-center text-caddie-ink ${FOCUS_RING}`} style={{ minHeight: 48, borderBottom: '1px solid #D9D2BF', fontSize: 15, textDecoration: 'none' }}>
+              <span style={{ flex: 1 }}>Practise it: {CATEGORY_LABEL[practiceCategory(club, points)].toLowerCase()} drills</span>
+              <span className="font-serif" aria-hidden style={{ fontSize: 20 }}>→</span>
+            </Link>
+          )}
           {stats && (
             <div className="flex items-center" style={{ gap: 12, marginTop: 22 }}>
               <button
@@ -474,8 +479,11 @@ export function ShotPatternsPage() {
                 onFocus={() => setShowShareCard(true)}
                 disabled={exporting}
                 className={`text-caddie-ink hover:bg-caddie-surface-2 disabled:opacity-40 pat-tap ${FOCUS_RING}`}
-                style={{ background: 'transparent', border: '1px solid #9F9580', borderRadius: 2, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: '1px solid #9F9580', borderRadius: 2, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+                  <path fill="currentColor" d="M2 12h2v5h16v-5h2v5c0 1.11-.89 2-2 2H4c-1.1 0-2-.9-2-2v-5m10 3 5.55-5.46-1.42-1.41L13 11.25V2h-2v9.25L7.89 8.13 6.47 9.55 12 15Z" />
+                </svg>
                 {exporting ? 'Rendering…' : 'Export image'}
               </button>
               {exportError && <span className="text-caddie-neg" style={{ fontSize: 13 }}>{exportError}</span>}
@@ -492,20 +500,9 @@ export function ShotPatternsPage() {
             setSheetOpen(false)
             requestAnimationFrame(() => filtersButton.current?.focus())
           }}
-          done={
-            points.length >= MIN_SAMPLES_FOR_STATS || !filtered
-              ? `Show ${points.length} shot${points.length === 1 ? '' : 's'}`
-              : points.length === 0
-                ? `No shots ${filterPhrase}`
-                : `Only ${points.length} ${filterPhrase}`
-          }
+          done={filtersDoneWords(points.length, filtered, filterPhrase)}
+          onClear={filtered ? clearFilters : null}
         >
-          {scopeControl && (
-            <>
-              <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 4 }}>Shots</div>
-              <div style={{ marginBottom: 14 }}>{scopeControl}</div>
-            </>
-          )}
           <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 8 }}>Lie</div>
           {lieChips}
           <div className="text-caddie-ink-dim" style={{ fontSize: 13, margin: '18px 0 8px' }}>Slope</div>
@@ -530,14 +527,6 @@ export function ShotPatternsPage() {
       )}
     </div>
   )
-}
-
-// "Your latest 20: two in three inside 24 yd wide, down from 31 over all 98."
-function recentWords(recent: DispersionStats, all: DispersionStats, total: number, unit: 'yards' | 'meters') {
-  const now = recent.cone68.lateral * 2
-  const was = all.cone68.lateral * 2
-  const change = Math.abs(now - was) < 1 ? 'about the same as' : now < was ? 'down from' : 'up from'
-  return `Your latest ${RECENT}: two in three inside ${dist(now, unit)} wide, ${change} ${dist(was, unit).replace(/ (yd|m)$/, '')} over all ${total}.`
 }
 
 // "All 3 finished short of your usual average." With a filter under five shots.
@@ -783,7 +772,7 @@ function SlopePopover({ summary, children }: { summary: string; children: React.
 
 // The phone's filter sheet: a modal dialog (focus moves in and is held there,
 // the page behind is inert, Escape closes, focus returns to Filters).
-function FilterSheet({ onClose, done, children }: { onClose: () => void; done: string; children: React.ReactNode }) {
+function FilterSheet({ onClose, done, onClear, children }: { onClose: () => void; done: string; onClear: (() => void) | null; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement | null>(null)
   const heading = useRef<HTMLHeadingElement | null>(null)
   const titleId = useId()
@@ -815,18 +804,23 @@ function FilterSheet({ onClose, done, children }: { onClose: () => void; done: s
           Filters
         </h2>
         {children}
-        <button
-          type="button"
-          onClick={onClose}
-          className="key key-primary"
-          style={{ width: '100%', marginTop: 18, fontSize: 14, fontWeight: 600 }}
-        >
-          {done}
-        </button>
+        <div className="flex" style={{ gap: 12, marginTop: 22 }}>
+          {onClear && (
+            <button type="button" onClick={onClear} className="key" style={{ flex: 'none', fontSize: 14 }}>
+              Clear filters
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="key key-primary" style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>
+            {done}
+          </button>
+        </div>
       </div>
     </dialog>
   )
 }
+
+// The phone's Filters key with a filter on, latched like mobile's key.
+const LATCHED: React.CSSProperties = { background: 'var(--key-pressed)', transform: 'translateY(3px)', boxShadow: 'inset 0 0 0 1px var(--key-edge)', fontWeight: 600 }
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
