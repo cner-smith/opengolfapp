@@ -7,8 +7,9 @@ import { formatDistance, haversineYards, toRadians } from '../units'
 /** Out from this the map is not on the green. The web Green key lands at
  *  18.4 on a phone for a 50 m green, 19.6 on a desktop map. */
 export const WAYFINDER_MIN_ZOOM = 18
-// A ball within this many px of an edge still counts as off screen.
-const MARGIN = 12
+// A ball within this many px of an edge still counts as off screen: about the
+// ball marker's radius, so a ball half off the edge gets the arrow.
+const MARGIN = 6
 // The flag over the cup, px from it: the pole up 38 and the cloth to its right.
 const FLAG = { left: -12, top: -38, right: 32, bottom: 8 }
 
@@ -25,14 +26,16 @@ export interface WayfinderInput {
   zoom: number
   /** A point's screen position, px from the map's top left. */
   project: (p: GeoPoint) => [number, number]
-  /** The open map, px: chrome along the edges already taken off. */
+  /** The open map, px: where a ball counts as on screen. Solid chrome along
+   *  its edges (a footer) is already taken off; chrome floating over it goes
+   *  in `avoid`. */
   area: ScreenBox
   /** px the arrow's ellipse keeps in from the area's edges, so it stays whole. */
   inset: number
   /** Half the arrow's size, px: the box it keeps clear of chrome and the flag. */
   arrow: number
-  /** Chrome over the map (key columns, drawers) that hides the arrow but not
-   *  the ball. */
+  /** Chrome over the map (key columns, drawers, map plates, the map's logo)
+   *  that the arrow keeps off but that doesn't hide the ball. */
   avoid?: ScreenBox[]
   unit: DistanceUnit
 }
@@ -46,6 +49,10 @@ export interface Wayfinder {
   /** Unit vector from the arrow toward the ellipse's centre: the side its
    *  distance label sits on, clear of the screen edge. */
   inward: [number, number]
+  /** The arrow's angle on the ellipse, radians from its centre (screen axes,
+   *  y down): what a renderer tweens so the arrow travels along the curve. */
+  theta: number
+  ellipse: WayfinderEllipse
   /** The ball's distance to the pin, in the player's unit. */
   distance: string
 }
@@ -84,27 +91,38 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
     y,
     rotate: (deg + 360) % 360,
     inward: [(ell.cx - x) / toCentre, (ell.cy - y) / toCentre],
+    theta: Math.atan2(y - ell.cy, x - ell.cx),
+    ellipse: ell,
     distance: formatDistance(yards, i.unit),
   }
 }
 
-interface Ellipse {
+export interface WayfinderEllipse {
   cx: number
   cy: number
   rx: number
   ry: number
 }
 
+/** The point on the ellipse at angle `t` (radians from its centre, y down). */
+export function ellipsePoint(t: number, e: WayfinderEllipse): [number, number] {
+  const c = Math.cos(t)
+  const s = Math.sin(t)
+  const k = 1 / Math.hypot(c / e.rx, s / e.ry)
+  return [e.cx + c * k, e.cy + s * k]
+}
+
+/** `to`, moved by whole turns to sit within half a turn of `from`: the end of
+ *  the shortest tween from `from` (radians with turn 2π, degrees with 360). */
+export function nearestTurn(from: number, to: number, turn: number): number {
+  return from + ((((to - from) % turn) + turn * 1.5) % turn) - turn / 2
+}
+
 // The point on the ellipse at screen angle `at` (radians from the centre), or
 // if a block covers it, the nearest point along the curve that none covers:
 // where the curve crosses a block's edge.
-function clearOnEllipse(at: number, e: Ellipse, blocks: ScreenBox[]): [number, number] {
-  const point = (t: number): [number, number] => {
-    const c = Math.cos(t)
-    const s = Math.sin(t)
-    const k = 1 / Math.hypot(c / e.rx, s / e.ry)
-    return [e.cx + c * k, e.cy + s * k]
-  }
+function clearOnEllipse(at: number, e: WayfinderEllipse, blocks: ScreenBox[]): [number, number] {
+  const point = (t: number) => ellipsePoint(t, e)
   const free = ([x, y]: [number, number]) => !blocks.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom)
   const want = point(at)
   if (free(want)) return want

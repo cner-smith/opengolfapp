@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GeoPoint } from '../shot-dispersion-geo'
-import { viewPoint, wayfinder, type WayfinderInput } from './wayfinder'
+import { ellipsePoint, nearestTurn, viewPoint, wayfinder, type WayfinderInput } from './wayfinder'
 
 const LAT0 = 35.6
 const LNG0 = -97.6
@@ -44,6 +44,9 @@ describe('wayfinder', () => {
     expect(w.inward[0]).toBeCloseTo(0, 6)
     expect(w.inward[1]).toBeCloseTo(-1, 6)
     expect(w.distance).toBe('150 yd')
+    // The angle a renderer tweens along the curve: straight down the screen.
+    expect(w.theta).toBeCloseTo(Math.PI / 2, 6)
+    expect(w.ellipse).toEqual({ cx: 200, cy: 300, rx: 180, ry: 280 })
   })
 
   it('sits at the top, right and left of the ellipse', () => {
@@ -77,6 +80,21 @@ describe('wayfinder', () => {
     const w = wayfinder(base(geo(0, -75)))!
     expect(w.y).toBeCloseTo(580, 6)
     expect(wayfinder(base(geo(0, -70)))).toBeNull()
+  })
+
+  it('counts a ball 8 px in from the top as in view: only the marker-sized edge band is off', () => {
+    // 73 m north = y 8. With a 6 px band that is on screen; a 12 px band
+    // called it off and showed the arrow beside a ball in plain view.
+    expect(wayfinder(base(geo(0, 73)))).toBeNull()
+    // 74 m north = y 4, half under the edge: the arrow shows.
+    expect(wayfinder(base(geo(0, 74)))).not.toBeNull()
+  })
+
+  it('keeps the arrow off the map logo without hiding a ball beside it', () => {
+    // The logo floats over the top left. A ball at y 30 next to it is on
+    // screen: no arrow, though the logo box covers that band.
+    const logo = { left: 8, top: 8, right: 100, bottom: 32 }
+    expect(wayfinder(base(geo(0, 67.5), { avoid: [logo] }))).toBeNull()
   })
 
   it('is hidden away from green zoom, with no ball, and with the pin off screen', () => {
@@ -148,6 +166,24 @@ describe('wayfinder', () => {
     expect(w.y).toBeCloseTo(451.41, 2)
     expect(w.rotate).toBeCloseTo(135, 6)
     expect(w.distance).toBe('150 yd')
+  })
+})
+
+describe('the tween along the curve', () => {
+  it('finds the returned point again from its angle', () => {
+    const w = wayfinder(base(geo(160, -280)))!
+    const [x, y] = ellipsePoint(w.theta, w.ellipse)
+    expect(x).toBeCloseTo(w.x, 6)
+    expect(y).toBeCloseTo(w.y, 6)
+  })
+
+  it('turns the short way round, across the wrap', () => {
+    // 350° to 10° is 20° on, not 340° back; and back again.
+    expect(nearestTurn(350, 10, 360)).toBeCloseTo(370, 9)
+    expect(nearestTurn(10, 350, 360)).toBeCloseTo(-10, 9)
+    // Already wound up: 730° (two turns plus 10°) to 0° goes back 10°.
+    expect(nearestTurn(730, 0, 360)).toBeCloseTo(720, 9)
+    expect(nearestTurn(3, -3, 2 * Math.PI)).toBeCloseTo(-3 + 2 * Math.PI, 9)
   })
 })
 

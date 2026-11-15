@@ -1,3 +1,4 @@
+import type { SharedValue } from 'react-native-reanimated'
 import type { ReactNode } from 'react'
 import type { PlateSide } from '@oga/core'
 import type { PatternOverlay } from './markers/DispersionLayers'
@@ -212,4 +213,18 @@ export interface KeyColumn {
   left: number
   right: number
   above: number
+}
+
+/** A tag pinned to the map: its tick `offset` dp from where `at` projects
+ *  (a screen offset, as the tag draws it), its box `width` to the right of the
+ *  tick (left when `lefty`), centred on it vertically. Projected per frame, so
+ *  it moves with the map. `live` is the offset as drawn right now: it springs
+ *  to `offset` after each settle. */
+export interface MapPlate {
+  at: LatLng
+  offset: [number, number]
+  live: { x: SharedValue<number>; y: SharedValue<number> }
+  width: number
+  height: number
+  lefty: boolean
 }
