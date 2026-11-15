@@ -1,5 +1,5 @@
 import { G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
-import { insideRing, ringExtent, shotWords, wholeDistance, type DispersionRing, type DispersionStats } from '@oga/core'
+import { aimGrid, bracketLabelAt, insideRing, ringBracket, shotWords, wholeDistance, type DispersionRing } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
 import { LEFT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
@@ -19,30 +19,13 @@ export function AimPlot(props: ChartProps) {
   const area = width - LEFT - RIGHT
   const h = TOP + area + BOTTOM + LEGEND_H
   const dense = points.length > DENSE
-  const step = 5 * unitYd
   // The scale holds both rings (and the ghost) whether or not they are drawn,
   // so a toggle never rescales the chart.
-  const reachOf = (s: DispersionStats) => {
-    const e = ringExtent(s.ring95)
-    return [Math.abs(s.ring95.cx) + e.x, Math.abs(s.ring95.cy) + e.y]
-  }
-  const reach = Math.max(
-    ...points.map((p) => Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards))),
-    ...(stats ? reachOf(stats) : []),
-    ...(ghost ? reachOf(ghost.stats) : []),
-    step * 2,
-  )
-  const half = Math.ceil((reach * 1.08) / step) * step
-  const scale = area / 2 / half
+  const { scale, step, rules } = aimGrid(points, stats, ghost?.stats ?? null, unitYd, area)
   const cx = LEFT + area / 2
   const cy = TOP + area / 2
   const px = (l: number) => cx + l * scale
   const py = (d: number) => cy - d * scale
-  const ruleStep = step * scale >= 12 ? step : step * 2
-  const labelEvery = ruleStep * scale >= 18 ? ruleStep : ruleStep * 2
-  const isMult = (v: number, m: number) => Math.abs(v / m - Math.round(v / m)) < 1e-6
-  const rules: number[] = []
-  for (let v = -half; v <= half + 1e-6; v += ruleStep) rules.push(Math.round(v * 1000) / 1000)
   const bounds = { x: LEFT + 2, y: TOP + 2, w: area - 4, h: area - 4 }
   const ringPx = (r: DispersionRing): RingPx => ({ cx: px(r.cx), cy: py(r.cy), rx: r.rx * scale, ry: r.ry * scale, rot: r.rotationDeg })
 
@@ -64,15 +47,11 @@ export function AimPlot(props: ChartProps) {
   // The brackets span the average ± the 68% half-width and half-depth: the
   // upright box round the tilted ring. They are labelled with the whole width
   // and depth, rounded once as the numbers below the chart are.
-  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
-  const bracket = stats
+  const box = stats ? ringBracket(stats, px, py) : null
+  const bracket = stats && box
     ? {
-        l: px(stats.avgLateralOffset - stats.cone68.lateral),
-        r: px(stats.avgLateralOffset + stats.cone68.lateral),
-        t: py(stats.avgDistanceOffset + stats.cone68.distance),
-        b: py(stats.avgDistanceOffset - stats.cone68.distance),
-        acrossX: clamp(px(stats.avgLateralOffset), LEFT + 48, LEFT + area - 48),
-        deepY: clamp(py(stats.avgDistanceOffset), TOP + 14, TOP + area - 16),
+        ...box,
+        ...bracketLabelAt(box, { left: LEFT, top: TOP, size: area }),
         across: String(wholeDistance(stats.cone68.lateral * 2, unit)),
         deep: String(wholeDistance(stats.cone68.distance * 2, unit)),
       }
@@ -92,14 +71,14 @@ export function AimPlot(props: ChartProps) {
       onOpenRound={props.onOpenRound}
       bounds={bounds}
     >
-      {rules.map((v) => {
-        const stroke = v === 0 ? P.lineStrong : isMult(v, ruleStep * 2) ? RULE_MAJOR : RULE
-        const show = v !== 0 && Math.abs(v) !== half && isMult(v, labelEvery)
+      {rules.map((r) => {
+        const v = r.v * unitYd
+        const stroke = r.v === 0 ? P.lineStrong : r.major ? RULE_MAJOR : RULE
         return (
-          <G key={v}>
+          <G key={r.v}>
             <Line x1={LEFT} x2={LEFT + area} y1={py(v)} y2={py(v)} stroke={stroke} strokeWidth={1} />
             <Line x1={px(v)} x2={px(v)} y1={TOP} y2={TOP + area} stroke={stroke} strokeWidth={1} />
-            {show && (
+            {r.label && (
               <>
                 <SvgText x={LEFT - 5} y={py(v) + 4} textAnchor="end" fontFamily={FONT.serif} fontSize={12} fill={P.inkDim}>{label(v)}</SvgText>
                 <SvgText x={px(v)} y={TOP + area + 15} textAnchor="middle" fontFamily={FONT.serif} fontSize={12} fill={P.inkDim}>{label(v)}</SvgText>
@@ -114,7 +93,7 @@ export function AimPlot(props: ChartProps) {
       <SvgText x={cx + 4} y={TOP + area - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>short ↓</SvgText>
       <SvgText x={LEFT + 4} y={cy - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>← left</SvgText>
       <SvgText x={LEFT + area - 4} y={cy - 5} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>right →</SvgText>
-      <SvgText x={cx} y={TOP + area + BOTTOM - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${label(ruleStep)} ${props.unitWord}`}</SvgText>
+      <SvgText x={cx} y={TOP + area + BOTTOM - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${step} ${props.unitWord}`}</SvgText>
       <ChartLegend y={ly} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} pencil />
 
       <Fade on={layers.rings}>
