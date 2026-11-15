@@ -6,7 +6,7 @@ import { categoriesFor, type ColourBy, type ShotContact } from '@oga/core'
 // strong version (hook, slice) and an open one the mild (draw, fade). The web
 // page keeps the same rules (apps/web/src/pages/patterns/layers.ts).
 
-export type Layer = 'shots' | 'rings' | 'average' | 'flights' | 'recent'
+export type Layer = 'shots' | 'rings' | 'average' | 'flights'
 export type Glyph =
   | 'dot'
   | 'left'
@@ -26,7 +26,7 @@ export interface Category {
   glyph: Glyph
 }
 
-export const DEFAULT_LAYERS: Record<Layer, boolean> = { shots: true, rings: true, average: true, flights: true, recent: false }
+export const DEFAULT_LAYERS: Record<Layer, boolean> = { shots: true, rings: true, average: true, flights: true }
 export const COLOUR_BY: { value: ColourBy; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'shape', label: 'Shape' },

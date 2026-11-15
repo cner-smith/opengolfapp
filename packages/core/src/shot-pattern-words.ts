@@ -15,6 +15,7 @@ import {
 import type { FlightKind } from './shot-flight'
 import {
   MIN_PUTT_MISSES_FOR_BAR,
+  MIN_SAMPLES_FOR_STATS,
   PUTT_BANDS,
   aimAdvice,
   missLean,
@@ -23,6 +24,7 @@ import {
   type DispersionStats,
   type PuttBand,
   type PuttMissTally,
+  type RecentVsAll,
   type RecordedTally,
 } from './shot-patterns'
 import type { DistanceUnit } from './types'
@@ -121,6 +123,20 @@ export function findingLine(
 /** How far a pattern of n shots can be trusted. */
 export function readQuality(n: number): string {
   return n < 10 ? 'an early read' : n < 30 ? 'a fair read' : 'a solid read'
+}
+
+/** "Your latest 20: two in three inside 24 yd wide, down from 31 over all 98." */
+export function latestLine(rva: RecentVsAll, count: number, total: number, unit: DistanceUnit): string {
+  const now = rva.recent.cone68.lateral * 2
+  const was = rva.all.cone68.lateral * 2
+  const change = Math.abs(now - was) < 1 ? 'about the same as' : now < was ? 'down from' : 'up from'
+  return `Your latest ${count}: two in three inside ${distanceText(now, unit)} wide, ${change} ${wholeDistance(was, unit)} over all ${total}.`
+}
+
+/** The filter sheet's done key: "Show 13 shots", "Only 3 from the rough", "No shots from the rough". */
+export function filtersDoneWords(n: number, filtered: boolean, phrase: string): string {
+  if (n >= MIN_SAMPLES_FOR_STATS || !filtered) return `Show ${n} shot${n === 1 ? '' : 's'}`
+  return n === 0 ? `No shots ${phrase}` : `Only ${n} ${phrase}`
 }
 
 /** "Mostly draws" / "Mixed, leans right" / "—", from a recorded tally. */

@@ -6,6 +6,8 @@ import { Marker } from './chartParts'
 // The chart's controls. A layer shows or hides one kind of mark; a legend
 // entry shows or hides one group of shots; "Colour by" picks the groups. Each
 // toggle says what it hides to a screen reader as well as in its tooltip.
+// Off = a solid hairline and a faded icon; dashed only for "needs five shots"
+// (the app's look).
 
 const INK = '#1C211C'
 const FOREST = '#1F3D2C'
@@ -36,10 +38,12 @@ export function rovingKey(e: KeyboardEvent, i: number, n: number): number | null
   return j
 }
 
-function LayerGlyph({ layer, compact }: { layer: Layer; compact?: boolean }) {
+const FADED = 0.35
+
+function LayerGlyph({ layer, compact, faded }: { layer: Layer; compact?: boolean; faded: boolean }) {
   const c = layer === 'rings' || layer === 'average' ? FOREST : INK
   return (
-    <svg width={compact ? 16 : 20} height={compact ? 11 : 14} viewBox="0 0 20 14" fill="none" aria-hidden className="pat-glyph" style={{ flex: 'none' }}>
+    <svg width={compact ? 16 : 20} height={compact ? 11 : 14} viewBox="0 0 20 14" fill="none" aria-hidden className="pat-glyph" style={{ flex: 'none', opacity: faded ? FADED : 1 }}>
       {layer === 'rings' && (
         <>
           <ellipse cx="10" cy="7" rx="9" ry="6" stroke={c} strokeDasharray="2.5 2" />
@@ -96,7 +100,7 @@ function Toggle({ on, onClick, hint, children, onHover, compact, disabled }: {
         minHeight: compact ? 36 : 32,
         padding: compact ? '5px 8px 5px 7px' : '5px 10px 5px 8px',
         borderRadius: 2,
-        border: live ? '1px solid #9F9580' : disabled ? '1px dashed #D9D2BF' : '1px dashed #8A8B7E',
+        border: live ? '1px solid #9F9580' : disabled ? '1px dashed #D9D2BF' : '1px solid #D9D2BF',
         background: live ? '#EBE5D6' : 'transparent',
         color: live ? INK : '#5C6356',
         fontSize: 13,
@@ -129,7 +133,7 @@ export function LayerBar({ layers, available, disabled, onToggle, compact }: {
         return (
           <Toggle key={l} compact={compact} on={on} disabled={off} onClick={() => onToggle(l)} hint={hint}>
             <span className="inline-flex items-center" style={{ gap: compact ? 5 : 7 }}>
-              <LayerGlyph layer={l} compact={compact} />
+              <LayerGlyph layer={l} compact={compact} faded={!on || off} />
               <span>{LAYER_INFO[l].label}</span>
             </span>
           </Toggle>
@@ -221,7 +225,7 @@ export function Legend({ entries, hidden, focus, onToggle, onFocus, note }: {
                   hint={`${on ? 'Hides' : 'Shows'} the ${noun}`}
                 >
                   <span className="inline-flex items-center" style={{ gap: 7 }}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="pat-glyph">
+                    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="pat-glyph" style={{ opacity: on ? 1 : FADED }}>
                       <Marker x={6} y={6} r={4} glyph={e.glyph} color={e.color} />
                     </svg>
                     <span>{e.label}</span>

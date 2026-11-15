@@ -11,7 +11,6 @@ import {
 import { Rocker } from '../../../components/ui/Rocker'
 import { StatRow } from '../../stats/components/StatTiles'
 import type { MissedPutt } from '../../../hooks/useShotPatterns'
-import { FOCUS_RING } from './LayerControls'
 
 // The Putter stop on Shot patterns (#747): where missed putts finish, short or
 // long and left or right, drawn three ways. Meaning is carried by position and
@@ -63,14 +62,8 @@ export function PuttPatterns({ putts, tally, view, onView }: { putts: MissedPutt
           {view === 'corners' ? <Corners t={t} /> : view === 'bars' ? <Bars t={t} /> : <ByLength t={t} />}
         </div>
         <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>{caption}</p>
-        <button
-          type="button"
-          aria-expanded={showTable}
-          onClick={() => setShowTable((s) => !s)}
-          className={`text-caddie-ink ${FOCUS_RING}`}
-          style={{ background: 'none', border: 'none', padding: '4px 0', fontSize: 13, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}
-        >
-          {showTable ? 'Hide the table' : 'Show the putts as a table'}
+        <button type="button" aria-expanded={showTable} onClick={() => setShowTable((s) => !s)} className="key key-sm" style={{ marginTop: 10 }}>
+          {showTable ? 'Hide the list' : 'List the putts'}
         </button>
         {showTable && <PuttTable putts={putts} />}
       </div>
