@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import { DEFAULT_HANDICAP, wayfinder, type ShotMarkerCategory, type Wayfinder } from '@oga/core'
+import { DEFAULT_HANDICAP, ellipsePoint, nearestTurn, wayfinder, type ShotMarkerCategory, type Wayfinder } from '@oga/core'
 import type mapboxgl from 'mapbox-gl'
 import { useUnits } from '../../hooks/useUnits'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
@@ -322,11 +322,19 @@ export function RoundMap({
   )
 }
 
-// The wayfinder (#1386): at green zoom with the ball off screen, a key at the
-// map's edge pointing at the ball, with its distance to the pin. Not a
-// control: taps go through to the map. Re-measured on map moves at most once
-// a frame, in its own component so a pan re-renders only the key.
-const WAYFINDER_KEY = { width: 96, height: 43 } // 40 + the 3 px ledge
+// The wayfinder (#1386): at green zoom with the ball off screen, a compass
+// rose: the chevron rides an ellipse inside the map, turned toward the ball,
+// with its distance to the pin on the inner side. Ink with a paper halo, no
+// backdrop. Not a control: taps go through to the map. Re-measured on map
+// moves at most once a frame, in its own component so a pan re-renders only it.
+const WAYFINDER_ARROW = 20 // half the arrow's box: what it keeps clear of chrome
+const WAYFINDER_INSET = 24
+const WAYFINDER_LABEL = { width: 84, height: 26 }
+// A solid paper outline: the text's shadow 2.5px out in eight directions, then a soft edge.
+const PAPER_HALO = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((d) => `${(2.5 * Math.cos((d * Math.PI) / 180)).toFixed(2)}px ${(2.5 * Math.sin((d * Math.PI) / 180)).toFixed(2)}px 0 #fbf8f1`)
+  .concat('0 0 6px #fbf8f1')
+  .join(', ')
 const CHROME_GAP = 6
 
 function WayfinderKey({
@@ -375,8 +383,11 @@ function WayfinderKey({
           const q = map.project([p.lng, p.lat])
           return [q.x, q.y]
         },
-        area: { left: 8, top: 8, right: box.width - 8, bottom: box.height - 8 },
-        key: WAYFINDER_KEY,
+        // The whole map: a ball anywhere on it is in view. The ellipse keeps
+        // 8 px further in than the inset, clear of the map's rounded edge.
+        area: { left: 0, top: 0, right: box.width, bottom: box.height },
+        inset: WAYFINDER_INSET + 8,
+        arrow: WAYFINDER_ARROW,
         avoid,
         unit,
       })
@@ -400,40 +411,93 @@ function WayfinderKey({
     }
   }, [mapRef, ballLat, ballLng, pinLat, pinLng, unit])
 
-  if (!wf) return null
+  // The arrow travels the curve: its angle on the ellipse eases over 200 ms
+  // (the short way round), never its x/y, and the label rides it. It fades
+  // in and out; a new showing starts where it lands.
+  const [shown, setShown] = useState<Wayfinder | null>(null)
+  const [pose, setPose] = useState<{ theta: number; rotate: number } | null>(null)
+  const [on, setOn] = useState(false)
+  const poseRef = useRef<{ theta: number; rotate: number } | null>(null)
+  useEffect(() => {
+    if (!wf) {
+      poseRef.current = null
+      setOn(false)
+      return
+    }
+    setShown(wf)
+    const from = poseRef.current
+    if (!from) {
+      poseRef.current = { theta: wf.theta, rotate: wf.rotate }
+      setPose(poseRef.current)
+      const show = requestAnimationFrame(() => setOn(true))
+      return () => cancelAnimationFrame(show)
+    }
+    const to = { theta: nearestTurn(from.theta, wf.theta, 2 * Math.PI), rotate: nearestTurn(from.rotate, wf.rotate, 360) }
+    const start = performance.now()
+    let raf = 0
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / 200)
+      const ease = 1 - (1 - k) ** 3
+      poseRef.current = { theta: from.theta + (to.theta - from.theta) * ease, rotate: from.rotate + (to.rotate - from.rotate) * ease }
+      setPose(poseRef.current)
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [wf])
+
+  if (!shown || !pose) return null
+  const e = shown.ellipse
+  const [x, y] = ellipsePoint(pose.theta, e)
   // "150 yd" → a serif number and its unit; '—' has no unit.
-  const cut = wf.distance.lastIndexOf(' ')
-  const [num, unitLabel] = cut < 0 ? [wf.distance, ''] : [wf.distance.slice(0, cut), wf.distance.slice(cut + 1)]
+  const cut = shown.distance.lastIndexOf(' ')
+  const [num, unitLabel] = cut < 0 ? [shown.distance, ''] : [shown.distance.slice(0, cut), shown.distance.slice(cut + 1)]
+  // The label's centre: in from the arrow along the ellipse's inner side.
+  const toCentre = Math.hypot(e.cx - x, e.cy - y) || 1
+  const ix = (e.cx - x) / toCentre
+  const iy = (e.cy - y) / toCentre
+  const reach =
+    WAYFINDER_ARROW + 2 + (Math.abs(ix) * WAYFINDER_LABEL.width) / 2 + (Math.abs(iy) * WAYFINDER_LABEL.height) / 2
   return (
     <div
-      className="key"
       role="img"
-      aria-label={`Your ball, ${wf.distance} from the pin`}
+      aria-label={`Your ball, ${shown.distance} from the pin`}
+      aria-hidden={!wf}
       data-testid="wayfinder"
-      style={{
-        position: 'absolute',
-        left: wf.x,
-        top: wf.y,
-        transform: 'translate(-50%, -50%)',
-        width: WAYFINDER_KEY.width,
-        height: 40,
-        minHeight: 40,
-        padding: 0,
-        gap: 6,
-        zIndex: 4,
-        pointerEvents: 'none',
-        fontWeight: 400,
-        fontSize: 13,
-      }}
+      style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', opacity: on ? 1 : 0, transition: 'opacity 150ms' }}
     >
-      <svg width="22" height="22" viewBox="-11 -11 22 22" aria-hidden>
-        <path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" transform={`rotate(${wf.rotate.toFixed(1)})`} fill="#1C211C" />
+      <svg
+        width="48"
+        height="48"
+        viewBox="-24 -24 48 48"
+        aria-hidden
+        style={{ position: 'absolute', left: x - 24, top: y - 24 }}
+      >
+        <g transform={`rotate(${pose.rotate.toFixed(1)})`}>
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#fbf8f1" stroke="#fbf8f1" strokeWidth="5" strokeLinejoin="round" />
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#1C211C" />
+        </g>
       </svg>
-      <span>
-        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 17 }}>
+      <span
+        style={{
+          position: 'absolute',
+          left: x + ix * reach - WAYFINDER_LABEL.width / 2,
+          top: y + iy * reach - WAYFINDER_LABEL.height / 2,
+          width: WAYFINDER_LABEL.width,
+          height: WAYFINDER_LABEL.height,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#1C211C',
+          fontSize: 11,
+          textShadow: PAPER_HALO,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 18 }}>
           {num}
-        </span>{' '}
-        {unitLabel}
+        </span>
+        {unitLabel && <>&nbsp;{unitLabel}</>}
       </span>
     </div>
   )

@@ -7,8 +7,9 @@ import { formatDistance, haversineYards, toRadians } from '../units'
 /** Out from this the map is not on the green. The web Green key lands at
  *  18.4 on a phone for a 50 m green, 19.6 on a desktop map. */
 export const WAYFINDER_MIN_ZOOM = 18
-// A ball within this many px of an edge still counts as off screen.
-const MARGIN = 12
+// A ball within this many px of an edge still counts as off screen: about the
+// ball marker's radius, so a ball half off the edge gets the arrow.
+const MARGIN = 6
 // The flag over the cup, px from it: the pole up 38 and the cloth to its right.
 const FLAG = { left: -12, top: -38, right: 32, bottom: 8 }
 
@@ -25,21 +26,33 @@ export interface WayfinderInput {
   zoom: number
   /** A point's screen position, px from the map's top left. */
   project: (p: GeoPoint) => [number, number]
-  /** The open map, px: chrome along the edges already taken off. */
+  /** The open map, px: where a ball counts as on screen. Solid chrome along
+   *  its edges (a footer) is already taken off; chrome floating over it goes
+   *  in `avoid`. */
   area: ScreenBox
-  key: { width: number; height: number }
-  /** Chrome inside the area that the key steps out of (key columns, bands);
-   *  it steps off the pin's flag too. */
+  /** px the arrow's ellipse keeps in from the area's edges, so it stays whole. */
+  inset: number
+  /** Half the arrow's size, px: the box it keeps clear of chrome and the flag. */
+  arrow: number
+  /** Chrome over the map (key columns, drawers, map plates, the map's logo)
+   *  that the arrow keeps off but that doesn't hide the ball. */
   avoid?: ScreenBox[]
   unit: DistanceUnit
 }
 
 export interface Wayfinder {
-  /** The key's centre, px. */
+  /** The arrow's centre, px, on the ellipse. */
   x: number
   y: number
   /** Toward the ball, degrees clockwise from screen up. */
   rotate: number
+  /** Unit vector from the arrow toward the ellipse's centre: the side its
+   *  distance label sits on, clear of the screen edge. */
+  inward: [number, number]
+  /** The arrow's angle on the ellipse, radians from its centre (screen axes,
+   *  y down): what a renderer tweens so the arrow travels along the curve. */
+  theta: number
+  ellipse: WayfinderEllipse
   /** The ball's distance to the pin, in the player's unit. */
   distance: string
 }
@@ -56,41 +69,82 @@ export function wayfinder(i: WayfinderInput): Wayfinder | null {
     return null
   }
 
-  // Along the line from the area's centre to the ball, to the box the key's
-  // centre may use (the area less half the key, so the key stays whole).
-  const hw = i.key.width / 2
-  const hh = i.key.height / 2
-  const room = { left: a.left + hw, top: a.top + hh, right: a.right - hw, bottom: a.bottom - hh }
-  const cx = (a.left + a.right) / 2
-  const cy = (a.top + a.bottom) / 2
-  const dx = bx - cx
-  const dy = by - cy
-  const t = Math.min(
-    dx === 0 ? Infinity : (room.right - cx) / Math.abs(dx),
-    dy === 0 ? Infinity : (room.bottom - cy) / Math.abs(dy),
-  )
-  let x = cx + dx * t
-  let y = cy + dy * t
-
-  // Off the flag, then out of any chrome, by the shortest step that stays in room.
-  const flag = { left: px + FLAG.left, top: py + FLAG.top, right: px + FLAG.right, bottom: py + FLAG.bottom }
-  for (const b of [flag, ...(i.avoid ?? [])]) {
-    if (!(x > b.left - hw && x < b.right + hw && y > b.top - hh && y < b.bottom + hh)) continue
-    const steps: [number, number][] = [
-      [b.right + hw, y],
-      [b.left - hw, y],
-      [x, b.top - hh],
-      [x, b.bottom + hh],
-    ]
-    const best = steps
-      .filter(([sx, sy]) => inside(sx, sy, room))
-      .sort((p, q) => Math.hypot(p[0] - x, p[1] - y) - Math.hypot(q[0] - x, q[1] - y))[0]
-    if (best) [x, y] = best
+  // A compass rose: the arrow rides an ellipse inscribed in the area, on the
+  // ray from its centre toward the ball, slid along the curve off the flag and
+  // any chrome.
+  const ell = {
+    cx: (a.left + a.right) / 2,
+    cy: (a.top + a.bottom) / 2,
+    rx: (a.right - a.left) / 2 - i.inset,
+    ry: (a.bottom - a.top) / 2 - i.inset,
   }
+  const r = i.arrow
+  const flag = { left: px + FLAG.left, top: py + FLAG.top, right: px + FLAG.right, bottom: py + FLAG.bottom }
+  const blocks = [flag, ...(i.avoid ?? [])].map((b) => ({ left: b.left - r, top: b.top - r, right: b.right + r, bottom: b.bottom + r }))
+  const [x, y] = clearOnEllipse(Math.atan2(by - ell.cy, bx - ell.cx), ell, blocks)
 
   const deg = (Math.atan2(bx - x, -(by - y)) * 180) / Math.PI
+  const toCentre = Math.hypot(ell.cx - x, ell.cy - y) || 1
   const yards = haversineYards(i.pin.lat, i.pin.lng, i.ball.lat, i.ball.lng)
-  return { x, y, rotate: (deg + 360) % 360, distance: formatDistance(yards, i.unit) }
+  return {
+    x,
+    y,
+    rotate: (deg + 360) % 360,
+    inward: [(ell.cx - x) / toCentre, (ell.cy - y) / toCentre],
+    theta: Math.atan2(y - ell.cy, x - ell.cx),
+    ellipse: ell,
+    distance: formatDistance(yards, i.unit),
+  }
+}
+
+export interface WayfinderEllipse {
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+}
+
+/** The point on the ellipse at angle `t` (radians from its centre, y down). */
+export function ellipsePoint(t: number, e: WayfinderEllipse): [number, number] {
+  const c = Math.cos(t)
+  const s = Math.sin(t)
+  const k = 1 / Math.hypot(c / e.rx, s / e.ry)
+  return [e.cx + c * k, e.cy + s * k]
+}
+
+/** `to`, moved by whole turns to sit within half a turn of `from`: the end of
+ *  the shortest tween from `from` (radians with turn 2π, degrees with 360). */
+export function nearestTurn(from: number, to: number, turn: number): number {
+  return from + ((((to - from) % turn) + turn * 1.5) % turn) - turn / 2
+}
+
+// The point on the ellipse at screen angle `at` (radians from the centre), or
+// if a block covers it, the nearest point along the curve that none covers:
+// where the curve crosses a block's edge.
+function clearOnEllipse(at: number, e: WayfinderEllipse, blocks: ScreenBox[]): [number, number] {
+  const point = (t: number) => ellipsePoint(t, e)
+  const free = ([x, y]: [number, number]) => !blocks.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom)
+  const want = point(at)
+  if (free(want)) return want
+  const crossings = blocks.flatMap((b) => [
+    ...[b.left, b.right].flatMap((x) => {
+      const u = (x - e.cx) / e.rx
+      if (Math.abs(u) > 1) return []
+      const dy = e.ry * Math.sqrt(1 - u * u)
+      return [[x, e.cy - dy], [x, e.cy + dy]] as [number, number][]
+    }),
+    ...[b.top, b.bottom].flatMap((y) => {
+      const v = (y - e.cy) / e.ry
+      if (Math.abs(v) > 1) return []
+      const dx = e.rx * Math.sqrt(1 - v * v)
+      return [[e.cx - dx, y], [e.cx + dx, y]] as [number, number][]
+    }),
+  ])
+  const turn = (p: [number, number]) => {
+    const d = Math.abs(Math.atan2(p[1] - e.cy, p[0] - e.cx) - at) % (2 * Math.PI)
+    return Math.min(d, 2 * Math.PI - d)
+  }
+  return crossings.filter(free).sort((p, q) => turn(p) - turn(q))[0] ?? want
 }
 
 export interface MapCamera {

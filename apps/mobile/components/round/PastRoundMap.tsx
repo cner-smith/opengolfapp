@@ -780,6 +780,8 @@ export function PastRoundMap({
 
   const n = active?.shotNumber ?? 1
 
+  const wayfinderClear = completed ? 36 : ROCKER_BOTTOM + 51
+
   return (
     <View style={{ flex: 1, backgroundColor: P.chrome }}>
       <CoachTarget id="past.hole">
@@ -831,7 +833,7 @@ export function PastRoundMap({
           // its controls are a solid panel below it.
           aimBallInset={50}
           // Clear of the Mapbox logo, and the mode rocker while logging.
-          wayfinderBottom={completed ? 36 : ROCKER_BOTTOM + 51}
+          wayfinderBottom={{ clear: wayfinderClear }}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}

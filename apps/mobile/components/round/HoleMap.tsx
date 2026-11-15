@@ -12,6 +12,7 @@ import {
   startCategory,
   wholeDistance,
   NEAR_GREEN_YARDS,
+  type ScreenBox,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -27,11 +28,11 @@ import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimCrosshair, AimOverlay, AimReticle } from './markers/AimOverlay'
 import { dragPoint, Magnifier, type MagnifierHandle } from './Magnifier'
 import { AimPath } from './markers/AimPath'
-import { ObCallout, offscreenArrow, WayfinderKey } from './markers/Callouts'
+import { ObCallout, offscreenArrow, WayfinderLayer } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
-import { useWayfinder } from './hooks/useWayfinder'
+import type { WayfinderFeed } from './hooks/useWayfinder'
 import { TeeBadge } from './HoleMapOverlays'
-import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow, PlateSide } from './HoleMap.types'
+import type { HoleMapPhase, HoleMapProps, LatLng, MapPlate, OffscreenArrow, PlateSide } from './HoleMap.types'
 
 ensureMapboxInitialized()
 
@@ -199,18 +200,13 @@ export function HoleMap({
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
 
-  const { wf, onIdle: measureWayfinder } = useWayfinder({
-    mapViewRef,
-    mapSize,
-    bottom: wayfinderBottom,
-    ball,
-    pin: roundPin ?? pin,
-    hidden: isPinMode,
-    drawer: legTagClamp?.drawer && mapSize
-      ? { left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }
-      : null,
-    unit,
-  })
+  // The wayfinder renders in its own layer, fed the camera from here.
+  const wayfinderFeed = useRef<WayfinderFeed | null>(null)
+  const [aimPlate, setAimPlate] = useState<MapPlate | null>(null)
+  const wayfinderAvoid: ScreenBox[] =
+    legTagClamp?.drawer && mapSize
+      ? [{ left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }]
+      : []
 
   const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
@@ -658,20 +654,22 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
-            measureWayfinder(state)
+            wayfinderFeed.current?.idle(state)
             setCupK(flagCupK(state.properties.pitch))
             setIdleTick((t) => t + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
-          // round's callout, and the aim view's gesture latch.
+          // round's callout, the aim view's gesture latch, and the wayfinder.
           onCameraChanged={
-            onCameraChanged || isAimPhase
+            onCameraChanged || isAimPhase || wayfinderBottom != null
               ? (state) => {
                   if (state.gestures.isGestureActive) userGesturedRef.current = true
-                  if (isAimPhase) {
-                    clearTimeout(camStillTimer.current ?? undefined)
-                    camStillTimer.current = setTimeout(() => setIdleTick((t) => t + 1), 200)
-                  }
+                  wayfinderFeed.current?.move(state)
+                  clearTimeout(camStillTimer.current ?? undefined)
+                  camStillTimer.current = setTimeout(() => {
+                    if (isAimPhase) setIdleTick((t) => t + 1)
+                    wayfinderFeed.current?.settle()
+                  }, 200)
                   onCameraChanged?.()
                 }
               : undefined
@@ -849,6 +847,7 @@ export function HoleMap({
               toward={aim ?? undefined}
               // Clears only the keys on its own side (the left column stands taller).
               clamp={legTagClamp && plateClearBottom != null && mapSize ? { ...legTagClamp, maxY: mapSize.h - plateClearBottom } : legTagClamp}
+              onBox={setAimPlate}
             />
           )}
 
@@ -923,7 +922,19 @@ export function HoleMap({
             <ObCallout at={lastShot} onPress={obCallout.onPress} busy={obCallout.busy} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
-        {wf && <WayfinderKey wf={wf} />}
+        <WayfinderLayer
+          feed={wayfinderFeed}
+          mapViewRef={mapViewRef}
+          mapSize={mapSize}
+          bottom={wayfinderBottom}
+          ball={ball}
+          pin={roundPin ?? pin}
+          hidden={isPinMode}
+          avoid={wayfinderAvoid}
+          plates={aimPlate ? [aimPlate] : []}
+          ornamentsTop={ornamentsTop}
+          unit={unit}
+        />
         <Magnifier
           ref={loupe}
           live={loupeLive}

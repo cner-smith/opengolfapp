@@ -1,3 +1,4 @@
+import type { SharedValue } from 'react-native-reanimated'
 import type { ReactNode } from 'react'
 import type { PlateSide } from '@oga/core'
 import type { PatternOverlay } from './markers/DispersionLayers'
@@ -108,9 +109,11 @@ export interface HoleMapProps {
   /** The dock's open ruler drawer on its ruler side: dp in from that map edge
    *  and dp above the map bottom. A leg tag reaching over it rises above it. */
   tagClearDrawer?: { width: number; top: number }
-  /** dp from the map bottom kept clear of the wayfinder (#1386), which points
-   *  at the ball from green zoom; unset, there is none. */
-  wayfinderBottom?: number
+  /** The wayfinder (#1386), which points at the ball from green zoom; unset,
+   *  there is none. `clear`: dp of solid chrome along the map bottom; the key
+   *  rides the edge above it. `columns`: keys standing on that chrome, which
+   *  the key slides clear of (#1471). */
+  wayfinderBottom?: { clear: number; columns?: KeyColumn[] }
   onSetAim: (loc: LatLng) => void
   /** Resolving false rejects the move: the ball marker snaps back. */
   onSetBall: (loc: LatLng) => void | Promise<void | boolean>
@@ -202,4 +205,26 @@ export interface PastCrumbs {
   selectedN: number | null
   /** Tapping a crumb selects it (index into `crumbs`). Omit = not tappable. */
   onSelect?: (i: number) => void
+}
+
+/** A column of map keys standing on the bottom chrome: dp from the map's left
+ *  edge, and how far its top stands above that chrome. */
+export interface KeyColumn {
+  left: number
+  right: number
+  above: number
+}
+
+/** A tag pinned to the map: its tick `offset` dp from where `at` projects
+ *  (a screen offset, as the tag draws it), its box `width` to the right of the
+ *  tick (left when `lefty`), centred on it vertically. Projected per frame, so
+ *  it moves with the map. `live` is the offset as drawn right now: it springs
+ *  to `offset` after each settle. */
+export interface MapPlate {
+  at: LatLng
+  offset: [number, number]
+  live: { x: SharedValue<number>; y: SharedValue<number> }
+  width: number
+  height: number
+  lefty: boolean
 }

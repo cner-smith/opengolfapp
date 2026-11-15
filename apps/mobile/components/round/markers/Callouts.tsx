@@ -1,11 +1,14 @@
+import { useEffect, useRef, useState } from 'react'
 import { Platform, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import Svg, { G, Path } from 'react-native-svg'
-import type { Wayfinder } from '@oga/core'
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Svg, { Path, Text as SvgText, TSpan } from 'react-native-svg'
+import { nearestTurn, type Wayfinder, type WayfinderEllipse } from '@oga/core'
+import { useWayfinder, WAYFINDER_ARROW } from '../hooks/useWayfinder'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
-import { TYPE } from '../../../lib/typography'
-import { Key, KeyText } from '../../paper/Paper'
-import { FONT_CAP, LEDGE, P, R } from '../../paper/tokens'
+import { FONT, TYPE } from '../../../lib/typography'
+import { Key } from '../../paper/Paper'
+import { FONT_CAP, P } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -91,46 +94,121 @@ export function ObCallout({
   )
 }
 
-// The wayfinder (#1386): the wide, flat chevron as a map key at the map's
-// edge, pointing at the ball, with its distance to the pin. Drawn like a Key
-// (paper face, ink rim, ledge) but not one: no tap, and touches go through.
-export const WAYFINDER_KEY = { width: 92, height: 38 + LEDGE }
+// The wayfinder (#1386): a compass rose. The wide, flat chevron rides an
+// ellipse inside the map, turned toward the ball, with the ball's distance to
+// the pin on its inner side. No backdrop: ink with a paper halo reads over the
+// imagery. Not a control: touches go through. Its own component, so a camera
+// frame re-renders only the arrow, never the map.
+export function WayfinderLayer(props: Parameters<typeof useWayfinder>[0]) {
+  return <WayfinderKey wf={useWayfinder(props)} />
+}
 
-export function WayfinderKey({ wf }: { wf: Wayfinder }) {
+const LABEL = { width: 80, height: 26 }
+const TURN = { duration: 200 }
+const FADE = { duration: 150 }
+
+// Core's ellipsePoint, as a worklet: the UI thread can't call into core.
+function onEllipse(t: number, e: WayfinderEllipse): [number, number] {
+  'worklet'
+  const c = Math.cos(t)
+  const s = Math.sin(t)
+  const k = 1 / Math.sqrt((c / e.rx) * (c / e.rx) + (s / e.ry) * (s / e.ry))
+  return [e.cx + c * k, e.cy + s * k]
+}
+
+function WayfinderKey({ wf }: { wf: Wayfinder | null }) {
+  // The arrow travels the curve: its angle on the ellipse is tweened, never
+  // its x/y, and the label rides the same angle. It fades in and out rather
+  // than popping; a new showing starts where it lands, without a sweep.
+  const [shown, setShown] = useState(wf)
+  const theta = useSharedValue(wf?.theta ?? 0)
+  const turn = useSharedValue(wf?.rotate ?? 0)
+  const ellipse = useSharedValue<WayfinderEllipse>(wf?.ellipse ?? { cx: 0, cy: 0, rx: 1, ry: 1 })
+  const opacity = useSharedValue(0)
+  const showing = useRef(false)
+  useEffect(() => {
+    if (!wf) {
+      showing.current = false
+      opacity.value = withTiming(0, FADE)
+      return
+    }
+    setShown(wf)
+    ellipse.value = wf.ellipse
+    if (!showing.current) {
+      showing.current = true
+      theta.value = wf.theta
+      turn.value = wf.rotate
+      opacity.value = withTiming(1, FADE)
+      return
+    }
+    theta.value = withTiming(nearestTurn(theta.value, wf.theta, 2 * Math.PI), TURN)
+    turn.value = withTiming(nearestTurn(turn.value, wf.rotate, 360), TURN)
+  }, [wf?.theta, wf?.rotate, wf?.ellipse.cx, wf?.ellipse.cy, wf?.ellipse.rx, wf?.ellipse.ry, wf == null])
+  const arrowStyle = useAnimatedStyle(() => {
+    const [x, y] = onEllipse(theta.value, ellipse.value)
+    return {
+      opacity: opacity.value,
+      transform: [{ translateX: x - 24 }, { translateY: y - 24 }, { rotate: `${turn.value}deg` }],
+    }
+  })
+  const labelStyle = useAnimatedStyle(() => {
+    const e = ellipse.value
+    const [x, y] = onEllipse(theta.value, e)
+    // In from the arrow along the ellipse's inner side, far enough that the
+    // two never touch whichever way the arrow sits.
+    const d = Math.hypot(e.cx - x, e.cy - y) || 1
+    const ix = (e.cx - x) / d
+    const iy = (e.cy - y) / d
+    const reach = WAYFINDER_ARROW + 2 + (Math.abs(ix) * LABEL.width) / 2 + (Math.abs(iy) * LABEL.height) / 2
+    return {
+      opacity: opacity.value,
+      transform: [{ translateX: x + ix * reach - LABEL.width / 2 }, { translateY: y + iy * reach - LABEL.height / 2 }],
+    }
+  })
+  if (!shown) return null
+  // "46 yd" → a serif number and its unit; '—' has no unit.
+  const cut = shown.distance.lastIndexOf(' ')
+  const [num, unit] = cut < 0 ? [shown.distance, ''] : [shown.distance.slice(0, cut), shown.distance.slice(cut + 1)]
   return (
     <View
       pointerEvents="none"
-      accessible
-      accessibilityLabel={`Your ball, ${wf.distance} from the pin`}
-      style={{
-        position: 'absolute',
-        left: wf.x - WAYFINDER_KEY.width / 2,
-        top: wf.y - WAYFINDER_KEY.height / 2,
-        width: WAYFINDER_KEY.width,
-        height: WAYFINDER_KEY.height,
-      }}
+      accessible={wf != null}
+      accessibilityLabel={`Your ball, ${shown.distance} from the pin`}
+      style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
     >
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: LEDGE, backgroundColor: P.ink, borderRadius: R }} />
-      <View
-        style={{
-          height: WAYFINDER_KEY.height - LEDGE,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          backgroundColor: P.raised,
-          borderWidth: 1,
-          borderColor: P.ink,
-          borderRadius: R,
-        }}
-      >
-        <Svg width={22} height={22} viewBox="-11 -11 22 22">
-          <G rotation={wf.rotate} origin="0,0">
-            <Path d="M0,-6 L9,6 L0,3.5 L-9,6 Z" fill={P.ink} />
-          </G>
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: 48, height: 48 }, arrowStyle]}>
+        <Svg width={48} height={48} viewBox="-24 -24 48 48">
+          <Path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill={P.raised} stroke={P.raised} strokeWidth={5} strokeLinejoin="round" />
+          <Path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill={P.ink} />
         </Svg>
-        <KeyText size={13}>{wf.distance}</KeyText>
-      </View>
+      </Animated.View>
+      {/* SVG text: a 5 dp paper stroke under the ink draws a solid outline. */}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: LABEL.width, height: LABEL.height }, labelStyle]}>
+        <Svg width={LABEL.width} height={LABEL.height}>
+          {[true, false].map((outline) => (
+            <SvgText
+              key={String(outline)}
+              // The anchor centres the number alone: shift by about half the unit.
+              x={LABEL.width / 2 - (unit ? 3 * unit.length + 3 : 0)}
+              y={19}
+              textAnchor="middle"
+              fontFamily={FONT.serifItalic}
+              fontSize={18}
+              fill={outline ? P.raised : P.ink}
+              stroke={outline ? P.raised : undefined}
+              strokeWidth={outline ? 5 : undefined}
+              strokeLinejoin="round"
+            >
+              {num}
+              {unit ? (
+                <TSpan fontFamily={FONT.body} fontSize={11}>
+                  {' ' + unit}
+                </TSpan>
+              ) : null}
+            </SvgText>
+          ))}
+        </Svg>
+      </Animated.View>
     </View>
   )
 }
