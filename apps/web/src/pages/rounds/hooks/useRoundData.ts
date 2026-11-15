@@ -3,9 +3,11 @@ import type { Database } from '@oga/supabase'
 import {
   getShotMarkerCategory,
   holeCountFromTeePar,
+  isPuttShot,
   resolveCourseTee,
   resolveHole,
   roundHoleCount,
+  savedPuttFt,
   summarizeShotStep,
   type LieType,
   type ResolvedHole,
@@ -342,6 +344,7 @@ export function useRoundData({
         ob: s.ob,
         penalty: s.penalty,
         club: s.club,
+        savedPuttFt: isPuttShot(s.lie_type) ? savedPuttFt(s) : null,
         summary: summarizeShotStep(s, rows[i + 1], unit).join(' · '),
         category: getShotMarkerCategory(
           {

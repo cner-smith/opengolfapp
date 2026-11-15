@@ -9,12 +9,11 @@ import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import {
   DEFAULT_HANDICAP,
-  bearingDegrees,
-  destinationYards,
-  getExpectedStrokes,
+  ballReadout,
   insertedShotStart,
   isPuttShot,
-  startCategory,
+  isTeeLineShot,
+  teeBoxDots,
   type CaptureMode,
 } from '@oga/core'
 import { getProfile } from '@oga/supabase'
@@ -50,10 +49,6 @@ const FEET_PER_YARD = 3
 // Aim framing (#611 §13): the ball sits this far above the dock top, so its
 // 44 dp grab disc clears the footer by 12.
 const BALL_ABOVE_DOCK = 34
-
-// Half-width of the two-dot tee box, each side of the line of play (matches
-// PastRoundMap's dual-dot tee). Place the drive between the dots.
-const TEE_BOX_HALF_YARDS = 4
 
 interface LiveRoundSessionProps {
   roundId: string | undefined
@@ -276,14 +271,7 @@ export default function LiveRoundSession({
     const origin =
       (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
     if (!origin) return null
-    const toward = finalState.aim ?? data.roundPin ?? data.storedPin
-    const heading = toward
-      ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
-      : 0
-    return [
-      destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
-      destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
-    ]
+    return teeBoxDots(origin, finalState.aim ?? data.roundPin ?? data.storedPin)
   }, [
     data.tee?.lat,
     data.tee?.lng,
@@ -348,7 +336,7 @@ export default function LiveRoundSession({
   // switch holds for the rest of that shot.
   // Skipped until the hole loads, so a par 3 is never first guessed as a 4.
   const holePar = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par
-  const teeShot = (editMode ? activeShotIdx === 0 : data.shotNumber === 1) && (holePar === 4 || holePar === 5)
+  const teeShot = isTeeLineShot(holePar, editMode ? activeShotIdx === 0 : data.shotNumber === 1)
   useEffect(() => {
     if (holePar == null) return
     setOverlayMode(teeShot ? 'tee' : 'appr')
@@ -379,21 +367,21 @@ export default function LiveRoundSession({
   const putting = editMode
     ? isPuttShot(data.shots[activeShotIdx]?.captured.lie_type ?? null)
     : finalState.roundState === 'PUTTING'
+  // A putt reads its saved length first (played-hole mode); a putt being played has none yet.
+  const savedPuttFt = editMode ? data.shots[activeShotIdx]?.puttFt ?? null : null
+  const hero = useMemo(
+    () => ballReadout({ toPinYards: ballToPinYards, putt: putting, savedPuttFt, teeShot, handicap }),
+    [ballToPinYards, putting, savedPuttFt, teeShot, handicap],
+  )
   const heroDistance = useMemo(() => {
-    if (ballToPinYards == null) return null
+    if (!hero) return null
     const text =
-      putting && unit !== 'meters'
-        ? `${(ballToPinYards * FEET_PER_YARD).toFixed(1)} ft`
-        : toDisplay(ballToPinYards, 1)
+      hero.puttFt != null
+        ? unit !== 'meters' ? `${hero.puttFt.toFixed(1)} ft` : toDisplay(hero.puttFt / FEET_PER_YARD, 1)
+        : toDisplay(hero.yards!, 1)
     const [value = '', u = ''] = text.split(' ')
     return { value, unit: u }
-  }, [ballToPinYards, putting, unit, toDisplay])
-  const expectedStrokes =
-    ballToPinYards == null
-      ? null
-      : putting
-        ? getExpectedStrokes('putting', undefined, ballToPinYards * FEET_PER_YARD, handicap)
-        : getExpectedStrokes(startCategory(ballToPinYards, teeShot), Math.round(ballToPinYards), undefined, handicap)
+  }, [hero, unit, toDisplay])
 
   // "Made it" (#611 §15): the ball rolls into the cup over the committed
   // state; the review sheet waits until 100 ms after the drop. Skipped under
@@ -617,7 +605,7 @@ export default function LiveRoundSession({
           : data.shotNumber + actions.shotObs.filter(Boolean).length}
         distance={heroDistance}
         noBall={!heroBall && !!(data.roundPin ?? data.storedPin)}
-        expected={expectedStrokes}
+        expected={hero?.expected ?? null}
         onLeave={() => setActiveDialog('leave')}
         onPrev={() => actions.navigateHole(-1)}
         onNext={() => actions.navigateHole(1)}

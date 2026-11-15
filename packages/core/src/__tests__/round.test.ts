@@ -22,6 +22,7 @@ import {
   isStaleEmptyRound,
   isFinishedRound,
   partialRoundLabel,
+  savedPuttFt,
   summarizePuttParts,
   summarizeShotParts,
   summarizeShotStep,
@@ -245,6 +246,16 @@ function summaryFields(
     ...overrides,
   }
 }
+
+describe('savedPuttFt', () => {
+  it('reads putt_distance_ft, then the legacy distance_to_target, else null', () => {
+    expect(savedPuttFt({ putt_distance_ft: 12, distance_to_target: 30 })).toBe(12)
+    expect(savedPuttFt({ putt_distance_ft: null, distance_to_target: 7 })).toBe(7)
+    expect(savedPuttFt({ putt_distance_ft: null, distance_to_target: null })).toBeNull()
+    // A saved 0 is a length, not a gap.
+    expect(savedPuttFt({ putt_distance_ft: 0, distance_to_target: 9 })).toBe(0)
+  })
+})
 
 describe('summarizePuttParts', () => {
   it('made putt: distance + Made', () => {

@@ -22,8 +22,14 @@ export function getShotCategory(
   ) {
     return 'around_green'
   }
-  if (shotNumber === 1 && (par === 4 || par === 5)) return 'off_tee'
+  if (isTeeLineShot(par, shotNumber === 1)) return 'off_tee'
   return 'approach'
+}
+
+/** The tee shot of a par 4 or 5 starts from Broadie's tee line (#998); a par-3
+ *  tee shot counts as an approach. */
+export function isTeeLineShot(par: number | null | undefined, firstShot: boolean): boolean {
+  return firstShot && (par === 4 || par === 5)
 }
 
 /** Round-map marker category — the display vocabulary the map uses, distinct
@@ -52,6 +58,45 @@ export function getShotMarkerCategory(
 export function startCategory(distanceYards: number, teeShot: boolean): ShotCategory {
   if (distanceYards <= NEAR_GREEN_YARDS) return 'around_green'
   return teeShot ? 'off_tee' : 'approach'
+}
+
+/** Expected strokes to hole out from a ball `distanceYards` from the pin, off
+ *  the green: the category from the distance, the baseline read at whole yards. */
+export function expectedFromBall(
+  distanceYards: number,
+  teeShot: boolean,
+  handicap: number,
+): number | null {
+  return getExpectedStrokes(startCategory(distanceYards, teeShot), Math.round(distanceYards), undefined, handicap)
+}
+
+export interface BallReadout {
+  /** Straight line from the ball to the pin; null with no pin. */
+  yards: number | null
+  /** Set for a putt: the readout shows feet. */
+  puttFt: number | null
+  expected: number | null
+}
+
+/**
+ * The map's top readout: how far the ball is from the pin and the expected
+ * strokes to hole out from there. A putt reads in feet: its saved putt length,
+ * else the map distance (yards × 3). Null when there is nothing to show.
+ */
+export function ballReadout(args: {
+  toPinYards: number | null
+  putt: boolean
+  savedPuttFt: number | null
+  teeShot: boolean
+  handicap: number
+}): BallReadout | null {
+  const { toPinYards: yards, putt, savedPuttFt, teeShot, handicap } = args
+  const puttFt = putt ? savedPuttFt ?? (yards == null ? null : yards * 3) : null
+  if (puttFt != null) {
+    return { yards, puttFt, expected: getExpectedStrokes('putting', undefined, puttFt, handicap) }
+  }
+  if (yards == null) return null
+  return { yards, puttFt: null, expected: expectedFromBall(yards, teeShot, handicap) }
 }
 
 export function getExpectedStrokes(

@@ -1,9 +1,9 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  getExpectedStrokes,
+  ballReadout,
   greenApproach,
+  isTeeLineShot,
   paceLines,
-  startCategory,
   haversineYards,
   type ShotMarkerCategory,
 } from '@oga/core'
@@ -265,7 +265,8 @@ export function MapView({
 
   // Hole block hero (§19.2): To the pin from the SELECTED shot's start (the
   // stepper's shot in review, the last placed ball while logging), and the
-  // expected strokes to hole out from there. A putt reads in feet.
+  // expected strokes to hole out from there. A putt reads in feet: its saved
+  // length, else the map distance.
   const par = activeHoleGeo?.par ?? null
   const heroStart = selected
     ? { lat: selected.startLat!, lng: selected.startLng! }
@@ -274,22 +275,23 @@ export function MapView({
     heroStart && effectivePin
       ? haversineYards(heroStart.lat, heroStart.lng, effectivePin.lat, effectivePin.lng)
       : null
-  const heroTee =
-    (par === 4 || par === 5) &&
-    (selected ? selected.shotNumber === 1 : placedPoints.length === 1 && existingShots.length === 0)
-  const heroFeet = selected?.category === 'putt' && heroYards != null ? heroYards * 3 : null
+  const hero = ballReadout({
+    toPinYards: heroYards,
+    putt: selected?.category === 'putt',
+    savedPuttFt: selected?.savedPuttFt ?? null,
+    teeShot: isTeeLineShot(
+      par,
+      selected ? selected.shotNumber === 1 : placedPoints.length === 1 && existingShots.length === 0,
+    ),
+    handicap,
+  })
   const heroDistance =
-    heroFeet != null
-      ? splitDisplay(toDisplayFt(heroFeet))
-      : heroYards == null
+    hero?.puttFt != null
+      ? splitDisplay(toDisplayFt(hero.puttFt))
+      : hero?.yards == null
         ? null
-        : splitDisplay(toDisplay(heroYards, 1))
-  const expected =
-    heroFeet != null
-      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
-      : heroYards == null
-        ? null
-        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
+        : splitDisplay(toDisplay(hero.yards, 1))
+  const expected = hero?.expected ?? null
   const score = holeScore?.score ?? 0
   const result: HoleResult =
     score > 0

@@ -222,3 +222,18 @@ export function aimPlateSpot(ball: GeoPoint, aim: GeoPoint, ringShortYards: numb
   const back = Math.min(leg * 0.75, Math.max(leg * 0.5, short + PLATE_CLEAR_YARDS))
   return destinationYards(aim, bearingDegrees(aim.lat, aim.lng, ball.lat, ball.lng), back)
 }
+
+// Half-width of the tee box: ~4 yd either side of the tee shot is a real teeing ground.
+const TEE_BOX_HALF_YARDS = 4
+
+/**
+ * The tee box's two dots: 4 yd either side of where the tee shot was played
+ * from, square to the line of play toward `toward` (north with none).
+ */
+export function teeBoxDots(origin: GeoPoint, toward: GeoPoint | null): [GeoPoint, GeoPoint] {
+  const heading = toward ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng) : 0
+  return [
+    destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
+    destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
+  ]
+}

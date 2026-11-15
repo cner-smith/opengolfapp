@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
 import {
+  aimStrokesGained,
   arcGeoJSON,
-  bearingDegrees,
-  calculateShotSG,
   circleGeoJSON,
-  destinationYards,
   fanPlates,
   formatClubLabel,
-  getExpectedStrokes,
+  isTeeLineShot,
   placeCallout,
   plateBox,
   plateWidth,
   shortClubLabel,
   type PlateSide,
-  startCategory,
   haversineYards,
-  NEAR_GREEN_YARDS,
   scatterGeoJSON,
+  teeBoxDots,
 } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
@@ -105,11 +102,6 @@ const placedLineSourceId = 'placed-line'
 // shot trajectory lines stay amber so aim (intent) reads distinct from the
 // path actually taken.
 const AIM_COLOR = '#FBF8F1'
-
-// Half-width of the tee box: each dot sits this far either side of the tee
-// shot, perpendicular to the line of play. ~4 yd ≈ a real teeing ground.
-// Mirrors the mobile redesign (PastRoundMap TEE_BOX_HALF_YARDS).
-const TEE_BOX_HALF_YARDS = 4
 
 // A single shot's aim: where the player stood (`start`) and where they
 // aimed (`aim`), both as [lng, lat]. The latest aimed shot gets the full
@@ -211,11 +203,7 @@ export function useMapLayers({
           ? { lat: teeShot.aimLat, lng: teeShot.aimLng }
           : null) ??
         effectivePin
-      const heading = teeToward
-        ? bearingDegrees(teeOrigin.lat, teeOrigin.lng, teeToward.lat, teeToward.lng)
-        : 0
-      for (const sign of [-90, 90]) {
-        const p = destinationYards(teeOrigin, heading + sign, TEE_BOX_HALF_YARDS)
+      for (const p of teeBoxDots(teeOrigin, teeToward)) {
         const marker = new mapboxgl.Marker({ element: makeTeeDotMarker() })
           .setLngLat([p.lng, p.lat])
           .addTo(map)
@@ -635,33 +623,18 @@ export function useMapLayers({
       AIM_COLOR,
     )
     if (planSeg) {
-      // Best-case SG of advancing ball→aim toward the pin: expected(start→pin)
-      // − expected(aim→pin) − 1 (calculateShotSG), as the aim pill's sublabel.
-      // Distance-band category (no polygons): within NEAR_GREEN_YARDS →
-      // around_green (GRN), else approach (FWY). HONEST: value of reaching the
-      // aim if struck clean, not dispersion-weighted. Needs a pin + baseline.
+      // The aim pill's sublabel: strokes gained by reaching the aim if struck
+      // clean (aimStrokesGained). Needs a pin.
       let sgSublabel: string | undefined
       let sgTone: 'pos' | 'neg' = 'pos'
       if (pinLngLat) {
-        const startToPin = haversineYards(
-          planSeg.start[1],
-          planSeg.start[0],
-          pinLngLat[1],
-          pinLngLat[0],
-        )
-        const aimToPin = haversineYards(
-          planSeg.aim[1],
-          planSeg.aim[0],
-          pinLngLat[1],
-          pinLngLat[0],
-        )
-        // The tee shot of a par 4/5 starts from Broadie's tee line (#998).
-        const startCat = startCategory(startToPin, planSeg.first && (par === 4 || par === 5))
-        const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
-        const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
-        const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)
-        if (expected != null && targetExpected != null) {
-          const sg = calculateShotSG(expected, targetExpected)
+        const sg = aimStrokesGained({
+          startYards: haversineYards(planSeg.start[1], planSeg.start[0], pinLngLat[1], pinLngLat[0]),
+          aimToPinYards: haversineYards(planSeg.aim[1], planSeg.aim[0], pinLngLat[1], pinLngLat[0]),
+          teeShot: isTeeLineShot(par, planSeg.first),
+          handicap,
+        })
+        if (sg != null) {
           sgTone = sg < 0 ? 'neg' : 'pos'
           sgSublabel = `${sg >= 0 ? '+' : '−'}${Math.abs(sg).toFixed(1)}`
         }
