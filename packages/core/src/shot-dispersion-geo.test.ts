@@ -6,6 +6,7 @@ import {
   destinationYards,
   aimPlateSpot,
   scatterGeoJSON,
+  holeTeeBox,
   teeBoxDots,
 } from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
@@ -229,5 +230,52 @@ describe('teeBoxDots', () => {
   })
   it('faces north with nothing to face', () => {
     expect(teeBoxDots(ORIGIN, null)).toEqual(teeBoxDots(ORIGIN, { lat: 41, lng: -75 }))
+  })
+})
+
+describe('holeTeeBox: one rule on every map (#1483)', () => {
+  // Hand-worked: from ORIGIN, a dot pair square to a line heading north sits due west then
+  // due east (same latitude); square to a line heading east, due north then due south
+  // (same longitude). 4 yd from the start either way.
+  const NORTH = destinationYards(ORIGIN, 0, 250)
+  const EAST = destinationYards(ORIGIN, 90, 250)
+  const SPOT2 = destinationYards(ORIGIN, 0, 230)
+  const COURSE_TEE = destinationYards(ORIGIN, 180, 30)
+  const near = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    haversineYards(a.lat, a.lng, b.lat, b.lng)
+  const squareToNorth = (box: ReturnType<typeof holeTeeBox>, at: { lat: number; lng: number }) => {
+    const [a, b] = box!
+    expect(near(at, a)).toBeCloseTo(4, 3)
+    expect(a.lat).toBeCloseTo(at.lat, 6)
+    expect(b.lat).toBeCloseTo(at.lat, 6)
+    expect(a.lng).toBeLessThan(at.lng)
+    expect(b.lng).toBeGreaterThan(at.lng)
+  }
+  const squareToEast = (box: ReturnType<typeof holeTeeBox>, at: { lat: number; lng: number }) => {
+    const [a, b] = box!
+    expect(near(at, a)).toBeCloseTo(4, 3)
+    expect(a.lng).toBeCloseTo(at.lng, 6)
+    expect(a.lat).toBeGreaterThan(at.lat)
+    expect(b.lat).toBeLessThan(at.lat)
+  }
+
+  it("shot 1 recorded: the next shot being placed neither moves nor turns it", () => {
+    // Shot 1 from ORIGIN aimed north; shot 2 is being placed 230 yd up, aimed east.
+    squareToNorth(holeTeeBox({ start: ORIGIN, aim: NORTH }, { start: SPOT2, aim: EAST }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('shot 1 recorded without an aim: square to the pin', () => {
+    squareToEast(holeTeeBox({ start: ORIGIN, aim: null }, { start: SPOT2, aim: NORTH }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('nothing recorded yet: the shot being placed is shot 1 (its start, its aim, else the pin)', () => {
+    squareToNorth(holeTeeBox(null, { start: ORIGIN, aim: NORTH }, COURSE_TEE, EAST), ORIGIN)
+    squareToEast(holeTeeBox(null, { start: ORIGIN, aim: null }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('no shot at all: the course tee, square to the pin; nothing to stand on, no box', () => {
+    const pin = destinationYards(COURSE_TEE, 90, 300)
+    squareToEast(holeTeeBox(null, null, COURSE_TEE, pin), COURSE_TEE)
+    expect(holeTeeBox(null, null, null, pin)).toBeNull()
   })
 })

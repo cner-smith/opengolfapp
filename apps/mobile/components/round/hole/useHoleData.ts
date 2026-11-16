@@ -79,11 +79,12 @@ type CachedRoundData = {
   holeTees: HoleTeeRow[]
 }
 
-// The shot columns the hole screen reads (the select below).
+// The shot columns the hole screen reads (the select below). The aim is
+// optional: offline caches written before #1483 lack it.
 type LiteShot = Pick<
   Database['public']['Tables']['shots']['Row'],
   'id' | 'club' | 'lie_type' | 'shot_number' | 'start_lat' | 'start_lng' | 'ob' | 'putt_result' | 'putt_distance_ft'
->
+> & Partial<Pick<Database['public']['Tables']['shots']['Row'], 'aim_lat' | 'aim_lng'>>
 
 function payloadOf(row: PendingShot): ShotPayload | null {
   try {
@@ -416,7 +417,7 @@ export function useHoleData(
         const fetchShots = () =>
           supabase
             .from('shots')
-            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result, putt_distance_ft')
+            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result, putt_distance_ft, aim_lat, aim_lng')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
         // Signed in from the stored session (#1005): with this hole cached,
@@ -549,6 +550,8 @@ export function useHoleData(
         ob: p.ob ?? false,
         putt_result: p.putt_result ?? null,
         putt_distance_ft: p.putt_distance_ft ?? null,
+        aim_lat: p.aim_lat ?? null,
+        aim_lng: p.aim_lng ?? null,
       }]
     })
     void writeCache(offlineKeys.holeShots(userId, id, hsId), [...remote.rows, ...queued])

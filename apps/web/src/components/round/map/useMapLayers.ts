@@ -14,7 +14,7 @@ import {
   type PlateSide,
   haversineYards,
   scatterGeoJSON,
-  teeBoxDots,
+  holeTeeBox,
 } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
@@ -185,30 +185,25 @@ export function useMapLayers({
     calloutRef.current?.remove()
     calloutRef.current = null
 
-    // Tee box — two understated dots flanking the tee shot, perpendicular to
-    // the line of play (mirrors the mobile redesign; no draggable tee). Origin
-    // is the first shot's start, falling back to the stored course tee; the
-    // line of play points at that shot's aim, then the pin.
+    // Tee box — two understated dots flanking the tee shot (no draggable
+    // tee). Core holeTeeBox, the same rule as mobile (#1483): the saved shot 1
+    // wins; a placed point is shot 1 only while nothing is saved (a hole saved
+    // from mobile has no end coords, so taps place shot 2+ here).
     const teeShot = [...existingShots]
       .filter((s) => s.startLat != null && s.startLng != null)
       .sort((a, b) => a.shotNumber - b.shotNumber)[0]
-    const teeOrigin: PlacedPoint | null =
-      placedPoints[0] ??
-      (teeShot ? { lat: teeShot.startLat!, lng: teeShot.startLng! } : null) ??
-      effectiveTee
-    if (teeOrigin) {
-      const teeToward: PlacedPoint | null =
-        placedAims?.[0] ??
-        (teeShot && teeShot.aimLat != null && teeShot.aimLng != null
-          ? { lat: teeShot.aimLat, lng: teeShot.aimLng }
-          : null) ??
-        effectivePin
-      for (const p of teeBoxDots(teeOrigin, teeToward)) {
-        const marker = new mapboxgl.Marker({ element: makeTeeDotMarker() })
-          .setLngLat([p.lng, p.lat])
-          .addTo(map)
-        markerRefs.current.push(marker)
-      }
+    const savedShot1 = teeShot
+      ? {
+          start: { lat: teeShot.startLat!, lng: teeShot.startLng! },
+          aim: teeShot.aimLat != null && teeShot.aimLng != null ? { lat: teeShot.aimLat, lng: teeShot.aimLng } : null,
+        }
+      : null
+    const placing = placedPoints[0] ? { start: placedPoints[0], aim: placedAims?.[0] ?? null } : null
+    for (const p of holeTeeBox(savedShot1, placing, effectiveTee, effectivePin) ?? []) {
+      const marker = new mapboxgl.Marker({ element: makeTeeDotMarker() })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map)
+      markerRefs.current.push(marker)
     }
 
     // Pin marker — draggable when a parent handler is wired in.

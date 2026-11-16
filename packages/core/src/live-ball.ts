@@ -99,6 +99,9 @@ export interface LiveShotRow {
   putt_result: string | null
   /** Optional: offline caches written before it was read lack it. */
   putt_distance_ft?: number | null
+  /** Optional: offline caches written before #1483 lack them. */
+  aim_lat?: number | null
+  aim_lng?: number | null
 }
 
 /** A shot on the live hole: where it was played from and what the round stored for it. */
@@ -109,6 +112,8 @@ export interface LiveHoleShot {
   captured: CapturedShot
   /** The putt length saved for it, if any (the map's readout shows it first). */
   puttFt: number | null
+  /** The aim saved for it (only a touched or confirmed aim is saved). */
+  aim: LatLng | null
 }
 
 export interface LiveHoleShots {
@@ -149,6 +154,8 @@ export function liveHoleShots(
       ob: p.ob ?? null,
       putt_result: p.putt_result ?? null,
       putt_distance_ft: p.putt_distance_ft ?? null,
+      aim_lat: p.aim_lat ?? null,
+      aim_lng: p.aim_lng ?? null,
     })
   }
   const shots = rows.flatMap((r): LiveHoleShot[] =>
@@ -159,6 +166,7 @@ export function liveHoleShots(
           ob: r.ob === true,
           captured: { club: r.club, lie_type: r.lie_type, putt_result: r.putt_result },
           puttFt: r.putt_distance_ft ?? null,
+          aim: r.aim_lat != null && r.aim_lng != null ? { lat: r.aim_lat, lng: r.aim_lng } : null,
         }]
       : [],
   )

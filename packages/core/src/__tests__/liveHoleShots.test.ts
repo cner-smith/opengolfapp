@@ -79,6 +79,7 @@ describe('liveHoleShots: one list of the live hole shots', () => {
       ob: false,
       captured: { club: null, lie_type: null, putt_result: null },
       puttFt: null,
+      aim: null,
     })
   })
 
@@ -144,5 +145,16 @@ describe('liveHoleShots: one list of the live hole shots', () => {
     expect(r).toEqual({ shots: [], count: 0, putts: 0, lastHoled: false, lastPutt: false })
     // No hole score yet: nothing.
     expect(liveHoleShots(null, server(row('s1', TEE)), [queued('q2', FAIRWAY)]).count).toBe(0)
+  })
+})
+
+describe('liveHoleShots: saved aims (#1483)', () => {
+  it('carries the saved aim, server or queued; a cache row from before the aim was read, or half an aim, reads null', () => {
+    const r = liveHoleShots(
+      HS,
+      server(row('s1', TEE, { aim_lat: FAIRWAY.lat, aim_lng: FAIRWAY.lng }), row('s2', FAIRWAY), row('s3', DROP, { aim_lat: 1, aim_lng: null })),
+      [queued('q4', DROP, { aim_lat: GREEN.lat, aim_lng: GREEN.lng })],
+    )
+    expect(r.shots.map((s) => s.aim)).toEqual([FAIRWAY, null, null, GREEN])
   })
 })

@@ -15,7 +15,7 @@ import {
   savedPuttFt,
   shortClubLabel,
   summarizeShotStep,
-  teeBoxDots,
+  holeTeeBox,
   type DistanceUnit,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -306,13 +306,12 @@ export function PastRoundMap({
     [placed],
   )
 
-  // Tee box = two dots flanking the tee shot, perpendicular to the line of
-  // play. ALWAYS derived from the first placed shot's start (where the player
-  // actually teed off) — the stored course tee is consulted ONLY as a last
-  // resort when no first shot exists yet. Oriented toward that shot's aim, then pin.
+  // Tee box: core holeTeeBox, the same rule as the live round and web (#1483).
+  // `placed[0]` is shot 1 (saved or a draft); the course tee only before it has a start.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin = placed[0]?.start ?? tee
-    return origin ? teeBoxDots(origin, placed[0]?.aim ?? effectivePin) : null
+    const first = placed[0]
+    const shot1 = first?.start ? { start: first.start, aim: first.aim ?? null } : null
+    return holeTeeBox(shot1, null, tee, effectivePin)
   }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot

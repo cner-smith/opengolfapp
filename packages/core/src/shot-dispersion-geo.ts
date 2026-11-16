@@ -237,3 +237,26 @@ export function teeBoxDots(origin: GeoPoint, toward: GeoPoint | null): [GeoPoint
     destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
   ]
 }
+
+/** A hole's first shot as the tee box reads it: where it was played from, and its aim. */
+export interface TeeShot {
+  start: GeoPoint
+  aim: GeoPoint | null
+}
+
+/**
+ * The tee box, one rule for every map (#1483): the two dots flank shot 1's start, square
+ * to shot 1's line (its aim, else the pin). `shot1` is the hole's recorded first shot;
+ * `placing` is the shot being placed now, which is shot 1 only when none is recorded, so
+ * a later shot never moves or turns the box. With neither, the course tee.
+ */
+export function holeTeeBox(
+  shot1: TeeShot | null,
+  placing: TeeShot | null,
+  courseTee: GeoPoint | null,
+  pin: GeoPoint | null,
+): [GeoPoint, GeoPoint] | null {
+  const first = shot1 ?? placing
+  const origin = first?.start ?? courseTee
+  return origin ? teeBoxDots(origin, first?.aim ?? pin) : null
+}

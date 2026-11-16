@@ -13,7 +13,7 @@ import {
   insertedShotStart,
   isPuttShot,
   isTeeLineShot,
-  teeBoxDots,
+  holeTeeBox,
   type CaptureMode,
 } from '@oga/core'
 import { getProfile } from '@oga/supabase'
@@ -258,24 +258,20 @@ export default function LiveRoundSession({
     finalState.ball?.lng,
   ])
 
-  // Two-dot tee box flanking the tee, oriented down the line of play (toward the
-  // aim, else the pin). The marker ALWAYS derives from where the player actually
-  // teed off — the FIRST shot's start — never the surveyed holes.tee_lat (real
-  // tee boxes move daily; the stored coord lies about where you hit from).
-  // While placing shot 1 that's the live ball as you drag it, so the marker
-  // tracks it reactively. After shot 1, `data.tee` is the SAVED first-shot
-  // start (= previousShots[0]). The stored course tee inside `data.tee` is
-  // consulted ONLY as a last resort — before any first shot exists — so the
-  // hole isn't marker-less on entry.
+  // Tee box: core holeTeeBox, the same rule as web and the past-round map
+  // (#1483). Shot 1 is the saved first shot; before it is saved, the ball and
+  // aim being placed (shotNumber 1). `data.tee` is the stored course tee until
+  // a first shot exists, never the surveyed tee once one does.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin =
-      (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
-    if (!origin) return null
-    return teeBoxDots(origin, finalState.aim ?? data.roundPin ?? data.storedPin)
+    const placing = data.shotNumber === 1 && finalState.ball
+      ? { start: finalState.ball, aim: finalState.aim }
+      : null
+    return holeTeeBox(data.shots[0] ?? null, placing, data.tee, data.roundPin ?? data.storedPin)
   }, [
     data.tee?.lat,
     data.tee?.lng,
     data.shotNumber,
+    data.shots,
     finalState.ball?.lat,
     finalState.ball?.lng,
     finalState.aim?.lat,
