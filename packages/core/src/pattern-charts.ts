@@ -1,6 +1,6 @@
 import { clubNoun, type ShotShape, type ShotStartLine } from './constants'
 import { startLineAngleDeg, teeBreakYards, type FlightPoint } from './shot-flight'
-import { distanceUnitAbbr } from './shot-pattern-words'
+import { NOT_RECORDED, distanceUnitAbbr, type ColourBy } from './shot-pattern-words'
 import { shapeTally, startLineTally, type DispersionPoint, type DispersionStats } from './shot-patterns'
 import type { DistanceUnit } from './types'
 
@@ -244,6 +244,45 @@ export function typicalFlight(
     startLine: fixed.startLine ?? named(startLineTally([...points], leftHanded).verdict),
     shape: fixed.shape ?? named(shapeTally([...points], leftHanded).verdict),
   }
+}
+
+/** What a coloured group's typical flight keeps as its own: a start-line
+ *  group its start line, a shape group its shape. The "not recorded" group and
+ *  the other colourings keep nothing, so their verdicts decide. */
+export function typicalFlightFixed(colourBy: ColourBy, key: string): { startLine?: ShotStartLine; shape?: ShotShape } {
+  if (key === NOT_RECORDED) return {}
+  if (colourBy === 'start') return { startLine: key as ShotStartLine }
+  if (colourBy === 'shape') return { shape: key as ShotShape }
+  return {}
+}
+
+/** A dot a tap can pick on a chart; `older` = a pencil dot under Latest. */
+export interface PickableDot {
+  id: string
+  x: number
+  y: number
+  older?: boolean
+}
+
+/**
+ * The dot a tap at (x, y) picks: the nearest within `radius`, but a latest
+ * dot within reach always beats an older (pencil) one, so an older shot under
+ * the pattern never takes a latest shot's tap (the web stacks the latest dots
+ * on top for the same reason). Null when nothing is within reach.
+ */
+export function pickDot<T extends PickableDot>(dots: readonly T[], x: number, y: number, radius: number): T | null {
+  let best: T | null = null
+  let bestD = Infinity
+  for (const d of dots) {
+    const dist = Math.hypot(d.x - x, d.y - y)
+    if (dist > radius) continue
+    const beats = best == null || (best.older && !d.older) || (!!best.older === !!d.older && dist <= bestD)
+    if (beats) {
+      best = d
+      bestD = dist
+    }
+  }
+  return best
 }
 
 /** The widest gap note shows past this many display units (yards or metres). */
