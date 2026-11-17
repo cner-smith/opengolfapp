@@ -481,8 +481,12 @@ export function useMapLayers({
     // pair of consecutive line coords for both existing and placed lines
     // so the player can see each shot's distance at a glance.
     // Saved legs carry no pills: the callout reads the selected one.
+    // The last shot's leg to the pin carries no pill once it has an aim: its
+    // "to aim" and "left to the pin" pills read it instead, as on mobile.
+    const lastAimed = placedAims?.[placedPoints.length - 1] != null
     for (const coords of [placedCoords]) {
       for (let i = 0; i < coords.length - 1; i++) {
+        if (lastAimed && effectivePin && i === coords.length - 2) continue
         const a = coords[i]!
         const b = coords[i + 1]!
         const yards = Math.round(haversineYards(a[1], a[0], b[1], b[0]))
