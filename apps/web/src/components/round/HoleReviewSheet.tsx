@@ -8,6 +8,7 @@ import {
   haversineYards,
   horizontalBreakFromAim,
   reviewRowsAfterEdit,
+  reviewedPuttLengthFt,
   seedReviewTally,
   withReplayLies,
   type Club,
@@ -403,8 +404,8 @@ function AimerOverlay({
   onChange: (next: ReviewedShotRow) => void
   onClose: () => void
 }) {
-  // 0 = no pin known (#660): no length to show.
-  const distanceFt = row.distanceToPin > 0 ? row.distanceToPin * 3 : null
+  // The length Save writes; null with no pin known (#660).
+  const distanceFt = reviewedPuttLengthFt(row)
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,

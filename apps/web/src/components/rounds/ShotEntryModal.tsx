@@ -8,6 +8,7 @@ import {
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
+  savedPuttFt,
   horizontalBreakFromAim,
   isPuttShot,
   projectShotMove,
@@ -272,11 +273,12 @@ export function ShotEntryModal({
   const nextShot: ShotRow | 'new' | null = !editingRow ? null : holeShots[idx + 1] ?? 'new'
   const mapped =
     editingRow?.start_lat != null && editingRow.start_lng != null && pinLat != null && pinLng != null
+  const puttFt = editingRow ? savedPuttFt(editingRow) : null
   const toPin = !editingRow
     ? `par ${holePar}`
     : isPuttShot(editingRow.lie_type)
-      ? editingRow.putt_distance_ft != null
-        ? `${formatPuttDistance(editingRow.putt_distance_ft, units.unit)} to the pin`
+      ? puttFt != null
+        ? `${formatPuttDistance(puttFt, units.unit)} to the pin`
         : null
       : editingRow.distance_to_target != null
         ? `${formatDistance(editingRow.distance_to_target, units.unit)} to the pin`

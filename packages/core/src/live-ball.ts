@@ -109,9 +109,8 @@ export interface LiveHoleShot {
   id: string
   start: LatLng
   ob: boolean
+  /** What the round stored for it, its saved putt length included (the map's readout and the review show it first). */
   captured: CapturedShot
-  /** The putt length saved for it, if any (the map's readout shows it first). */
-  puttFt: number | null
   /** The aim saved for it (only a touched or confirmed aim is saved). */
   aim: LatLng | null
 }
@@ -164,8 +163,12 @@ export function liveHoleShots(
           id: r.id,
           start: { lat: r.start_lat, lng: r.start_lng },
           ob: r.ob === true,
-          captured: { club: r.club, lie_type: r.lie_type, putt_result: r.putt_result },
-          puttFt: r.putt_distance_ft ?? null,
+          captured: {
+            club: r.club,
+            lie_type: r.lie_type,
+            putt_result: r.putt_result,
+            putt_distance_ft: r.putt_distance_ft ?? null,
+          },
           aim: r.aim_lat != null && r.aim_lng != null ? { lat: r.aim_lat, lng: r.aim_lng } : null,
         }]
       : [],

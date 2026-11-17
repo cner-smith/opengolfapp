@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ballReadout,
+  shotLegReadout,
   greenApproach,
   isTeeLineShot,
   paceLines,
@@ -298,15 +299,21 @@ export function MapView({
       ? { scored: true, score, toPar: par != null ? score - par : null, putts: holeScore?.putts ?? null }
       : { scored: false, shots: placedPoints.length }
 
-  // Leg length of each saved shot: its start to the next start, or the pin.
+  // Leg length of each saved shot: its start to the next start, or the pin
+  // (a putt's leg to the pin is its saved length first, core shotLegReadout).
   const legOf = (i: number): string | null => {
     const s = steps[i]
     if (!s) return null
     const nx = steps[i + 1]
     const end = nx ? { lat: nx.startLat!, lng: nx.startLng! } : effectivePin
     if (!end) return null
-    const yd = haversineYards(s.startLat!, s.startLng!, end.lat, end.lng)
-    return s.category === 'putt' ? toDisplayFt(yd * 3) : toDisplay(yd, 1)
+    const leg = shotLegReadout({
+      legYards: haversineYards(s.startLat!, s.startLng!, end.lat, end.lng),
+      toPin: !nx,
+      putt: s.category === 'putt',
+      savedPuttFt: s.savedPuttFt ?? null,
+    })
+    return leg.puttFt != null ? toDisplayFt(leg.puttFt) : toDisplay(leg.yards, 1)
   }
 
   // Front and back are set by the approach (core greenApproach): the newest

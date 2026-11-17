@@ -14,6 +14,7 @@ import {
   resolveHole,
   savedPuttFt,
   shortClubLabel,
+  shotLegReadout,
   summarizeShotStep,
   holeTeeBox,
   type DistanceUnit,
@@ -736,18 +737,22 @@ export function PastRoundMap({
   const legEnd = aimLeg ?? nextStart ?? effectivePin
   const club = activeShotRow?.club ? formatClubLabel({ club_type: activeShotRow.club }) : null
   const legTo = aimLeg ? 'aim' : nextStart ? `to shot ${(active?.shotNumber ?? 0) + 1}` : 'to the pin'
-  // The callout sits on the hero's shot (active has a start), so a putt's leg
-  // to the pin is the hero's putt length.
-  const legFeet = isPuttShot(activeShotRow?.lie_type ?? null) && active?.start && legEnd
-    ? (legTo === 'to the pin' && heroFeet != null) ? heroFeet : distanceYards(active.start, legEnd) * 3
+  // A putt's leg to the pin is its putt length: saved first (core shotLegReadout).
+  const leg = active?.start && legEnd
+    ? shotLegReadout({
+        legYards: distanceYards(active.start, legEnd),
+        toPin: legTo === 'to the pin',
+        putt: isPuttShot(activeShotRow?.lie_type ?? null),
+        savedPuttFt: activeShotRow ? savedPuttFt(activeShotRow) : null,
+      })
     : null
   const callout =
-    active?.start && legEnd
+    leg
       ? {
           ...splitDisplay(
-            legFeet != null
-              ? formatPuttDistance(legFeet, unit)
-              : formatDistance(distanceYards(active.start, legEnd), unit, 1),
+            leg.puttFt != null
+              ? formatPuttDistance(leg.puttFt, unit)
+              : formatDistance(leg.yards, unit, 1),
           ),
           sub: club ? `${club} · ${legTo}` : legTo,
         }

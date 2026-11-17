@@ -25,6 +25,7 @@ import {
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
+  savedPuttFt,
   isPuttShot,
   shotRowToDraft,
   summarizeShotParts,
@@ -281,6 +282,7 @@ function ShotRowView({
   onPress: () => void
 }) {
   const isPutt = isPuttShot(shot.lie_type)
+  const puttFt = savedPuttFt(shot)
   const clubLabel = isPutt
     ? 'Putt'
     : shot.club
@@ -290,7 +292,7 @@ function ShotRowView({
   const sub = isPutt
     ? [
         // formatPuttDistance: metres mode read "6 ft" here.
-        shot.putt_distance_ft != null ? formatPuttDistance(shot.putt_distance_ft, unit) : null,
+        puttFt != null ? formatPuttDistance(puttFt, unit) : null,
         shot.putt_result === 'made'
           ? 'Made'
           : [shot.putt_distance_result, shot.putt_direction_result]
@@ -417,9 +419,10 @@ function EditShotSheet({
   const nextShot =
     idx >= 0 && idx < allShots.length - 1 ? allShots[idx + 1]! : null
 
+  const puttFt = isPuttShot(shot.lie_type) ? savedPuttFt(shot) : null
   const toPin =
-    isPuttShot(shot.lie_type) && shot.putt_distance_ft != null
-      ? `${formatPuttDistance(shot.putt_distance_ft, unit)} to the hole`
+    puttFt != null
+      ? `${formatPuttDistance(puttFt, unit)} to the hole`
       : shot.distance_to_target != null
         ? `${formatDistance(shot.distance_to_target, unit)} to the pin`
         : null
