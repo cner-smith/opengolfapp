@@ -28,7 +28,7 @@ import {
 import { useUnits } from '../../../hooks/useUnits'
 import { GreenView } from '../../../components/round/green/GreenView'
 import { useGreenMap, type GreenViewMode } from '../../../components/round/green/useGreenMap'
-import { useClubDispersion } from '../hooks/useClubDispersion'
+import type { UseClubDispersionResult } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -51,8 +51,10 @@ const FEET_PER_YARD = 3
 
 interface MapViewProps {
   holes: HoleRow[]
-  /** Current user id — feeds the dispersion-dots overlay's club history. */
+  /** Current user id — keys the green-view preference. */
   userId: string | undefined
+  /** Picks the dispersion-dots overlay's club (the page's useClubDispersion). */
+  selectClub: UseClubDispersionResult['selectClub']
   /** Player handicap index — calibrates the live expected-strokes / SG HUD. */
   handicap: number
   activeHoleNumber: number
@@ -126,6 +128,7 @@ function splitDisplay(s: string): { value: string; unit: string } {
 export function MapView({
   holes,
   userId,
+  selectClub,
   handicap,
   activeHoleNumber,
   onSwitchHole,
@@ -188,7 +191,6 @@ export function MapView({
   // Pattern key (Phase C dots + the overlay). Off by default so a reviewed
   // hole reads as clean as mobile's; on, it shows the arc/circle and dots.
   const [dotsVisible, setDotsVisible] = useState(false)
-  const { selectClub } = useClubDispersion(userId)
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )

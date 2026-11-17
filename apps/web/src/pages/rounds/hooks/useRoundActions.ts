@@ -4,7 +4,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
 import {
+  autoAimPoint,
   DEFAULT_HANDICAP,
+  haversineYards,
   inferHoleStats,
   isPuttShot,
   obCount,
@@ -25,12 +27,6 @@ import type { HoleViewAction } from '../state/holeViewReducer'
 import type { UseRoundDataResult } from './useRoundData'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
-
-// Fraction of the start→pin line where a live-round shot's aim auto-spawns.
-// Mirrors the mobile redesign (useHoleState `AIM_AUTOSPAWN_FRACTION`) so the
-// aim line + aim/remaining readouts appear the moment a shot is placed —
-// no extra tap. Past-round entry keeps the explicit "Set an aim point?" prompt.
-const AIM_AUTOSPAWN_FRACTION = 0.65
 
 // Last drag-edit on a saved shot. Surfaces the Undo button on the
 // bottom chrome for 5s after every drag, then clears itself.
@@ -64,6 +60,9 @@ interface UseRoundActionsInput {
   captureMode: CaptureMode
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** The club the map picks for a start→pin distance (useClubDispersion); its
+   *  typical distance caps the auto-spawned aim, as on mobile. */
+  selectClub: (distanceToTargetYards: number | null) => { medianDistanceYards: number | null } | null
   placedAims: (PlacedPoint | null)[]
   /** Parallel to placedAims — true while an aim is still the auto-spawned
    *  suggestion. Auto/untouched aims are NOT persisted on save. */
@@ -121,6 +120,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     captureMode,
     pinOverride,
     teeOverride,
+    selectClub,
     placedAims,
     placedAimAuto,
     shotDragUndo,
@@ -224,8 +224,8 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
 
   // Push a placed shot, then either auto-spawn its aim (live entry) or
   // prompt the player to set it (past-round review). The aim seeds on the
-  // straight start→pin line so the aim path + aim/remaining render
-  // immediately. SET_AIM targets the slot PUSH_POINT just appended
+  // start→pin line (core autoAimPoint, capped by the picked club as on mobile)
+  // so the aim path + aim/remaining render immediately. SET_AIM targets the slot PUSH_POINT just appended
   // (`placedAims.length` before the push), so it always lands on the new
   // shot. Every placement flows through here now — a near-green shot is no
   // longer special-cased; its putt-ness is decided at the end-of-hole review.
@@ -237,13 +237,12 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // end-of-hole review still infers putts and lets the player fill
         // club/lie/result; aim is simply never prompted or spawned.
       } else if (isLiveEntry && effectivePin) {
+        // The auto pick always has 5+ shots, so its typical distance is its median.
+        const club = selectClub(haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng))
         dispatchHoleView({
           type: 'SET_AIM',
           index: placedAims.length,
-          point: {
-            lat: p.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - p.lat),
-            lng: p.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - p.lng),
-          },
+          point: autoAimPoint(p, effectivePin, club?.medianDistanceYards ?? null),
           // Visual suggestion only — flagged auto so it isn't persisted unless
           // the player drags/sets it (keeps inferred aims out of dispersion).
           auto: true,
@@ -252,7 +251,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         setAimPromptOpen(true)
       }
     },
-    [isLiveEntry, captureMode, effectivePin, placedAims.length, dispatchHoleView, setAimPromptOpen],
+    [isLiveEntry, captureMode, effectivePin, selectClub, placedAims.length, dispatchHoleView, setAimPromptOpen],
   )
 
   const placeHandlers = {

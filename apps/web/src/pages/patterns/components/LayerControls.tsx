@@ -179,7 +179,7 @@ export function ColourByControl({ value, onChange, compact }: { value: ColourBy;
                 cursor: 'pointer',
               }}
             >
-              {compact ? o.short : o.label}
+              {o.label}
             </button>
           )
         })}
