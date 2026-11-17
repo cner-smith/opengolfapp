@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aimGrid, bracketLabelAt, clubLadderNotes, ringBracket, teeAxis, teeBreakFor, teeView, typicalFlight, type TeePlotBox } from './pattern-charts'
+import { aimGrid, bracketLabelAt, clubLadderNotes, pickDot, ringBracket, teeAxis, teeBreakFor, teeView, typicalFlight, typicalFlightFixed, type TeePlotBox } from './pattern-charts'
 import type { ShotShape, ShotStartLine } from './constants'
 import { cubic } from './shot-flight'
 import { computeDispersionStats, ringExtent, type DispersionPoint } from './shot-patterns'
@@ -294,6 +294,51 @@ describe('typicalFlight', () => {
     const five = [1, 2, 3, 4, 5].map((i) => shot(i, 0, 'push', 'fade'))
     expect(typicalFlight(five, 150, false, { startLine: 'pull' })).toMatchObject({ startLine: 'pull', shape: 'fade' })
     expect(typicalFlight(five, 150, false, { shape: 'hook' })).toMatchObject({ startLine: 'push', shape: 'hook' })
+  })
+})
+
+describe('typicalFlightFixed', () => {
+  it('a start-line or shape group keeps its own value', () => {
+    expect(typicalFlightFixed('start', 'push')).toEqual({ startLine: 'push' })
+    expect(typicalFlightFixed('shape', 'fade')).toEqual({ shape: 'fade' })
+  })
+
+  it('the "not recorded" group keeps nothing, so its verdicts decide', () => {
+    expect(typicalFlightFixed('start', 'none')).toEqual({})
+    expect(typicalFlightFixed('shape', 'none')).toEqual({})
+  })
+
+  it('contact and no colouring keep nothing', () => {
+    expect(typicalFlightFixed('contact', 'thin')).toEqual({})
+    expect(typicalFlightFixed('none', 'none')).toEqual({})
+  })
+})
+
+describe('pickDot', () => {
+  const dot = (id: string, x: number, y: number, older?: boolean) => ({ id, x, y, older })
+
+  it('picks the nearest dot within reach, none out of reach', () => {
+    const dots = [dot('a', 0, 0), dot('b', 10, 0)]
+    // the tap at x 6 is 6 from a, 4 from b
+    expect(pickDot(dots, 6, 0, 24)!.id).toBe('b')
+    // 30 from a, 20 from b: b is in reach (24)
+    expect(pickDot(dots, 30, 0, 24)!.id).toBe('b')
+    // 25 from b, out of reach
+    expect(pickDot(dots, 35, 0, 24)).toBeNull()
+  })
+
+  it('a latest dot in reach beats a nearer older one', () => {
+    // the tap is 2 from the older dot and 10 from the latest
+    const dots = [dot('latest', 10, 0), dot('old', -2, 0, true)]
+    expect(pickDot(dots, 0, 0, 24)!.id).toBe('latest')
+    // listed the other way round, the same
+    expect(pickDot([...dots].reverse(), 0, 0, 24)!.id).toBe('latest')
+  })
+
+  it('an older dot answers when no latest dot is in reach', () => {
+    // latest 30 away (out of reach), older 3 away
+    const dots = [dot('latest', 30, 0), dot('old', 3, 0, true), dot('old2', 8, 0, true)]
+    expect(pickDot(dots, 0, 0, 24)!.id).toBe('old')
   })
 })
 

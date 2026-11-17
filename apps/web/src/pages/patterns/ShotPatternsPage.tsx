@@ -143,7 +143,10 @@ export function ShotPatternsPage() {
     : filtered && data?.allStats
       ? { stats: data.allStats, label: 'all lies' }
       : null
-  const kinds = useMemo(() => new Map(teeGeometry(points, leftHanded).shots.map((s) => [s.p.id, s.kind])), [points, leftHanded])
+  const kinds = useMemo(() => {
+    const g = teeGeometry(points, leftHanded, older)
+    return new Map([...g.shots, ...g.olderShots].map((s) => [s.p.id, s.kind]))
+  }, [points, older, leftHanded])
   const teeShots = mostlyTeeShots(points)
 
   const slopes = [lieSlopeForward, lieSlopeSide].filter(Boolean).map((v) => v!.replace(/_/g, ' '))

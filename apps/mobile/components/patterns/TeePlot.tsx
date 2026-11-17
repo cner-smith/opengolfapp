@@ -3,7 +3,6 @@ import { Text, View } from 'react-native'
 import { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg'
 import { Easing, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import {
-  NOT_RECORDED,
   averageAimDistance,
   cubic,
   flightControls,
@@ -12,10 +11,9 @@ import {
   teeAxis,
   teeView,
   typicalFlight,
+  typicalFlightFixed,
   type DispersionRing,
   type FlightPoint,
-  type ShotShape,
-  type ShotStartLine,
 } from '@oga/core'
 import { FONT, TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
@@ -114,8 +112,7 @@ export function TeePlot(props: ChartProps) {
     : groupBy(shown)
         .filter(([key]) => key !== OLDER)
         .flatMap(([key, items]) => {
-          const fixed = key === NOT_RECORDED ? {} : props.colourBy === 'start' ? { startLine: key as ShotStartLine } : props.colourBy === 'shape' ? { shape: key as ShotShape } : {}
-          const t = typicalFlight(items.map((d) => d.p), avgAim, leftHanded, fixed)
+          const t = typicalFlight(items.map((d) => d.p), avgAim, leftHanded, typicalFlightFixed(props.colourBy, key))
           if (!t) return []
           const c = flightControls(S0, t.end, t.startLine, t.shape, leftHanded)
           const cat = props.categories.get(key)
@@ -135,7 +132,7 @@ export function TeePlot(props: ChartProps) {
       width={width}
       height={TH}
       summary={props.summary}
-      pickable={layers.shots || layers.flights ? shown.map((d) => ({ id: d.p.id, x: d.dx, y: d.dy })) : []}
+      pickable={layers.shots || layers.flights ? shown.map((d) => ({ id: d.p.id, x: d.dx, y: d.dy, older: d.s.key === OLDER })) : []}
       hot={hot}
       onHot={onHot}
       readout={hotD ? shotWords(hotD.p, props.extras[hotD.p.id], unit, hotD.c.kind) : null}

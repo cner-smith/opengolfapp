@@ -367,12 +367,25 @@ export function Dot({ x, y, s, hot, dense, nav, label, delay }: {
   )
 }
 
-/** Older shots behind a recent pattern: pencil, not part of the reading. */
-export function OlderDots({ dots }: { dots: { x: number; y: number }[] }) {
+/** Older shots behind a recent pattern: pencil, not part of the reading, but
+ *  each one a shot, so a tap or hover opens its readout (as in the app). Drawn
+ *  before the latest dots, whose hit circles sit on top: where the two overlap
+ *  the latest dot takes the tap (core pickDot is the app's rule). Without
+ *  `nav` (the shots are hidden) they don't respond. */
+export function OlderDots({ dots, shown, nav, label }: {
+  dots: { id: string; x: number; y: number }[]
+  shown: string | null
+  nav: ReturnType<typeof useShotNav>['dotProps'] | null
+  label: (id: string) => string
+}) {
   return (
-    <g aria-hidden style={{ pointerEvents: 'none' }}>
-      {dots.map((d, i) => (
-        <circle key={i} cx={d.x} cy={d.y} r={2.2} fill={MUTE} fillOpacity={0.45} />
+    <g style={{ pointerEvents: nav ? undefined : 'none' }} aria-hidden={!nav || undefined}>
+      {dots.map((d) => (
+        <g key={d.id} {...(nav ? { ...nav(d.id), role: 'button', 'aria-label': label(d.id) } : {})} className="pat-dot">
+          <circle cx={d.x} cy={d.y} r={10} fill="transparent" />
+          <circle cx={d.x} cy={d.y} r={2.2} fill={MUTE} fillOpacity={0.45} style={{ pointerEvents: 'none' }} />
+          {shown === d.id && <circle cx={d.x} cy={d.y} r={6.2} fill="none" stroke={INK} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />}
+        </g>
       ))}
     </g>
   )

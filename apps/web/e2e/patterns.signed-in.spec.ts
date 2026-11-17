@@ -106,6 +106,36 @@ test.describe('Shot patterns (signed in)', () => {
     const b = await box(page, label)
     expect(b.width).toBeGreaterThan(0)
   })
+
+  test('under Latest an older pencil dot opens its own readout', async ({ page }) => {
+    await page.goto('/patterns')
+    const driver = page.getByRole('radiogroup', { name: 'Club' }).getByRole('radio', { name: /^driver,/i })
+    await driver.click()
+    await expect(page.locator('svg.pat-chart [data-shot]').first()).toBeAttached()
+    await page.getByRole('radio', { name: /^Latest \d+$/ }).click()
+    // An older dot (pencil) that no latest dot covers: the hit test at its
+    // centre lands outside every latest dot.
+    const at = await page.locator('svg.pat-chart').evaluate((svg) => {
+      for (const c of svg.querySelectorAll('circle[r="2.2"][fill-opacity="0.45"]')) {
+        const b = c.getBoundingClientRect()
+        const p = { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+        if (!document.elementFromPoint(p.x, p.y)?.closest('[data-shot]')?.querySelector('.pat-pop')) return p
+      }
+      return null
+    })
+    expect(at, 'an older dot clear of the latest ones').not.toBeNull()
+    await expect(page.getByRole('link', { name: 'Open round' })).toHaveCount(0)
+    await page.mouse.click(at!.x, at!.y)
+    // The readout opens, for the older shot (no latest mark in the chosen shot).
+    await expect(page.getByRole('link', { name: 'Open round' })).toHaveCount(1)
+    const chosen = await page.evaluate(() => {
+      const d = document.activeElement?.closest('[data-shot]')
+      return d ? { older: !d.querySelector('.pat-pop'), label: d.getAttribute('aria-label') } : null
+    })
+    expect(chosen?.older).toBe(true)
+    const first = chosen!.label!.split('. ')[0]!
+    await expect(page.locator('svg.pat-chart text', { hasText: first }).first()).toBeAttached()
+  })
 })
 
 test.describe('Shot patterns on a touch screen (signed in)', () => {

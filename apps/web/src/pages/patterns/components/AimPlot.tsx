@@ -109,7 +109,8 @@ export function AimPlot(props: ChartProps) {
   }
   if (stats && layers.average) lAvg = placeNear(avg.x, avg.y, 'average', 12, dots, taken, bounds)
 
-  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) : null
+  const olderAt = older.map((p) => ({ p, x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))
+  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) ?? olderAt.find((d) => d.p.id === nav.shown) : null
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
   const tick = (v: number) => String(Math.abs(v))
 
@@ -174,7 +175,12 @@ export function AimPlot(props: ChartProps) {
         </g>
       )}
 
-      <OlderDots dots={older.map((p) => ({ x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))} />
+      <OlderDots
+        dots={olderAt.map((d) => ({ id: d.p.id, x: d.x, y: d.y }))}
+        shown={nav.shown}
+        nav={layers.shots ? nav.dotProps : null}
+        label={(id) => shotWords(olderAt.find((d) => d.p.id === id)!.p, extras[id], unit, kinds.get(id)).join('. ')}
+      />
       <g style={fade(layers.shots)} aria-hidden={!layers.shots || undefined}>
         {styled.map((d, i) => (
           <Dot

@@ -2,7 +2,7 @@ import { G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
 import { aimGrid, bracketLabelAt, insideRing, ringBracket, shotWords, wholeDistance, type DispersionRing } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { LEFT, RULE, RULE_MAJOR, isDense, stepsBack, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
+import { LEFT, RULE, RULE_MAJOR, OLDER, isDense, stepsBack, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, PencilRing, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 
@@ -63,7 +63,7 @@ export function AimPlot(props: ChartProps) {
       width={width}
       height={h}
       summary={props.summary}
-      pickable={visible.map((d) => ({ id: d.p.id, x: d.x, y: d.y }))}
+      pickable={visible.map((d) => ({ id: d.p.id, x: d.x, y: d.y, older: d.s.key === OLDER }))}
       hot={hot}
       onHot={onHot}
       readout={hotD ? shotWords(hotD.p, props.extras[hotD.p.id], unit, props.kinds.get(hotD.p.id)) : null}

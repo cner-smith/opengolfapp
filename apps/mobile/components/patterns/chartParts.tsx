@@ -17,6 +17,8 @@ import {
   marksDuration,
   marksPath,
   pencilEllipse,
+  pickDot,
+  type PickableDot,
   type ColourBy,
   type DispersionPoint,
   type DispersionStats,
@@ -445,18 +447,12 @@ export function groupBy<T extends { s: MarkStyle }>(items: T[]) {
 
 /* ------------------------------------------------------ touch + readout */
 
-export interface Pickable {
-  id: string
-  x: number
-  y: number
-}
-
 /** The plot's touch layer, the readout and the screen-reader summary. */
 export function ChartFrame({ width, height, summary, pickable, hot, onHot, readout, roundId, onOpenRound, bounds, children }: {
   width: number
   height: number
   summary: string
-  pickable: Pickable[]
+  pickable: PickableDot[]
   hot: string | null
   onHot: (id: string | null) => void
   readout: string[] | null
@@ -471,15 +467,7 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
   const hotP = hot ? pickable.find((d) => d.id === hot) : null
   const pick = (e: GestureResponderEvent) => {
     const { locationX: x, locationY: y } = e.nativeEvent
-    let best: Pickable | null = null
-    let bestD = PICK_DP
-    for (const d of pickable) {
-      const dist = Math.hypot(d.x - x, d.y - y)
-      if (dist <= bestD) {
-        best = d
-        bestD = dist
-      }
-    }
+    const best = pickDot(pickable, x, y, PICK_DP)
     if (best && best.id !== hot) haptic('tick')
     onHot(best && best.id !== hot ? best.id : null)
   }
