@@ -70,6 +70,34 @@ export function expectedFromBall(
   return getExpectedStrokes(startCategory(distanceYards, teeShot), Math.round(distanceYards), undefined, handicap)
 }
 
+/**
+ * A putt's length in feet: its saved length (shots.putt_distance_ft, see
+ * savedPuttFt), else the map distance from its start to the pin. The saved
+ * length wins because GPS can't tell putts a few feet apart (owner Q1,
+ * 2026-11-15). Null when neither is known.
+ */
+export function puttLengthFt(savedFt: number | null, toPinYards: number | null): number | null {
+  return savedFt ?? (toPinYards == null ? null : toPinYards * 3)
+}
+
+/**
+ * A saved shot's leg on the map (its start to the next start, or to the pin
+ * for the last shot), as the shot list and the map callout show it. A putt
+ * reads in feet; its leg to the pin is its putt length, so the saved length
+ * wins there. A putt's leg to the next shot is how far the ball rolled, which
+ * only the map knows.
+ */
+export function shotLegReadout(args: {
+  legYards: number
+  toPin: boolean
+  putt: boolean
+  savedPuttFt: number | null
+}): { yards: number; puttFt: number | null } {
+  const { legYards, toPin, putt, savedPuttFt } = args
+  if (!putt) return { yards: legYards, puttFt: null }
+  return { yards: legYards, puttFt: toPin ? puttLengthFt(savedPuttFt, legYards)! : legYards * 3 }
+}
+
 export interface BallReadout {
   /** Straight line from the ball to the pin; null with no pin. */
   yards: number | null
@@ -91,7 +119,7 @@ export function ballReadout(args: {
   handicap: number
 }): BallReadout | null {
   const { toPinYards: yards, putt, savedPuttFt, teeShot, handicap } = args
-  const puttFt = putt ? savedPuttFt ?? (yards == null ? null : yards * 3) : null
+  const puttFt = putt ? puttLengthFt(savedPuttFt, yards) : null
   if (puttFt != null) {
     return { yards, puttFt, expected: getExpectedStrokes('putting', undefined, puttFt, handicap) }
   }

@@ -77,8 +77,7 @@ describe('liveHoleShots: one list of the live hole shots', () => {
       id: 'q3',
       start: DROP,
       ob: false,
-      captured: { club: null, lie_type: null, putt_result: null },
-      puttFt: null,
+      captured: { club: null, lie_type: null, putt_result: null, putt_distance_ft: null },
       aim: null,
     })
   })
@@ -104,7 +103,7 @@ describe('liveHoleShots: one list of the live hole shots', () => {
       server(row('s1', TEE), row('s2', GREEN, { lie_type: 'green', putt_distance_ft: 18 })),
       [queued('q3', GREEN, { lie_type: 'green', putt_distance_ft: 4 })],
     )
-    expect(r.shots.map((s) => s.puttFt)).toEqual([null, 18, 4])
+    expect(r.shots.map((s) => s.captured.putt_distance_ft)).toEqual([null, 18, 4])
   })
 
   it('carries the stored club, lie and putt result per shot (#1038)', () => {
@@ -114,8 +113,8 @@ describe('liveHoleShots: one list of the live hole shots', () => {
       [queued('q2', GREEN, { club: 'putter', lie_type: 'green', putt_result: 'made' })],
     )
     expect(r.shots.map((s) => s.captured)).toEqual([
-      { club: 'driver', lie_type: null, putt_result: null },
-      { club: 'putter', lie_type: 'green', putt_result: 'made' },
+      { club: 'driver', lie_type: null, putt_result: null, putt_distance_ft: null },
+      { club: 'putter', lie_type: 'green', putt_result: 'made', putt_distance_ft: null },
     ])
   })
 

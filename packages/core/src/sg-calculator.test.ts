@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   ballReadout,
+  puttLengthFt,
+  shotLegReadout,
   calculateRoundSG,
   expectedFromBall,
   isTeeLineShot,
@@ -282,6 +284,35 @@ describe('expectedFromBall', () => {
   it('reads around-green inside 30 yd, tee shot or not', () => {
     // AROUND_GREEN[15][20] = 2.97
     expect(expectedFromBall(20, true, 15)).toBeCloseTo(2.97, 6)
+  })
+})
+
+// #1481 / owner Q1: a putt reads its saved length first, the map only when none is saved.
+describe('puttLengthFt', () => {
+  it('saved length first, else the map distance in feet, else nothing', () => {
+    expect(puttLengthFt(8, 29 / 3)).toBe(8)
+    expect(puttLengthFt(null, 29 / 3)).toBeCloseTo(29, 9)
+    expect(puttLengthFt(0, 10)).toBe(0)
+    expect(puttLengthFt(null, null)).toBeNull()
+    expect(puttLengthFt(8, null)).toBe(8)
+  })
+})
+
+describe('shotLegReadout', () => {
+  it("a putt's leg to the pin is its saved length", () => {
+    expect(shotLegReadout({ legYards: 29 / 3, toPin: true, putt: true, savedPuttFt: 8 })).toEqual({ yards: 29 / 3, puttFt: 8 })
+  })
+
+  it("with none saved, a putt's leg to the pin is the map distance in feet", () => {
+    expect(shotLegReadout({ legYards: 10, toPin: true, putt: true, savedPuttFt: null })).toEqual({ yards: 10, puttFt: 30 })
+  })
+
+  it("a putt's leg to the next shot is how far it rolled, whatever its saved length", () => {
+    expect(shotLegReadout({ legYards: 2, toPin: false, putt: true, savedPuttFt: 8 })).toEqual({ yards: 2, puttFt: 6 })
+  })
+
+  it('a full shot reads yards, never feet', () => {
+    expect(shotLegReadout({ legYards: 150, toPin: true, putt: false, savedPuttFt: 8 })).toEqual({ yards: 150, puttFt: null })
   })
 })
 

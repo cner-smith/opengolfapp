@@ -364,7 +364,7 @@ export default function LiveRoundSession({
     ? isPuttShot(data.shots[activeShotIdx]?.captured.lie_type ?? null)
     : finalState.roundState === 'PUTTING'
   // A putt reads its saved length first (played-hole mode); a putt being played has none yet.
-  const savedPuttFt = editMode ? data.shots[activeShotIdx]?.puttFt ?? null : null
+  const savedPuttFt = editMode ? data.shots[activeShotIdx]?.captured.putt_distance_ft ?? null : null
   const hero = useMemo(
     () => ballReadout({ toPinYards: ballToPinYards, putt: putting, savedPuttFt, teeShot, handicap }),
     [ballToPinYards, putting, savedPuttFt, teeShot, handicap],

@@ -12,6 +12,7 @@ import {
   formatClubLabel,
   isPuttEntry,
   lieSlopeLabel,
+  reviewedPuttLengthFt,
   tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -78,10 +79,9 @@ export function ShotRow({
   // Tour make-% readout (#791 step 4) — parity with mobile's putting sheet.
   // A putt's length is its distance from the hole, what the save stores and SG
   // reads (#1092, #1099). Only meaningful with a real distance (0 = no pin known).
-  const puttTourPct =
-    isPutt && row.distanceToPin > 0
-      ? tourMakePercent(row.distanceToPin * 3)
-      : null
+  // Read through reviewedPuttLengthFt, so the label is the length Save writes.
+  const puttLengthFt = isPutt ? reviewedPuttLengthFt(row) : null
+  const puttTourPct = puttLengthFt != null ? tourMakePercent(puttLengthFt) : null
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to
@@ -178,8 +178,8 @@ export function ShotRow({
           style={{ fontSize: 20, fontStyle: 'italic' }}
         >
           {isPutt
-            ? row.distanceToPin > 0
-              ? `${toDisplayFt(row.distanceToPin * 3)} putt`
+            ? puttLengthFt != null
+              ? `${toDisplayFt(puttLengthFt)} putt`
               : 'Putt'
             : toDisplay(row.distanceYards)}
         </span>

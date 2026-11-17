@@ -11,6 +11,7 @@ import {
   plateBox,
   plateWidth,
   shortClubLabel,
+  shotLegReadout,
   type PlateSide,
   haversineYards,
   scatterGeoJSON,
@@ -392,8 +393,13 @@ export function useMapLayers({
     upsertLine(map, 'selected-leg', selAt && legEnd ? [selAt, legEnd] : [], '#FBF8F1')
     let callout: CalloutParts | null = null
     if (selAt && legEnd) {
-      const yards = haversineYards(selAt[1], selAt[0], legEnd[1], legEnd[0])
-      const [value, unit] = splitDisplay(sel!.category === 'putt' ? toDisplayFt(yards * 3) : toDisplay(yards, 1))
+      const leg = shotLegReadout({
+        legYards: haversineYards(selAt[1], selAt[0], legEnd[1], legEnd[0]),
+        toPin: !next,
+        putt: sel!.category === 'putt',
+        savedPuttFt: sel!.savedPuttFt ?? null,
+      })
+      const [value, unit] = splitDisplay(leg.puttFt != null ? toDisplayFt(leg.puttFt) : toDisplay(leg.yards, 1))
       const to = next ? `to shot ${sel!.shotNumber + 1}` : 'to the pin'
       callout = makeCallout(value, unit, sel!.club ? `${formatClubLabel({ club_type: sel!.club })} · ${to}` : to)
       map.getContainer().appendChild(callout.el)

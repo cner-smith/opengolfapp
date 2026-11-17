@@ -772,14 +772,18 @@ export interface CapturedShot {
   club: string | null
   lie_type: string | null
   putt_result: string | null
+  /** The putt length the round saved. Optional: offline caches written before it was read lack it. */
+  putt_distance_ft?: number | null
 }
 
 // buildInitialRows guesses club and lie from distance alone, and only calls a
 // shot a putt within 15 yd of the pin. Where the live round stored the
 // player's own answer it wins — today that is a putt logged with "On the
-// green": putter, green lie, and whether it dropped. The live round stores
-// nothing else about a putt (no miss direction, no green read), so there is
-// nothing more to carry. Without this a putt over 45 ft
+// green": putter, green lie, whether it dropped and its saved length. The
+// saved length is the review's chosen length, so the sheet shows it and Save
+// keeps it instead of writing the start → pin distance over it (#1481). The
+// live round stores nothing else about a putt (no miss direction, no green
+// read), so there is nothing more to carry. Without this a putt over 45 ft
 // came back as a wedge and the review save overwrote it (#1038). `captured`
 // is aligned to `rows` by index.
 export function applyCapturedShots(
@@ -797,6 +801,7 @@ export function applyCapturedShots(
     // The stored result, not the "last putt was holed" guess.
     if (isPuttEntry(next.lieType, next.club)) {
       next.puttMade = c.putt_result === 'made' ? true : undefined
+      if (c.putt_distance_ft != null) next.puttLengthFt = c.putt_distance_ft
     }
     return next
   })
