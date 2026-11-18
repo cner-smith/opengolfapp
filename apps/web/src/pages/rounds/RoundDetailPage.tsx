@@ -465,6 +465,7 @@ export function RoundDetailPage() {
               shotId,
             })
           }}
+          reviewOpen={reviewOpen}
           reviewSheet={
             activeHole ? (
               <>

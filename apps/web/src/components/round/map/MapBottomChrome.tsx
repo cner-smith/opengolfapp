@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useUnits } from '../../../hooks/useUnits'
 
 interface MapBottomChromeProps {
@@ -283,5 +284,165 @@ export function MapBottomChrome({
         </div>
       )}
     </div>
+  )
+}
+
+// Phone width (owner pick A, #1489): the app's footer. One voice line, with
+// a trailing key where mobile has one, over a single row of keys, in the
+// paper foot under the map. No Clear key: the app has none; Undo repeats.
+// Every state is as tall as the review's stepper and keys (61 + 47), so the
+// map never resizes under a fitted hole.
+const footStyle = { minHeight: 108, display: 'flex' as const, flexDirection: 'column' as const, justifyContent: 'center' as const }
+const voiceStyle = {
+  display: 'flex' as const,
+  alignItems: 'center' as const,
+  gap: 10,
+  minHeight: 61,
+  padding: '6px 2px 4px 4px',
+  fontSize: 14,
+  lineHeight: '18px',
+  color: '#1C211C',
+}
+const emStyle = { ...kickerStyle, fontSize: 17, marginBottom: 0 }
+const rowKey = { fontWeight: 400, fontSize: 14, flex: 1, minWidth: 0, padding: '0 6px', whiteSpace: 'nowrap' as const }
+const smallKey = { fontWeight: 400, fontSize: 14, minWidth: 76, padding: '0 12px', flexShrink: 0 }
+
+function Voice({ children, trailing }: { children: ReactNode; trailing?: ReactNode }) {
+  return (
+    <div style={voiceStyle}>
+      <span style={{ flex: 1, minWidth: 0 }}>{children}</span>
+      {trailing}
+    </div>
+  )
+}
+
+type PhoneFootProps = MapBottomChromeProps & { lastHasAim: boolean }
+
+export function PhoneFoot(p: PhoneFootProps) {
+  return (
+    <div style={footStyle}>
+      <FootBody {...p} />
+    </div>
+  )
+}
+
+function FootBody({
+  hasExistingShots,
+  editing,
+  shotsPlaced,
+  aimMode = false,
+  lastHasAim,
+  placementMode = null,
+  shotDragUndoLabel = null,
+  onApplyShotDragUndo,
+  onCancelPlacement,
+  onToggleAimMode,
+  onClearLastAim,
+  onUndo,
+  onDone,
+  onDoneEditing,
+}: PhoneFootProps) {
+  if (placementMode) {
+    return (
+      <Voice
+        trailing={
+          onCancelPlacement && (
+            <button type="button" className="key" onClick={onCancelPlacement} style={smallKey}>
+              Cancel
+            </button>
+          )
+        }
+      >
+        <span style={emStyle}>Where’s the {placementMode === 'tee' ? 'tee' : 'flag'}?</span> Tap it on the map.
+      </Voice>
+    )
+  }
+  if (editing) {
+    return (
+      <>
+        <Voice>
+          <span style={emStyle}>Edit on map.</span> Drag any marker to move it.
+        </Voice>
+        <div style={buttonRowStyle}>
+          <button type="button" onClick={onDoneEditing} className="key key-primary" style={{ ...rowKey, fontWeight: 600 }}>
+            Done editing
+          </button>
+        </div>
+      </>
+    )
+  }
+  if (hasExistingShots) {
+    return (
+      <Voice
+        trailing={
+          shotDragUndoLabel &&
+          onApplyShotDragUndo && (
+            <button type="button" className="key" onClick={onApplyShotDragUndo} style={smallKey}>
+              Undo
+            </button>
+          )
+        }
+      >
+        {shotDragUndoLabel ? (
+          `${shotDragUndoLabel} updated.`
+        ) : (
+          <>
+            <span style={emStyle}>Logged hole.</span> Drag any marker to move it.
+          </>
+        )}
+      </Voice>
+    )
+  }
+  return (
+    <>
+      {aimMode ? (
+        <Voice
+          trailing={
+            lastHasAim &&
+            onClearLastAim && (
+              <button
+                type="button"
+                className="key"
+                onClick={() => {
+                  onClearLastAim()
+                  onToggleAimMode?.(false)
+                }}
+                style={smallKey}
+              >
+                Clear aim
+              </button>
+            )
+          }
+        >
+          <span style={emStyle}>Tap your start line</span> for shot {shotsPlaced}.
+        </Voice>
+      ) : (
+        <Voice>
+          <span style={emStyle}>Tap where you hit shot {shotsPlaced + 1} from.</span>
+          {shotsPlaced === 0 && ' Start at the tee box.'}
+        </Voice>
+      )}
+      {shotsPlaced > 0 && (
+        <div style={{ display: 'flex', gap: 8, paddingBottom: 3 }}>
+          {onToggleAimMode && (
+            <button
+              type="button"
+              className="key"
+              aria-pressed={aimMode}
+              onClick={() => onToggleAimMode(!aimMode)}
+              style={{ ...rowKey, flex: 1.25 }}
+            >
+              {aimMode ? 'Cancel' : lastHasAim ? 'Move aim' : 'Set aim'}
+            </button>
+          )}
+          <button type="button" className="key" onClick={onUndo} style={rowKey}>
+            Undo
+          </button>
+          <button type="button" className="key key-primary" onClick={onDone} style={{ ...rowKey, fontWeight: 600, flex: 1.5 }}>
+            Finish hole
+          </button>
+        </div>
+      )}
+    </>
   )
 }

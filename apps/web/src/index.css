@@ -637,3 +637,13 @@ dialog.pat-dialog::backdrop {
     transform: translateY(var(--nf-from, 6px));
   }
 }
+
+/* Phone round map (#1489): Mapbox's logo and (i) sit in the map's top
+   corners, as in the app, so the bottom corners hold the map keys. */
+@media (max-width: 1023.98px) {
+  [data-map-area] .mapboxgl-ctrl-bottom-left,
+  [data-map-area] .mapboxgl-ctrl-bottom-right {
+    top: 0;
+    bottom: auto;
+  }
+}
