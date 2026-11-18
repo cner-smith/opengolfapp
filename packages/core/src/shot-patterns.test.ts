@@ -3,6 +3,7 @@ import {
   aimRelativeOffsets,
   clubDistanceRange,
   clubTypicalDistance,
+  pickClub,
   computeAimRelativeDispersion,
   computeDispersion,
   aimAdvice,
@@ -916,5 +917,29 @@ describe('patternRowToShot', () => {
     const points = computeDispersion([patternRowToShot({ ...base, lie_slope: 'uphill' })])
     expect(filterDispersionByLie(points, { lieSlopeForward: 'uphill' })).toHaveLength(1)
     expect(filterDispersionByLie(points, { lieSlopeSide: 'ball_above' })).toHaveLength(0)
+  })
+})
+
+describe('pickClub', () => {
+  const bag = [
+    { club: 'driver' as const, medianDistanceYards: 226 },
+    { club: '7i' as const, medianDistanceYards: 150 },
+    { club: 'pw' as const, medianDistanceYards: 110 },
+    { club: 'putter' as const, medianDistanceYards: 12 },
+  ]
+  it('picks the club whose typical distance is closest', () => {
+    expect(pickClub(bag, 140)?.club).toBe('7i')
+  })
+  it('never picks the putter, even on the green', () => {
+    expect(pickClub(bag, 10)?.club).toBe('pw')
+  })
+  it('picks the longest club when there is no distance', () => {
+    expect(pickClub(bag, null)?.club).toBe('driver')
+  })
+  it('only picks among the given clubs', () => {
+    expect(pickClub(bag, 220, new Set(['7i', 'pw'] as const))?.club).toBe('7i')
+  })
+  it('is null with nothing but a putter', () => {
+    expect(pickClub([bag[3]!], 10)).toBeNull()
   })
 })
