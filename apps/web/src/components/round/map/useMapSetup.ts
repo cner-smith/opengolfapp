@@ -39,6 +39,18 @@ export interface UseMapSetupResult {
   userPlacedRef: React.MutableRefObject<boolean>
 }
 
+/** Frame padding that keeps the tee clear of the bottom chrome (keys + card),
+ *  so the start sits above the controls, as on mobile. */
+function holePadding(map: mapboxgl.Map): mapboxgl.PaddingOptions {
+  // ponytail: one round map per page, so the first chrome found is ours.
+  const chrome = document.querySelector('[data-map-chrome]')
+  const mapRect = map.getContainer().getBoundingClientRect()
+  const covered = chrome ? mapRect.bottom - chrome.getBoundingClientRect().top : 0
+  // Capped so a short map still leaves room to fit the hole (fitBounds bails otherwise).
+  const bottom = Math.min(Math.max(80, covered + 40), mapRect.height - 200)
+  return { top: 80, bottom: Math.max(80, bottom), left: 90, right: 90 }
+}
+
 export function useMapSetup({
   containerRef,
   cameraTarget,
@@ -114,7 +126,7 @@ export function useMapSetup({
     // course-centroid / OKC targets. Snap on the first paint, animate after.
     if (!initialPositionDoneRef.current) {
       if (effectiveTee && effectivePin) {
-        fitHoleUpward(map, effectiveTee, effectivePin, { animate: false })
+        fitHoleUpward(map, effectiveTee, effectivePin, { animate: false, padding: holePadding(map) })
       } else {
         map.jumpTo({ center: cameraTarget.center, zoom: cameraTarget.zoom })
       }
@@ -126,7 +138,7 @@ export function useMapSetup({
       return
     }
     if (effectiveTee && effectivePin) {
-      fitHoleUpward(map, effectiveTee, effectivePin, { animate: true })
+      fitHoleUpward(map, effectiveTee, effectivePin, { animate: true, padding: holePadding(map) })
     } else {
       map.flyTo({
         center: cameraTarget.center,

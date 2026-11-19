@@ -48,6 +48,22 @@ export const Glyph = {
       <path d="M9 3 V15 M3 9 H15" stroke={P.ink} strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   ),
+  green: () => (
+    <svg width="24" height="20" viewBox="0 0 24 20" aria-hidden>
+      <path
+        d="M5 6.5 C7 2.5 16 1.5 19.5 4.5 C22.5 7.5 20 13.5 15 16 C10 18.5 3.5 16.5 2.8 12 C2.4 9.8 3.8 8.4 5 6.5 Z"
+        fill="none"
+        stroke={P.ink}
+        strokeWidth="1.3"
+      />
+    </svg>
+  ),
+  flag: () => (
+    <svg width="20" height="22" viewBox="0 0 20 22" aria-hidden>
+      <path d="M5 2 V20" stroke={P.ink} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M5.8 2.5 H16 L13 6.5 L16 10.5 H5.8 Z" fill={P.neg} />
+    </svg>
+  ),
   // The Pattern key's dot ring (mobile Icon.pattern): a scatter in an ellipse.
   pattern: () => (
     <svg width="24" height="20" viewBox="0 0 24 20" aria-hidden>
@@ -435,14 +451,7 @@ export function GreenKey({ active, onToggle, bottom }: { active: boolean; onTogg
         fontWeight: active ? 600 : 400,
       }}
     >
-      <svg width="24" height="20" viewBox="0 0 24 20" aria-hidden>
-        <path
-          d="M5 6.5 C7 2.5 16 1.5 19.5 4.5 C22.5 7.5 20 13.5 15 16 C10 18.5 3.5 16.5 2.8 12 C2.4 9.8 3.8 8.4 5 6.5 Z"
-          fill="none"
-          stroke={P.ink}
-          strokeWidth="1.3"
-        />
-      </svg>
+      {Glyph.green()}
       Green
     </button>
   )
@@ -540,6 +549,129 @@ export function OverlayRail({
         value={mode}
         onChange={onSetMode}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Phone map keys (owner pick A, #1489): the app's layout. Small square keys
+// stack up the map's bottom-left; the Aim width tile sits bottom-right and
+// opens Tee|Appr and the widths above itself, as mobile's drawer.
+// ---------------------------------------------------------------------------
+
+const glassFace = { '--key-face': 'rgba(251,248,241,.86)' } as CSSProperties
+
+export function MapKeyStack({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-map-chrome
+      style={{ position: 'absolute', left: 12, bottom: 14, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function SquareKey({
+  label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string
+  pressed?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className="key"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+      style={{ ...glassFace, width: 46, height: 46, minHeight: 46, padding: 0 }}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function AimWidthTile({
+  mode,
+  onSetMode,
+  values,
+  unit,
+  index,
+  onSelect,
+}: {
+  mode: 'tee' | 'appr'
+  onSetMode: (m: 'tee' | 'appr') => void
+  values: readonly number[]
+  unit: string
+  index: number
+  onSelect: (i: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const label = mode === 'tee' ? 'Aim width' : 'Aim circle'
+  return (
+    <div
+      data-map-chrome
+      style={{ position: 'absolute', right: 12, bottom: 14, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}
+    >
+      {open && (
+        <div
+          role="group"
+          aria-label={label}
+          style={{ background: P.raised, border: `1px solid ${P.ink}`, borderRadius: 3, padding: 6, display: 'flex', flexDirection: 'column', gap: 6, width: 112 }}
+        >
+          <Rocker
+            label="Overlay"
+            options={[
+              { value: 'tee', label: 'Tee' },
+              { value: 'appr', label: 'Appr' },
+            ]}
+            value={mode}
+            onChange={onSetMode}
+          />
+          {values.map((v, i) => {
+            const on = i === index
+            return (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={on}
+                onClick={() => {
+                  onSelect(i)
+                  setOpen(false)
+                }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: on ? 36 : 30, border: 'none', background: 'transparent', color: P.ink, cursor: 'pointer' }}
+              >
+                {on && (
+                  <svg width="8" height="12" viewBox="0 0 10 14" aria-hidden>
+                    <path d="M0 0 L10 7 L0 14 Z" fill={P.ink} />
+                  </svg>
+                )}
+                <span style={on ? { ...serif, fontSize: 24 } : { fontFamily: 'var(--caddie-mono)', fontWeight: 500, fontSize: 14 }}>{v}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <button
+        type="button"
+        className="key"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{ ...glassFace, width: 96, height: 56, padding: 0, flexDirection: 'column', gap: 0 }}
+      >
+        <span style={{ ...body, fontSize: 11 }}>{label}</span>
+        <span style={{ ...serif, fontSize: 24, lineHeight: '28px' }}>
+          {values[index]}
+          <span style={{ ...body, fontSize: 12 }}> {unit}</span>
+        </span>
+      </button>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import {
   coneRingGeoJSON,
   destinationYards,
   aimPlateSpot,
+  autoAimPoint,
   scatterGeoJSON,
   holeTeeBox,
   teeBoxDots,
@@ -277,5 +278,54 @@ describe('holeTeeBox: one rule on every map (#1483)', () => {
     const pin = destinationYards(COURSE_TEE, 90, 300)
     squareToEast(holeTeeBox(null, null, COURSE_TEE, pin), COURSE_TEE)
     expect(holeTeeBox(null, null, null, pin)).toBeNull()
+  })
+})
+
+describe('autoAimPoint', () => {
+  // Pin due north of the start by 0.004° of latitude. Along a meridian the
+  // haversine distance is R·Δφ: 6,371,000 m × 0.004 × π/180 = 444.780 m
+  // = 444.780 / 0.9144 = 486.417 yd. Two thirds up (0.65) is 316.2 yd.
+  const START = { lat: 40, lng: -75 }
+  const PIN = { lat: 40.004, lng: -75 }
+
+  it('no known club: 0.65 of the way to the pin', () => {
+    // 40 + 0.65 × 0.004 = 40.0026
+    const aim = autoAimPoint(START, PIN, null)
+    expect(aim.lat).toBeCloseTo(40.0026, 9)
+    expect(aim.lng).toBe(-75)
+  })
+
+  it('a club shorter than two thirds of the hole: the aim stops at its typical distance', () => {
+    // 200 / 486.417 = 0.411170 of the way: 40 + 0.004 × 0.411170 = 40.0016447
+    const aim = autoAimPoint(START, PIN, 200)
+    expect(aim.lat).toBeCloseTo(40.0016447, 7)
+    expect(aim.lng).toBe(-75)
+    expect(haversineYards(START.lat, START.lng, aim.lat, aim.lng)).toBeCloseTo(200, 6)
+  })
+
+  it('a club that reaches past two thirds: still 0.65, never at or past the pin', () => {
+    expect(autoAimPoint(START, PIN, 400).lat).toBeCloseTo(40.0026, 9)
+    expect(autoAimPoint(START, PIN, 600).lat).toBeCloseTo(40.0026, 9)
+  })
+
+  it('a 0 yd club counts as unknown: 0.65', () => {
+    expect(autoAimPoint(START, PIN, 0).lat).toBeCloseTo(40.0026, 9)
+  })
+
+  it('off a meridian, both coordinates move by the same fraction', () => {
+    // Uncapped: start + 0.65 × (0.003, 0.004) = (40.00195, -74.9974)
+    const pin = { lat: 40.003, lng: -74.996 }
+    const aim = autoAimPoint(START, pin, null)
+    expect(aim.lat).toBeCloseTo(40.00195, 9)
+    expect(aim.lng).toBeCloseTo(-74.9974, 9)
+    // Capped: the aim sits 100 yd from the start, on the start→pin line (to
+    // a thousandth of a yard: the step is linear in lat/lng, not great-circle).
+    const capped = autoAimPoint(START, pin, 100)
+    expect(haversineYards(START.lat, START.lng, capped.lat, capped.lng)).toBeCloseTo(100, 2)
+    expect((capped.lat - 40) / 0.003).toBeCloseTo((capped.lng + 75) / 0.004, 9)
+  })
+
+  it('standing on the pin: the aim is the pin', () => {
+    expect(autoAimPoint(PIN, PIN, 150)).toEqual(PIN)
   })
 })

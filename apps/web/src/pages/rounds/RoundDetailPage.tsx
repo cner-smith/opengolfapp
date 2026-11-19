@@ -34,6 +34,7 @@ import {
 } from './state/holeViewReducer'
 import { useRoundData, type RoundRow } from './hooks/useRoundData'
 import { useRoundActions, type ShotDragUndo } from './hooks/useRoundActions'
+import { useClubDispersion } from './hooks/useClubDispersion'
 import { RoundHeader } from './components/RoundHeader'
 import { ScorecardView } from './components/ScorecardView'
 import { MapView } from './components/MapView'
@@ -151,6 +152,8 @@ export function RoundDetailPage() {
   // A finished round is never live, whatever the URL says (#1230).
   const isLiveEntry = urlLiveEntry && !(round.data && isFinishedRound(round.data))
 
+  // One shot-history load: the map's dots and the auto aim's cap share the club pick.
+  const { selectClub } = useClubDispersion(user?.id)
   const actions = useRoundActions({
     roundId,
     user,
@@ -160,6 +163,7 @@ export function RoundDetailPage() {
     captureMode: (round.data?.capture_mode ?? 'track_patterns') as CaptureMode,
     pinOverride,
     teeOverride,
+    selectClub,
     placedAims,
     placedAimAuto,
     shotDragUndo,
@@ -414,6 +418,7 @@ export function RoundDetailPage() {
         <MapView
           holes={holes}
           userId={user?.id}
+          selectClub={selectClub}
           handicap={profile.data?.handicap_index ?? DEFAULT_HANDICAP}
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
@@ -460,6 +465,7 @@ export function RoundDetailPage() {
               shotId,
             })
           }}
+          reviewOpen={reviewOpen}
           reviewSheet={
             activeHole ? (
               <>

@@ -1,4 +1,5 @@
 import type {
+  Club,
   LieSlope,
   LieSlopeForward,
   LieSlopeSide,
@@ -624,6 +625,29 @@ export function clubTypicalDistance(
   }
   if (typedYards != null) return { yards: typedYards, source: 'estimate' }
   return null
+}
+
+/**
+ * The club both apps pick for a distance: the one whose median distance is
+ * closest, or the longest when there is no distance (tee shot). Never the
+ * putter. `among` narrows it further (mobile's wheel = the bag).
+ */
+export function pickClub<T extends { club: Club; medianDistanceYards: number | null }>(
+  clubs: Iterable<T>,
+  distanceYards: number | null,
+  among?: ReadonlySet<Club>,
+): T | null {
+  let best: T | null = null
+  let bestScore = Infinity
+  for (const c of clubs) {
+    if (c.club === 'putter' || (among && !among.has(c.club))) continue
+    const d = c.medianDistanceYards
+    const score = d == null ? Infinity
+      : distanceYards == null || !Number.isFinite(distanceYards) ? -d
+      : Math.abs(d - distanceYards)
+    if (best == null || score < bestScore) { best = c; bestScore = score }
+  }
+  return best
 }
 
 export interface DispersionFilter {

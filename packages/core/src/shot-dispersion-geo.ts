@@ -223,6 +223,23 @@ export function aimPlateSpot(ball: GeoPoint, aim: GeoPoint, ringShortYards: numb
   return destinationYards(aim, bearingDegrees(aim.lat, aim.lng, ball.lat, ball.lng), back)
 }
 
+// How far up the start→pin line an aim auto-spawns: two thirds up the hole, a
+// default the player then drags (refs ux-09).
+const AUTO_AIM_FRACTION = 0.65
+
+/**
+ * Where a live shot's aim auto-spawns: on the straight start→pin line,
+ * AUTO_AIM_FRACTION of the way up, but no farther than the club's typical
+ * distance (where its shots finish) when one is known, so it never asks for a
+ * shot the club can't hit (#1006). A null or 0 `clubYards` means no known club:
+ * the plain fraction. The aim stays a suggestion; only a touched aim is saved.
+ */
+export function autoAimPoint(start: GeoPoint, pin: GeoPoint, clubYards: number | null): GeoPoint {
+  const toPin = haversineYards(start.lat, start.lng, pin.lat, pin.lng)
+  const f = clubYards && toPin > 0 ? Math.min(AUTO_AIM_FRACTION, clubYards / toPin) : AUTO_AIM_FRACTION
+  return { lat: start.lat + f * (pin.lat - start.lat), lng: start.lng + f * (pin.lng - start.lng) }
+}
+
 // Half-width of the tee box: ~4 yd either side of the tee shot is a real teeing ground.
 const TEE_BOX_HALF_YARDS = 4
 

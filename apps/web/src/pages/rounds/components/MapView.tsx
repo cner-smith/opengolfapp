@@ -16,20 +16,25 @@ import {
   type PlacedPoint,
 } from '../../../components/round/RoundMap'
 import {
+  AimWidthTile,
   chromeSurface,
   FooterKeys,
+  Glyph,
   GreenKey,
   HoleBlock,
+  MapKeyStack,
   OverlayRail,
   P,
   PatternKey,
+  SquareKey,
   StepperRow,
   type HoleResult,
 } from '../../../components/round/map/PaperChrome'
+import { PhoneFoot } from '../../../components/round/map/MapBottomChrome'
 import { useUnits } from '../../../hooks/useUnits'
 import { GreenView } from '../../../components/round/green/GreenView'
 import { useGreenMap, type GreenViewMode } from '../../../components/round/green/useGreenMap'
-import { useClubDispersion } from '../hooks/useClubDispersion'
+import type { UseClubDispersionResult } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -52,8 +57,10 @@ const FEET_PER_YARD = 3
 
 interface MapViewProps {
   holes: HoleRow[]
-  /** Current user id — feeds the dispersion-dots overlay's club history. */
+  /** Current user id — keys the green-view preference. */
   userId: string | undefined
+  /** Picks the dispersion-dots overlay's club (the page's useClubDispersion). */
+  selectClub: UseClubDispersionResult['selectClub']
   /** Player handicap index — calibrates the live expected-strokes / SG HUD. */
   handicap: number
   activeHoleNumber: number
@@ -107,6 +114,8 @@ interface MapViewProps {
   shotDragUndoLabel: string | null
   onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
+  /** The review sheet covers the map; on a phone the foot's keys step aside. */
+  reviewOpen: boolean
   /** The active hole's hole_scores row, for the score corner. */
   holeScore: { score: number | null; putts: number | null } | null
   /** A Remove or Add shot is saving. */
@@ -127,6 +136,7 @@ function splitDisplay(s: string): { value: string; unit: string } {
 export function MapView({
   holes,
   userId,
+  selectClub,
   handicap,
   activeHoleNumber,
   onSwitchHole,
@@ -151,6 +161,7 @@ export function MapView({
   saveError,
   editingOnMap,
   reviewSheet,
+  reviewOpen,
   holeScore,
   shotBusy,
   onRemoveShot,
@@ -189,7 +200,6 @@ export function MapView({
   // Pattern key (Phase C dots + the overlay). Off by default so a reviewed
   // hole reads as clean as mobile's; on, it shows the arc/circle and dots.
   const [dotsVisible, setDotsVisible] = useState(false)
-  const { selectClub } = useClubDispersion(userId)
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -378,6 +388,35 @@ export function MapView({
       ? dotsVisible && selected?.aimLat != null
       : placedAims.some((a) => a != null))
   const mapKeysBottom = review ? 34 : 128
+  const chromeProps = {
+    hasExistingShots,
+    editing: editingOnMap,
+    shotsPlaced: placedPoints.length,
+    remainingToPin,
+    pinAvailable: effectivePin != null,
+    aimMode,
+    aimsSet: placedAims.filter((a) => a != null).length,
+    holeNumber: activeHoleNumber,
+    needsTee,
+    showPinButton,
+    placementMode,
+    shotDragUndoLabel,
+    onApplyShotDragUndo,
+    onStartPlaceTee: handlers.onStartPlaceTee,
+    onStartPlacePin: handlers.onStartPlacePin,
+    onCancelPlacement: handlers.onCancelPlacement,
+    onToggleAimMode: handlers.onToggleAimMode,
+    onClearLastAim: () => {
+      const idx = placedAims.length - 1
+      if (idx >= 0) handlers.onSetAim(idx, null)
+    },
+    onUndo: handlers.onUndoPoint,
+    onClear: handlers.onClearPoints,
+    onDone: handlers.onDoneWithHole,
+    onDoneEditing: handlers.onDoneEditing,
+  }
+  const overlayValues = overlayMode === 'tee' ? TEE_RAIL_YARDS : APPR_RAIL_FEET
+  const overlayUnit = overlayMode === 'tee' ? 'yd' : 'ft'
 
   return (
     <div>
@@ -488,51 +527,60 @@ export function MapView({
             />
           </Suspense>
           {reviewSheet}
-          {placementMode == null && courseHasGreens && (
-            <GreenKey active={greenOn} onToggle={toggleGreen} bottom={mapKeysBottom + 64} />
-          )}
-          {placementMode == null && (
-            <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
-          )}
-          {overlayControlsVisible && (
-            <OverlayRail
-              mode={overlayMode}
-              onSetMode={setOverlayMode}
-              values={overlayMode === 'tee' ? TEE_RAIL_YARDS : APPR_RAIL_FEET}
-              unit={overlayMode === 'tee' ? 'yd' : 'ft'}
-              index={railIndex}
-              onSelect={selectRail}
-              bottom={mapKeysBottom}
-            />
-          )}
-          {!review && (
-            <MapBottomChrome
-              hasExistingShots={hasExistingShots}
-              editing={editingOnMap}
-              shotsPlaced={placedPoints.length}
-              remainingToPin={remainingToPin}
-              pinAvailable={effectivePin != null}
-              aimMode={aimMode}
-              aimsSet={placedAims.filter((a) => a != null).length}
-              holeNumber={activeHoleNumber}
-              needsTee={needsTee}
-              showPinButton={showPinButton}
-              placementMode={placementMode}
-              shotDragUndoLabel={shotDragUndoLabel}
-              onApplyShotDragUndo={onApplyShotDragUndo}
-              onStartPlaceTee={handlers.onStartPlaceTee}
-              onStartPlacePin={handlers.onStartPlacePin}
-              onCancelPlacement={handlers.onCancelPlacement}
-              onToggleAimMode={handlers.onToggleAimMode}
-              onClearLastAim={() => {
-                const idx = placedAims.length - 1
-                if (idx >= 0) handlers.onSetAim(idx, null)
-              }}
-              onUndo={handlers.onUndoPoint}
-              onClear={handlers.onClearPoints}
-              onDone={handlers.onDoneWithHole}
-              onDoneEditing={handlers.onDoneEditing}
-            />
+          {wide ? (
+            <>
+              {placementMode == null && courseHasGreens && (
+                <GreenKey active={greenOn} onToggle={toggleGreen} bottom={mapKeysBottom + 64} />
+              )}
+              {placementMode == null && (
+                <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
+              )}
+              {overlayControlsVisible && (
+                <OverlayRail
+                  mode={overlayMode}
+                  onSetMode={setOverlayMode}
+                  values={overlayValues}
+                  unit={overlayUnit}
+                  index={railIndex}
+                  onSelect={selectRail}
+                  bottom={mapKeysBottom}
+                />
+              )}
+              {!review && <MapBottomChrome {...chromeProps} />}
+            </>
+          ) : (
+            // Phone (owner pick A, #1489): the app's layout. The keys sit in
+            // the paper foot; the map keeps small keys in its bottom corners.
+            <>
+              {placementMode == null && (
+                <MapKeyStack>
+                  {courseHasGreens && (
+                    <SquareKey label="Show the green" pressed={greenOn} onClick={toggleGreen}>
+                      {Glyph.green()}
+                    </SquareKey>
+                  )}
+                  {showPinButton && !review && (
+                    <SquareKey label="Set pin" onClick={handlers.onStartPlacePin}>
+                      {Glyph.flag()}
+                    </SquareKey>
+                  )}
+                  <SquareKey label="Show your shot pattern" pressed={dotsVisible} onClick={() => setDotsVisible((v) => !v)}>
+                    {Glyph.pattern()}
+                  </SquareKey>
+                </MapKeyStack>
+              )}
+              {overlayControlsVisible && (
+                <AimWidthTile
+                  key={placedPoints.length}
+                  mode={overlayMode}
+                  onSetMode={setOverlayMode}
+                  values={overlayValues}
+                  unit={overlayUnit}
+                  index={railIndex}
+                  onSelect={selectRail}
+                />
+              )}
+            </>
           )}
         </div>
         <div
@@ -584,8 +632,10 @@ export function MapView({
                 />
               )}
             </>
-          ) : (
+          ) : wide || reviewOpen ? (
             <div style={{ minHeight: 10 }} />
+          ) : (
+            <PhoneFoot {...chromeProps} lastHasAim={placedAims[placedPoints.length - 1] != null} />
           )}
         </div>
       </div>

@@ -26,11 +26,11 @@ export interface Category {
 }
 
 export const DEFAULT_LAYERS: Record<Layer, boolean> = { shots: true, rings: true, average: true, flights: true }
-export const COLOUR_BY: { value: ColourBy; label: string; short: string }[] = [
-  { value: 'none', label: 'None', short: 'None' },
-  { value: 'shape', label: 'Shape', short: 'Shape' },
-  { value: 'start', label: 'Start line', short: 'Start' },
-  { value: 'contact', label: 'Contact', short: 'Contact' },
+export const COLOUR_BY: { value: ColourBy; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'shape', label: 'Shape' },
+  { value: 'start', label: 'Start line' },
+  { value: 'contact', label: 'Contact' },
 ]
 export const INK = '#1C211C'
 export const UNRECORDED_INK = '#8A8B7E'
