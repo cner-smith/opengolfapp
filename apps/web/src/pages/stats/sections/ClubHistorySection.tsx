@@ -3,10 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import {
   clubChangeCallouts,
   clubHistory,
+  clubHistoryHeadline,
   formatClubLabel,
+  niceAxis,
+  shapeStack,
   YARDS_TO_METERS,
   type ClubDistanceStat,
   type ClubHistoryPeriod,
+  type ClubHistoryPeriodKind,
   type ClubHistoryRow,
   type DistanceUnit,
 } from '@oga/core'
@@ -51,6 +55,7 @@ export function ClubHistorySection({ clubDistances }: { clubDistances: ClubDista
   const [picked, setPicked] = useState<string | null>(null)
   const club = picked ?? mostUsed
   const [period, setPeriod] = useState<Period>('month')
+  const periodKind: ClubHistoryPeriodKind = period === 'month' ? 'month' : { rounds: 10 }
   const [hot, setHot] = useState<number | null>(null)
 
   const query = useQuery({
@@ -76,7 +81,6 @@ export function ClubHistorySection({ clubDistances }: { clubDistances: ClubDista
   if (!club) return null
   const u = (y: number) => Math.round(unit === 'meters' ? y * YARDS_TO_METERS : y)
   const unitShort = unit === 'meters' ? 'm' : 'yd'
-  const windowWord = period === 'month' ? 'months' : 'windows of 10 rounds'
 
   return (
     <Section title="Club history">
@@ -127,7 +131,7 @@ export function ClubHistorySection({ clubDistances }: { clubDistances: ClubDista
             {callouts && callouts.sentences.length > 0 ? (
               <>
                 <p className="font-serif text-caddie-ink" style={{ fontSize: 21, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, margin: '0 0 6px' }}>
-                  {callouts.sentences[0]}
+                  {clubHistoryHeadline(callouts, periodKind)}
                 </p>
                 {callouts.sentences[1] && (
                   <p className="font-serif text-caddie-ink" style={{ fontSize: 16, lineHeight: 1.4, margin: '8px 0 0' }}>
@@ -137,9 +141,7 @@ export function ClubHistorySection({ clubDistances }: { clubDistances: ClubDista
               </>
             ) : (
               <p className="font-serif text-caddie-ink" style={{ fontSize: 19, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, margin: '0 0 6px' }}>
-                {callouts?.first
-                  ? `No change bigger than the noise since ${callouts.first.label}.`
-                  : `A change shows once two ${windowWord} have 10 or more shots.`}
+                {clubHistoryHeadline(callouts, periodKind)}
               </p>
             )}
             {callouts?.first && callouts.last && (
@@ -192,19 +194,6 @@ export function ClubHistorySection({ clubDistances }: { clubDistances: ClubDista
       )}
     </Section>
   )
-}
-
-// A padded axis on round numbers: at most five ticks, 5/10/20/50 apart.
-function niceAxis(values: number[], minSpan: number): { lo: number; hi: number; ticks: number[] } {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const step = [5, 10, 20, 50, 100].find((s) => Math.max(max - min, minSpan) / s <= 4) ?? 100
-  let lo = Math.floor(min / step) * step
-  let hi = Math.ceil(max / step) * step
-  if (hi - lo < minSpan) hi = lo + Math.ceil(minSpan / step) * step
-  if (hi === lo) hi = lo + step
-  const ticks = Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + i * step)
-  return { lo, hi, ticks }
 }
 
 // A run of points: solid between two full periods, dashed where either is thin.
@@ -429,9 +418,9 @@ function HistoryCharts({
 
         {head(360, 'Shape')}
         {periods.map((p, i) => {
-          const rec = p.shape.draw + p.shape.straight + p.shape.fade
+          const { recorded: rec, bars } = shapeStack(p.shape, S_H)
           const left = x(i) - colW / 2
-          if (rec < 5) {
+          if (!bars) {
             return (
               <g key={i}>
                 <rect x={left} y={S_TOP} width={colW} height={S_H} fill={SURFACE} stroke={STRONG} strokeDasharray="3 3" />
@@ -441,9 +430,7 @@ function HistoryCharts({
               </g>
             )
           }
-          const fadeH = (p.shape.fade / rec) * S_H
-          const straightH = (p.shape.straight / rec) * S_H
-          const drawH = S_H - fadeH - straightH
+          const { fadeH, straightH, drawH } = bars
           return (
             <g key={i}>
               <rect x={left} y={S_TOP + S_H - fadeH} width={colW} height={fadeH} fill={INK} />

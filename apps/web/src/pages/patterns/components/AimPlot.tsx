@@ -1,13 +1,13 @@
 import { useMemo, useRef } from 'react'
 import {
   YARDS_TO_METERS,
+  aimGrid,
+  bracketLabelAt,
   distanceUnitAbbr as unitWord,
   insideRing,
+  ringBracket,
   shotWords,
   wholeDistance,
-  type DispersionPoint,
-  type DispersionStats,
-  type DistanceUnit,
 } from '@oga/core'
 import {
   AMBER_TEXT,
@@ -39,7 +39,6 @@ import {
   useTween,
   type Box,
   type ChartProps,
-  type Ghost,
   type Placed,
   type ScreenRing,
 } from './chartParts'
@@ -54,34 +53,6 @@ const RIGHT = 44
 const BOTTOM = 66
 const HAND = 'Kalam, cursive'
 
-/** The grid: a half-width in yards that holds every shot and both rings (so a
- *  toggle never rescales the chart), ruled every 5 or 10 of the player's unit. */
-export function aimGrid(
-  points: DispersionPoint[],
-  older: DispersionPoint[],
-  stats: DispersionStats | null,
-  ghost: Ghost | null,
-  unit: DistanceUnit,
-  area: number,
-) {
-  const reachOf = (s: DispersionStats) => [
-    Math.abs(s.avgLateralOffset) + s.cone95.lateral,
-    Math.abs(s.avgDistanceOffset) + s.cone95.distance,
-  ]
-  const reach = Math.max(
-    ...[...points, ...older].map((p) => Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards))),
-    ...(stats ? reachOf(stats) : []),
-    ...(ghost ? reachOf(ghost.stats).map((r) => r * 0.66) : []),
-    10,
-  )
-  const u = unit === 'meters' ? YARDS_TO_METERS : 1
-  const halfDisp = Math.ceil((reach * u * 1.08) / 5) * 5
-  const half = halfDisp / u
-  const scale = area / 2 / half
-  const step = (5 / u) * scale >= 14 ? 5 : 10
-  return { half, halfDisp, scale, step, stepYd: step / u, u }
-}
-
 export function AimPlot(props: ChartProps) {
   const { points, older, stats, ghost, unit, layers, empty, extras, kinds } = props
   const narrow = useNarrow()
@@ -92,16 +63,14 @@ export function AimPlot(props: ChartProps) {
   const ly = TOP + AREA + BOTTOM
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dense = points.length > 40
-  const grid = useMemo(() => aimGrid(points, older, stats, ghost, unit, AREA), [points, older, stats, ghost, unit, AREA])
-  const { scale, halfDisp, step, stepYd } = grid
+  const u = unit === 'meters' ? YARDS_TO_METERS : 1
+  const grid = useMemo(() => aimGrid([...points, ...older], stats, ghost?.stats ?? null, 1 / u, AREA), [points, older, stats, ghost, u, AREA])
+  const { scale, step, rules } = grid
 
   const cx = LEFT + AREA / 2
   const cy = TOP + AREA / 2
   const px = (lat: number) => cx + lat * scale
   const py = (d: number) => cy - d * scale
-  const labelEvery = stepYd * scale >= 19 ? 1 : 2
-  const rules: number[] = []
-  for (let k = -Math.round(halfDisp / step); k <= Math.round(halfDisp / step); k++) rules.push(k)
   const bounds: Box = { x: LEFT + 2, y: TOP + 2, w: AREA - 4, h: AREA - 4 }
 
   const styled = points.map((p) => ({ p, s: markStyle(p, props, dense), x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))
@@ -116,17 +85,14 @@ export function AimPlot(props: ChartProps) {
   // the upright box round the tilted ring.
   const r68: ScreenRing | null = stats ? screenRing(stats.ring68, px, py, scale) : null
   const avg = stats ? { x: px(stats.avgLateralOffset), y: py(stats.avgDistanceOffset) } : { x: cx, y: cy }
-  const span = stats
-    ? [px(stats.avgLateralOffset - stats.cone68.lateral), px(stats.avgLateralOffset + stats.cone68.lateral), py(stats.avgDistanceOffset + stats.cone68.distance), py(stats.avgDistanceOffset - stats.cone68.distance)]
-    : [cx, cx, cy, cy]
+  const box = stats ? ringBracket(stats, px, py) : null
+  const span = box ? [box.l, box.r, box.t, box.b] : [cx, cx, cy, cy]
   const tw = useTween([avg.x, avg.y, ...span])
   const [bL, bR, bT, bB] = [tw[2]!, tw[3]!, tw[4]!, tw[5]!]
   // Labelled with the whole width and depth, rounded once as the numbers
   // beside the chart are, so the two always agree.
   const whole = (half: number) => String(wholeDistance(half * 2, unit))
-  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
-  const acrossX = clamp((bL + bR) / 2, LEFT + 48, LEFT + AREA - 48)
-  const deepY = clamp((bT + bB) / 2, TOP + 14, TOP + AREA - 16)
+  const { acrossX, deepY } = bracketLabelAt({ l: bL, r: bR, t: bT, b: bB }, { left: LEFT, top: TOP, size: AREA })
   const ghostRing = ghost ? screenRing(ghost.stats.ring68, px, py, scale) : null
 
   // Labels: the aim first, then the inner ring, the outer ring, the ghost, the average.
@@ -143,9 +109,10 @@ export function AimPlot(props: ChartProps) {
   }
   if (stats && layers.average) lAvg = placeNear(avg.x, avg.y, 'average', 12, dots, taken, bounds)
 
-  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) : null
+  const olderAt = older.map((p) => ({ p, x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))
+  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) ?? olderAt.find((d) => d.p.id === nav.shown) : null
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
-  const tick = (k: number) => String(Math.abs(k * step))
+  const tick = (v: number) => String(Math.abs(v))
 
   return (
     <svg
@@ -159,18 +126,17 @@ export function AimPlot(props: ChartProps) {
       aria-describedby={props.descId}
     >
       <g aria-hidden>
-        {rules.map((k) => {
-          const v = k * stepYd
-          const stroke = k === 0 ? AXIS : (k * step) % 10 === 0 ? RULE_MAJOR : RULE
-          const edge = Math.abs(k * step) >= halfDisp
+        {rules.map((r) => {
+          const v = r.v / u
+          const stroke = r.v === 0 ? AXIS : r.major ? RULE_MAJOR : RULE
           return (
-            <g key={k}>
+            <g key={r.v}>
               <line x1={LEFT} x2={LEFT + AREA} y1={py(v)} y2={py(v)} stroke={stroke} strokeWidth={1} />
               <line x1={px(v)} x2={px(v)} y1={TOP} y2={TOP + AREA} stroke={stroke} strokeWidth={1} />
-              {k % labelEvery === 0 && k !== 0 && !edge && (
+              {r.label && (
                 <>
-                  <text x={LEFT - 6} y={py(v) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{tick(k)}</text>
-                  <text x={px(v)} y={TOP + AREA + 16} textAnchor="middle" fontFamily={SERIF} fontSize={13} fill={DIM}>{tick(k)}</text>
+                  <text x={LEFT - 6} y={py(v) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{tick(r.v)}</text>
+                  <text x={px(v)} y={TOP + AREA + 16} textAnchor="middle" fontFamily={SERIF} fontSize={13} fill={DIM}>{tick(r.v)}</text>
                 </>
               )}
             </g>
@@ -209,7 +175,12 @@ export function AimPlot(props: ChartProps) {
         </g>
       )}
 
-      <OlderDots dots={older.map((p) => ({ x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))} />
+      <OlderDots
+        dots={olderAt.map((d) => ({ id: d.p.id, x: d.x, y: d.y }))}
+        shown={nav.shown}
+        nav={layers.shots ? nav.dotProps : null}
+        label={(id) => shotWords(olderAt.find((d) => d.p.id === id)!.p, extras[id], unit, kinds.get(id)).join('. ')}
+      />
       <g style={fade(layers.shots)} aria-hidden={!layers.shots || undefined}>
         {styled.map((d, i) => (
           <Dot

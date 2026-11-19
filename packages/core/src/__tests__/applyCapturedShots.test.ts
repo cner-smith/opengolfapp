@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCapturedShots, type ReviewedShotRow } from '../round'
+import { applyCapturedShots, reviewedPuttLengthFt, reviewedRowToShotFields, type ReviewedShotRow } from '../round'
 
 const row = (overrides: Partial<ReviewedShotRow> = {}): ReviewedShotRow => ({
   shotNumber: 3,
@@ -40,6 +40,39 @@ describe('applyCapturedShots', () => {
     )
     expect(out[0]).toEqual(inferred)
     expect(out[1]).toEqual(row({ shotNumber: 4 }))
+  })
+
+  // #1481: a putt saved at 8 ft whose start the map puts 29 ft (9.67 yd) from
+  // the pin. The review shows 8 ft and its save writes 8, not 29.
+  it("keeps a live putt's saved length so the review shows and saves it", () => {
+    const [out] = applyCapturedShots(
+      [row({ distanceToPin: 29 / 3 })],
+      [{ club: 'putter', lie_type: 'green', putt_result: 'made', putt_distance_ft: 8 }],
+    )
+    expect(out!.puttLengthFt).toBe(8)
+    expect(reviewedPuttLengthFt(out!)).toBe(8)
+    expect(reviewedRowToShotFields(out!, false).putt_distance_ft).toBe(8)
+  })
+
+  it('a putt with no saved length (or an old cache without it) still reads the map', () => {
+    const [none, old] = applyCapturedShots(
+      [row({ distanceToPin: 29 / 3 }), row({ distanceToPin: 29 / 3 })],
+      [
+        { club: 'putter', lie_type: 'green', putt_result: null, putt_distance_ft: null },
+        { club: 'putter', lie_type: 'green', putt_result: null },
+      ],
+    )
+    expect(none!.puttLengthFt).toBeUndefined()
+    expect(old!.puttLengthFt).toBeUndefined()
+    expect(reviewedPuttLengthFt(none!)).toBe(29)
+  })
+
+  it('a saved length on a shot that is no longer a putt is not carried', () => {
+    const [out] = applyCapturedShots(
+      [row()],
+      [{ club: 'lw', lie_type: 'rough', putt_result: null, putt_distance_ft: 8 }],
+    )
+    expect(out!.puttLengthFt).toBeUndefined()
   })
 
   it('does not mutate the rows it was given', () => {

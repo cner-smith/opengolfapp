@@ -1,15 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
-import { formatHandicapIndex, parseHandicapIndex } from '@oga/core'
+import {
+  formatHandicapIndex,
+  handicapIndexField,
+  parseHandicapIndex,
+  PLUS_HANDICAP_EXPLAINER,
+  PLUS_HANDICAP_QUESTION,
+  plusHandicapToggle,
+  plusStartNumber,
+  stepPlusHandicap,
+  typedHandicapSign,
+  type PlusHandicapToggle,
+} from '@oga/core'
 import { OnboardingButtons, StepHeading } from './shared'
 
-// The index the profile accepts (OnboardingPage.saveProfile). The slider
-// covers the usual range; the keys and the typed number reach the rest.
-const MIN = -10
+// The index the profile accepts (stored -10, a plus 10, to 54). The ruler,
+// keys and typed number set the number; the Plus handicap key sets its sign.
 const MAX = 54
-const SLIDER_MIN = -5
+const PLUS_MAX = 10
 // A ruler position: the thumb's centre runs 9 px in from each end.
-const at = (n: number) => `calc(9px + (100% - 18px) * ${(n - SLIDER_MIN) / (MAX - SLIDER_MIN)})`
-const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
+const at = (n: number) => `calc(9px + (100% - 18px) * ${n / MAX})`
+// The stored index for a number and a sign (a plus is stored negative).
+const signedIndex = (n: number, plus: boolean) => {
+  const m = Math.min(plus ? PLUS_MAX : MAX, Math.max(0, Math.round(n * 10) / 10))
+  return plus ? -m || 0 : m
+}
 
 export function bracketLabel(handicap: number): string {
   if (handicap < 0) return 'Plus handicap'
@@ -37,6 +51,14 @@ export function Step2Handicap({
   onContinue: () => void
 }) {
   const bracket = bracketLabel(value)
+  const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(value))
+  const setNumber = (n: number) => onChange(signedIndex(n, plusToggle.plus))
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next: PlusHandicapToggle = stepPlusHandicap(plusToggle, action)
+    setPlusToggle(next)
+    // Turning plus on over a number past the plus end lands on a plus 1.
+    if (next.plus !== plusToggle.plus) onChange(next.plus ? signedIndex(plusStartNumber(value), true) : Math.abs(value))
+  }
   // The big number is a button until pressed, then a text field.
   const [typing, setTyping] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,7 +68,7 @@ export function Step2Handicap({
 
   const commit = () => {
     const n = typing === null ? null : parseHandicapIndex(typing)
-    if (n !== null) onChange(clamp(n))
+    if (n !== null) setNumber(Math.abs(n))
     setTyping(null)
   }
 
@@ -66,12 +88,12 @@ export function Step2Handicap({
         }}
       >
         <div className="flex items-center justify-center" style={{ gap: 22 }}>
-          <StepKey label="Lower by a tenth" glyph="−" onStep={() => onChange(clamp(value - 0.1))} />
+          <StepKey label="Lower by a tenth" glyph="−" onStep={() => setNumber(Math.abs(value) - 0.1)} />
           <div style={{ width: 170, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {typing === null ? (
               <button
                 type="button"
-                onClick={() => setTyping(formatHandicapIndex(value))}
+                onClick={() => setTyping(handicapIndexField(value).text)}
                 aria-label={`Handicap index ${formatHandicapIndex(value)}. Press to type it`}
                 className="font-serif tabular text-caddie-ink"
                 style={{ fontSize: 64, fontStyle: 'italic', fontWeight: 500, lineHeight: 1, background: 'none', border: 'none', cursor: 'text', padding: 0 }}
@@ -86,7 +108,11 @@ export function Step2Handicap({
                 inputMode="decimal"
                 aria-label="Handicap index"
                 value={typing}
-                onChange={(e) => setTyping(e.target.value)}
+                onChange={(e) => {
+                  const typed = typedHandicapSign(e.target.value)
+                  setTyping(typed.text)
+                  if (typed.plus) stepPlus('on')
+                }}
                 onBlur={commit}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commit()
@@ -109,11 +135,42 @@ export function Step2Handicap({
               />
             )}
           </div>
-          <StepKey label="Raise by a tenth" glyph="+" onStep={() => onChange(clamp(value + 0.1))} />
+          <StepKey label="Raise by a tenth" glyph="+" onStep={() => setNumber(Math.abs(value) + 0.1)} />
         </div>
         <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 17, marginTop: 12 }}>
           {bracket}
         </div>
+        <div style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            aria-pressed={plusToggle.plus}
+            onClick={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
+            className="key set-key"
+            style={{ fontWeight: plusToggle.plus ? 600 : 500 }}
+          >
+            Plus handicap
+          </button>
+        </div>
+        {plusToggle.asking ? (
+          // Asked in place, and neither key is the forest primary: an
+          // amateur shouldn't turn this on by accident.
+          <div role="group" aria-label={PLUS_HANDICAP_QUESTION} style={{ marginTop: 14, maxWidth: 380, marginInline: 'auto' }}>
+            <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.3 }}>
+              {PLUS_HANDICAP_QUESTION}
+            </p>
+            <p className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
+              {PLUS_HANDICAP_EXPLAINER}
+            </p>
+            <div className="flex justify-center" style={{ gap: 8, marginTop: 10 }}>
+              <button type="button" className="key set-key" onClick={() => stepPlus('confirm')}>
+                Turn on
+              </button>
+              <button type="button" className="key set-key" onClick={() => stepPlus('cancel')}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
         {seeded && (
           <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5, maxWidth: 360, marginInline: 'auto' }}>
             No handicap yet? Keep this: it&rsquo;s typical for golfers like you, and you can change it any time in Profile.
@@ -123,8 +180,7 @@ export function Step2Handicap({
       {/* A printed ruler: a tick every stroke, a longer one every five, numbers
           every ten; the pick is a green pencil line across it. */}
       <div style={{ position: 'relative', height: 52, marginBottom: 4 }}>
-        {Array.from({ length: MAX - SLIDER_MIN + 1 }, (_, k) => {
-          const t = SLIDER_MIN + k
+        {Array.from({ length: MAX + 1 }, (_, t) => {
           return (
             <span
               key={t}
@@ -134,29 +190,29 @@ export function Step2Handicap({
             />
           )
         })}
-        {[SLIDER_MIN, 0, 10, 20, 30, 40, 50].map((t) => (
+        {[0, 10, 20, 30, 40, 50].map((t) => (
           <span
             key={t}
             aria-hidden
             className="font-serif tabular text-caddie-ink-dim onb-ruler-num"
-            style={{ left: at(t), fontStyle: t < 0 ? 'italic' : undefined }}
+            style={{ left: at(t) }}
           >
-            {t < 0 ? `+${-t}` : t}
+            {t}
           </span>
         ))}
         <input
           type="range"
-          min={SLIDER_MIN}
+          min={0}
           max={MAX}
           step={0.1}
-          value={value}
+          value={Math.abs(value)}
           aria-label="Handicap index"
           aria-valuetext={formatHandicapIndex(value)}
-          onChange={(e) => onChange(clamp(Number(e.target.value)))}
+          onChange={(e) => setNumber(Number(e.target.value))}
           className="onb-ruler"
         />
       </div>
-      <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />
+      <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={!plusToggle.asking} />
     </div>
   )
 }

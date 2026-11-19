@@ -8,12 +8,15 @@ import {
   SHOT_START_LINE_LABELS,
   clubNoun,
   type Club,
+  type LieType,
   type ShotContact,
   type ShotStartLine,
 } from './constants'
+import type { PlanCategory } from './practice-plan/types'
 import type { FlightKind } from './shot-flight'
 import {
   MIN_PUTT_MISSES_FOR_BAR,
+  MIN_SAMPLES_FOR_STATS,
   PUTT_BANDS,
   aimAdvice,
   missLean,
@@ -22,6 +25,7 @@ import {
   type DispersionStats,
   type PuttBand,
   type PuttMissTally,
+  type RecentVsAll,
   type RecordedTally,
 } from './shot-patterns'
 import type { DistanceUnit } from './types'
@@ -38,6 +42,17 @@ export interface ShotExtras {
   course: string | null
 }
 
+/** A lie in a sentence: "from the rough", "from a recovery lie". */
+export const LIE_PHRASE: Record<LieType, string> = {
+  tee: 'the tee',
+  fairway: 'the fairway',
+  rough: 'the rough',
+  sand: 'sand',
+  fringe: 'the fringe',
+  recovery: 'a recovery lie',
+  green: 'the green',
+}
+
 export const capFirst = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s)
 
 /** A whole number in the player's unit, without the unit (always positive). */
@@ -51,6 +66,14 @@ export const distanceText = (yd: number, unit: DistanceUnit) => `${wholeDistance
  *  the player dropped it, so the finding speaks only of width. */
 export function mostlyTeeShots(points: DispersionPoint[]): boolean {
   return points.filter((p) => p.lieType === 'tee').length * 2 > points.length
+}
+
+const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
+
+/** Which drills "Practise it" points at: off the tee for the driver and woods,
+ *  or when most of these shots were tee shots; approach otherwise. */
+export function practiceCategory(club: Club, points: DispersionPoint[]): PlanCategory {
+  return OFF_THE_TEE.includes(club) || mostlyTeeShots(points) ? 'off_tee' : 'approach'
 }
 
 /**
@@ -109,6 +132,20 @@ export function findingLine(
 /** How far a pattern of n shots can be trusted. */
 export function readQuality(n: number): string {
   return n < 10 ? 'an early read' : n < 30 ? 'a fair read' : 'a solid read'
+}
+
+/** "Your latest 20: two in three inside 24 yd wide, down from 31 over all 98." */
+export function latestLine(rva: RecentVsAll, count: number, total: number, unit: DistanceUnit): string {
+  const now = rva.recent.cone68.lateral * 2
+  const was = rva.all.cone68.lateral * 2
+  const change = Math.abs(now - was) < 1 ? 'about the same as' : now < was ? 'down from' : 'up from'
+  return `Your latest ${count}: two in three inside ${distanceText(now, unit)} wide, ${change} ${wholeDistance(was, unit)} over all ${total}.`
+}
+
+/** The filter sheet's done key: "Show 13 shots", "Only 3 from the rough", "No shots from the rough". */
+export function filtersDoneWords(n: number, filtered: boolean, phrase: string): string {
+  if (n >= MIN_SAMPLES_FOR_STATS || !filtered) return `Show ${n} shot${n === 1 ? '' : 's'}`
+  return n === 0 ? `No shots ${phrase}` : `Only ${n} ${phrase}`
 }
 
 /** "Mostly draws" / "Mixed, leans right" / "—", from a recorded tally. */

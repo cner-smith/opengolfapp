@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ballReadout,
+  puttLengthFt,
+  shotLegReadout,
   calculateRoundSG,
+  expectedFromBall,
+  isTeeLineShot,
   calculateShotSG,
   getExpectedStrokes,
   getShotCategory,
@@ -253,3 +258,100 @@ describe('OB / stroke and distance', () => {
   })
 })
 
+
+// Hand-worked from sg-baselines, handicap 15 (bracket 15) unless noted.
+describe('isTeeLineShot', () => {
+  it.each([
+    [4, true, true],
+    [5, true, true],
+    [3, true, false], // a par-3 tee shot is an approach
+    [4, false, false],
+    [null, true, false], // par not known yet
+  ] as const)('par %s, first shot %s → %s', (par, first, want) => {
+    expect(isTeeLineShot(par, first)).toBe(want)
+  })
+})
+
+describe('expectedFromBall', () => {
+  it('reads approach at whole yards: 137.4 yd → 137', () => {
+    // APPROACH 125 3.74, 150 3.95: 3.74 + (12/25)·0.21 = 3.8408 (137.4 unrounded would be 3.84416)
+    expect(expectedFromBall(137.4, false, 15)).toBeCloseTo(3.8408, 6)
+  })
+  it('reads the tee line for a par 4/5 tee shot', () => {
+    // teeBaseline(15, 400): w = 1 → 2.38 + 0.41 + (0.0041 + 0.0025)·400 = 2.79 + 2.64 = 5.43
+    expect(expectedFromBall(400, true, 15)).toBeCloseTo(5.43, 6)
+  })
+  it('reads around-green inside 30 yd, tee shot or not', () => {
+    // AROUND_GREEN[15][20] = 2.97
+    expect(expectedFromBall(20, true, 15)).toBeCloseTo(2.97, 6)
+  })
+})
+
+// #1481 / owner Q1: a putt reads its saved length first, the map only when none is saved.
+describe('puttLengthFt', () => {
+  it('saved length first, else the map distance in feet, else nothing', () => {
+    expect(puttLengthFt(8, 29 / 3)).toBe(8)
+    expect(puttLengthFt(null, 29 / 3)).toBeCloseTo(29, 9)
+    expect(puttLengthFt(0, 10)).toBe(0)
+    expect(puttLengthFt(null, null)).toBeNull()
+    expect(puttLengthFt(8, null)).toBe(8)
+  })
+})
+
+describe('shotLegReadout', () => {
+  it("a putt's leg to the pin is its saved length", () => {
+    expect(shotLegReadout({ legYards: 29 / 3, toPin: true, putt: true, savedPuttFt: 8 })).toEqual({ yards: 29 / 3, puttFt: 8 })
+  })
+
+  it("with none saved, a putt's leg to the pin is the map distance in feet", () => {
+    expect(shotLegReadout({ legYards: 10, toPin: true, putt: true, savedPuttFt: null })).toEqual({ yards: 10, puttFt: 30 })
+  })
+
+  it("a putt's leg to the next shot is how far it rolled, whatever its saved length", () => {
+    expect(shotLegReadout({ legYards: 2, toPin: false, putt: true, savedPuttFt: 8 })).toEqual({ yards: 2, puttFt: 6 })
+  })
+
+  it('a full shot reads yards, never feet', () => {
+    expect(shotLegReadout({ legYards: 150, toPin: true, putt: false, savedPuttFt: 8 })).toEqual({ yards: 150, puttFt: null })
+  })
+})
+
+describe('ballReadout', () => {
+  const base = { teeShot: false, handicap: 15 }
+  it('a putt reads its saved length, not the map distance', () => {
+    // saved 10 ft: PUTTING[15][10] = 1.65 (the map's 5 yd = 15 ft would read 1.92)
+    expect(ballReadout({ ...base, toPinYards: 5, putt: true, savedPuttFt: 10 })).toEqual({
+      yards: 5,
+      puttFt: 10,
+      expected: 1.65,
+    })
+  })
+  it('a putt with no saved length reads the map distance × 3', () => {
+    // 5 yd → 15 ft: PUTTING[15][15] = 1.92
+    const r = ballReadout({ ...base, toPinYards: 5, putt: true, savedPuttFt: null })
+    expect(r?.puttFt).toBe(15)
+    expect(r?.expected).toBeCloseTo(1.92, 6)
+  })
+  it('a saved putt shows with no pin', () => {
+    expect(ballReadout({ ...base, toPinYards: null, putt: true, savedPuttFt: 10 })).toEqual({
+      yards: null,
+      puttFt: 10,
+      expected: 1.65,
+    })
+  })
+  it('is null with no pin and no saved length', () => {
+    expect(ballReadout({ ...base, toPinYards: null, putt: true, savedPuttFt: null })).toBeNull()
+    expect(ballReadout({ ...base, toPinYards: null, putt: false, savedPuttFt: null })).toBeNull()
+  })
+  it('a full shot reads yards and ignores a putt length', () => {
+    // APPROACH[15][150] = 3.95
+    const r = ballReadout({ ...base, toPinYards: 150, putt: false, savedPuttFt: 10 })
+    expect(r?.yards).toBe(150)
+    expect(r?.puttFt).toBeNull()
+    expect(r?.expected).toBeCloseTo(3.95, 6)
+  })
+  it('a par 4/5 tee shot reads the tee line', () => {
+    // 5.43, worked above
+    expect(ballReadout({ toPinYards: 400, putt: false, savedPuttFt: null, teeShot: true, handicap: 15 })?.expected).toBeCloseTo(5.43, 6)
+  })
+})

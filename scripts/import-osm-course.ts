@@ -10,12 +10,10 @@
  * tee_lat/lng + pin_lat/lng. Re-running is safe: the course is
  * matched by name and holes are upserted on (course_id, number).
  *
- * Pass --update-existing to refuse creating a new course row and
- * instead delete-then-replace holes for the matching course. Useful
- * when re-importing layout for a course that already exists in the
- * DB; without this flag a stale hole that's no longer in OSM would
- * remain because the upsert is keyed on (course_id, number) and
- * doesn't drop missing rows.
+ * Pass --update-existing to refuse creating a new course row, so a
+ * name that misses the existing course fails instead of making a
+ * duplicate. Holes are updated in place either way; a hole no longer
+ * in OSM is kept (deleting it would drop its green map).
  *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (read from .env via
  * dotenv/config or the shell).
@@ -26,6 +24,7 @@
  * just CLI arg parsing + console output.
  */
 import 'dotenv/config'
+import { osmGreenMap } from '@oga/core'
 import { createOgaServiceClient, runOsmImport, type OsmImportArgs } from '@oga/supabase'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
@@ -75,7 +74,7 @@ function parseArgs(argv: string[]): OsmImportArgs {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radius)) {
     throw new Error('--lat, --lng, --radius must be numeric')
   }
-  return { name, lat, lng, radius, updateExisting, courseFilter }
+  return { name, lat, lng, radius, updateExisting, courseFilter, greenMap: osmGreenMap }
 }
 
 async function main() {
@@ -94,11 +93,6 @@ async function main() {
       `  Dedup: duplicate hole ways collapsed for refs ${summary.dedupedRefs.join(', ')}`,
     )
   }
-  if (summary.wipedHoles > 0) {
-    console.log(
-      `✓ Cleared ${summary.wipedHoles} existing hole row${summary.wipedHoles === 1 ? '' : 's'} on this course`,
-    )
-  }
   console.log(`${summary.created ? '✓ Created course' : '✓ Updated course'}: ${args.name}`)
   console.log(
     `✓ Imported ${summary.holesImported} holes (${summary.greenMatches} with green coords, ${summary.teeMatches} with tee coords)`,
@@ -111,6 +105,15 @@ async function main() {
     console.log(
       `  Holes falling back to hole-way endpoint for pin: ${summary.missingGreenRefs.join(', ')}`,
     )
+  }
+  console.log(`✓ Green outlines written: ${summary.greenOutlinesWritten}`)
+  if (summary.greenOutlineFlaggedRefs.length) {
+    console.log(
+      `  Holes whose end is in no green (nearest within 30 m taken, flagged): ${summary.greenOutlineFlaggedRefs.join(', ')}`,
+    )
+  }
+  if (summary.greenOutlineMissingRefs.length) {
+    console.log(`  Holes with no OSM green outline: ${summary.greenOutlineMissingRefs.join(', ')}`)
   }
   if (summary.missingTeeRefs.length) {
     console.log(

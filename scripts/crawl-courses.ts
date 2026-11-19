@@ -147,7 +147,7 @@ async function main(): Promise<void> {
       'Missing --source. Usage:\n' +
         '  tsx scripts/crawl-courses.ts --source osm-first [--states TX,OK] [--force] [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --source osm [--states TX,OK] [--force]\n' +
-        '  tsx scripts/crawl-courses.ts --source osm-holes [--states TX,OK] [--force] [--limit N]\n' +
+        '  tsx scripts/crawl-courses.ts --source osm-holes [--states TX,OK] [--force] [--limit N] [--dry-run]\n' +
         '  tsx scripts/crawl-courses.ts --source complete [--states TX,OK] [--force] [--dry-run]\n' +
         '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
@@ -200,8 +200,10 @@ async function main(): Promise<void> {
     console.log(`OSM crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
   } else if (args.source === 'osm-holes') {
-    console.log(`OSM hole-geometry crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
-    await crawlOsmHoles(states, args.force, args.limit)
+    console.log(
+      `OSM hole-geometry crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}${args.dryRun ? ' [dry-run]' : ''}`,
+    )
+    await crawlOsmHoles(states, args.force, args.limit, args.dryRun)
   } else if (args.source === 'enrich') {
     console.log(
       `Enrich crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}` +

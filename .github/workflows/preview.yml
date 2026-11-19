@@ -13,7 +13,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - run: pnpm install
       - run: pnpm typecheck
@@ -27,7 +27,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - run: pnpm install
       - run: pnpm test
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Vendor drift-check
         run: node scripts/check-shared-vendor.mjs
       - name: No source file over 1000 lines
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.4
+          node-version: 24.22.2
       - name: Install supabase package deps
         run: cd packages/supabase && npm install --legacy-peer-deps
       - name: Install core package deps
@@ -70,7 +70,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
       - run: pnpm install
       # Exercises the real Vite/rollup production build (vercel.json's

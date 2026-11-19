@@ -4,8 +4,11 @@ import {
   circleGeoJSON,
   coneRingGeoJSON,
   destinationYards,
-  dispersionRodsGeoJSON,
+  aimPlateSpot,
+  autoAimPoint,
   scatterGeoJSON,
+  holeTeeBox,
+  teeBoxDots,
 } from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
 
@@ -172,64 +175,157 @@ describe('coneRingGeoJSON', () => {
   })
 })
 
-describe('dispersionRodsGeoJSON', () => {
-  // Aim due north of the origin, so along = north and perp (+ = right) = east.
-  const AIM = destinationYards(ORIGIN, 0, 150)
-  const D = { alongMean: -3, perpMean: 2, along68: 9, perp68: 21 }
-  const yd = (a: [number, number], b: [number, number]) => haversineYards(a[1], a[0], b[1], b[0])
-  // Planar (along, perp) of a [lng, lat] relative to the aim, in yards.
-  const local = ([lng, lat]: [number, number]) => {
-    const along = haversineYards(AIM.lat, AIM.lng, lat, AIM.lng) * Math.sign(lat - AIM.lat)
-    const perp = haversineYards(AIM.lat, AIM.lng, AIM.lat, lng) * Math.sign(lng - AIM.lng)
-    return { along, perp }
+describe('aimPlateSpot', () => {
+  // Ball due south of the aim; the plate's distance back from the aim, and its bearing.
+  const AIM = destinationYards(ORIGIN, 0, 300)
+  const ball = (leg: number) => destinationYards(AIM, 180, leg)
+  const back = (leg: number, ringShort: number) => {
+    const p = aimPlateSpot(ball(leg), AIM, ringShort)
+    return { yd: haversineYards(AIM.lat, AIM.lng, p.lat, p.lng), brg: bearingDegrees(AIM.lat, AIM.lng, p.lat, p.lng) }
   }
 
-  it('returns null when origin and aim coincide or a stat is non-finite', () => {
-    expect(dispersionRodsGeoJSON(ORIGIN, ORIGIN, D)).toBeNull()
-    expect(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perp68: NaN })).toBeNull()
+  it('stands 30 yd short of the ring when that is between half and three quarters back', () => {
+    // 120 yd leg: half = 60, three quarters = 90; ring 45 short → 75.
+    expect(back(120, 45).yd).toBeCloseTo(75, 0)
   })
 
-  it('places the length rod right of the ring and the width rod on its near side', () => {
-    const r = dispersionRodsGeoJSON(ORIGIN, AIM, D)!
-    const [len, wid] = r.lines.features.filter((f) => f.properties.k === 'rod')
-    const l0 = local(len!.geometry.coordinates[0]!)
-    const l1 = local(len!.geometry.coordinates[1]!)
-    expect(l0.perp).toBeCloseTo(2 + 21 + 4, 0)
-    expect(l0.along).toBeCloseTo(-3 - 9, 0)
-    expect(l1.along).toBeCloseTo(-3 + 9, 0)
-    const w0 = local(wid!.geometry.coordinates[0]!)
-    const w1 = local(wid!.geometry.coordinates[1]!)
-    expect(w0.along).toBeCloseTo(-3 - 9 - 4, 0)
-    expect(w0.perp).toBeCloseTo(2 - 21, 0)
-    expect(w1.perp).toBeCloseTo(2 + 21, 0)
+  it('never comes nearer the aim than halfway (a long leg with a tight ring)', () => {
+    // 250 yd drive, ring 20 short → 50, held at 125.
+    expect(back(250, 20).yd).toBeCloseTo(125, 0)
   })
 
-  it('checks tile each rod exactly, 3 yd each, cream at the centre', () => {
-    const r = dispersionRodsGeoJSON(ORIGIN, AIM, D)!
-    const checks = r.lines.features.filter((f) => f.properties.k === 'check')
-    const total = checks.reduce((s, f) => s + yd(f.geometry.coordinates[0]!, f.geometry.coordinates[1]!), 0)
-    expect(total).toBeCloseTo(2 * 9 + 2 * 21, 0)
-    for (const f of checks) expect(yd(f.geometry.coordinates[0]!, f.geometry.coordinates[1]!)).toBeLessThanOrEqual(3.01)
-    // Each check that starts at a rod centre is cream; the next one out is ink.
-    const atCentre = checks.filter((f) => {
-      const p = local(f.geometry.coordinates[0]!)
-      return Math.abs(p.along - D.alongMean) < 0.1 || Math.abs(p.perp - D.perpMean) < 0.1
-    })
-    expect(atCentre.length).toBe(4)
-    expect(atCentre.every((f) => f.properties.c === 0)).toBe(true)
-    expect(checks.some((f) => f.properties.c === 1)).toBe(true)
+  it('stops at three quarters back when the ring reaches past it (short approach)', () => {
+    // 40 yd pitch, ring 25 short → 55, held at 30 (10 yd in front of the ball).
+    expect(back(40, 25).yd).toBeCloseTo(30, 0)
+    expect(back(40, 60).yd).toBeCloseTo(30, 0)
   })
 
-  it('slides the width tag away from the aim line, toward the bias side', () => {
-    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, D)!.widthTag)).perp).toBeCloseTo(2 + 8, 0)
-    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perpMean: -2 })!.widthTag)).perp).toBeCloseTo(-2 - 8, 0)
-    // A narrow rod keeps the tag on it (half the half-width).
-    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perp68: 6 })!.widthTag)).perp).toBeCloseTo(2 + 3, 0)
-    // An explicit side overrides the pattern's own (live screen: away from its aim-line tags).
-    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, D, -1)!.widthTag)).perp).toBeCloseTo(2 - 8, 0)
+  it('falls back to halfway when the ring stat is not a number', () => {
+    expect(back(120, NaN).yd).toBeCloseTo(60, 0)
+  })
+
+  it('sits on the aim line, toward the ball', () => {
+    expect(angGap(back(120, 45).brg, 180)).toBeLessThan(0.5)
   })
 })
 
-function toLngLat(p: { lat: number; lng: number }): [number, number] {
-  return [p.lng, p.lat]
-}
+describe('teeBoxDots', () => {
+  const near = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    haversineYards(a.lat, a.lng, b.lat, b.lng)
+  it('puts a dot 4 yd either side, square to the line of play', () => {
+    // Heading north (0°): the dots sit at 270° (west) then 90° (east), 8 yd apart.
+    const [a, b] = teeBoxDots(ORIGIN, { lat: 41, lng: -75 })
+    expect(near(ORIGIN, a)).toBeCloseTo(4, 3)
+    expect(near(ORIGIN, b)).toBeCloseTo(4, 3)
+    expect(near(a, b)).toBeCloseTo(8, 3)
+    expect(a.lng).toBeLessThan(ORIGIN.lng)
+    expect(b.lng).toBeGreaterThan(ORIGIN.lng)
+    expect(a.lat).toBeCloseTo(ORIGIN.lat, 6)
+  })
+  it('turns with the line of play', () => {
+    // Heading east (90°): first dot at 0° (north), second at 180° (south).
+    const [a, b] = teeBoxDots(ORIGIN, destinationYards(ORIGIN, 90, 300))
+    expect(a.lat).toBeGreaterThan(ORIGIN.lat)
+    expect(b.lat).toBeLessThan(ORIGIN.lat)
+    expect(a.lng).toBeCloseTo(ORIGIN.lng, 6)
+  })
+  it('faces north with nothing to face', () => {
+    expect(teeBoxDots(ORIGIN, null)).toEqual(teeBoxDots(ORIGIN, { lat: 41, lng: -75 }))
+  })
+})
+
+describe('holeTeeBox: one rule on every map (#1483)', () => {
+  // Hand-worked: from ORIGIN, a dot pair square to a line heading north sits due west then
+  // due east (same latitude); square to a line heading east, due north then due south
+  // (same longitude). 4 yd from the start either way.
+  const NORTH = destinationYards(ORIGIN, 0, 250)
+  const EAST = destinationYards(ORIGIN, 90, 250)
+  const SPOT2 = destinationYards(ORIGIN, 0, 230)
+  const COURSE_TEE = destinationYards(ORIGIN, 180, 30)
+  const near = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    haversineYards(a.lat, a.lng, b.lat, b.lng)
+  const squareToNorth = (box: ReturnType<typeof holeTeeBox>, at: { lat: number; lng: number }) => {
+    const [a, b] = box!
+    expect(near(at, a)).toBeCloseTo(4, 3)
+    expect(a.lat).toBeCloseTo(at.lat, 6)
+    expect(b.lat).toBeCloseTo(at.lat, 6)
+    expect(a.lng).toBeLessThan(at.lng)
+    expect(b.lng).toBeGreaterThan(at.lng)
+  }
+  const squareToEast = (box: ReturnType<typeof holeTeeBox>, at: { lat: number; lng: number }) => {
+    const [a, b] = box!
+    expect(near(at, a)).toBeCloseTo(4, 3)
+    expect(a.lng).toBeCloseTo(at.lng, 6)
+    expect(a.lat).toBeGreaterThan(at.lat)
+    expect(b.lat).toBeLessThan(at.lat)
+  }
+
+  it("shot 1 recorded: the next shot being placed neither moves nor turns it", () => {
+    // Shot 1 from ORIGIN aimed north; shot 2 is being placed 230 yd up, aimed east.
+    squareToNorth(holeTeeBox({ start: ORIGIN, aim: NORTH }, { start: SPOT2, aim: EAST }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('shot 1 recorded without an aim: square to the pin', () => {
+    squareToEast(holeTeeBox({ start: ORIGIN, aim: null }, { start: SPOT2, aim: NORTH }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('nothing recorded yet: the shot being placed is shot 1 (its start, its aim, else the pin)', () => {
+    squareToNorth(holeTeeBox(null, { start: ORIGIN, aim: NORTH }, COURSE_TEE, EAST), ORIGIN)
+    squareToEast(holeTeeBox(null, { start: ORIGIN, aim: null }, COURSE_TEE, EAST), ORIGIN)
+  })
+
+  it('no shot at all: the course tee, square to the pin; nothing to stand on, no box', () => {
+    const pin = destinationYards(COURSE_TEE, 90, 300)
+    squareToEast(holeTeeBox(null, null, COURSE_TEE, pin), COURSE_TEE)
+    expect(holeTeeBox(null, null, null, pin)).toBeNull()
+  })
+})
+
+describe('autoAimPoint', () => {
+  // Pin due north of the start by 0.004° of latitude. Along a meridian the
+  // haversine distance is R·Δφ: 6,371,000 m × 0.004 × π/180 = 444.780 m
+  // = 444.780 / 0.9144 = 486.417 yd. Two thirds up (0.65) is 316.2 yd.
+  const START = { lat: 40, lng: -75 }
+  const PIN = { lat: 40.004, lng: -75 }
+
+  it('no known club: 0.65 of the way to the pin', () => {
+    // 40 + 0.65 × 0.004 = 40.0026
+    const aim = autoAimPoint(START, PIN, null)
+    expect(aim.lat).toBeCloseTo(40.0026, 9)
+    expect(aim.lng).toBe(-75)
+  })
+
+  it('a club shorter than two thirds of the hole: the aim stops at its typical distance', () => {
+    // 200 / 486.417 = 0.411170 of the way: 40 + 0.004 × 0.411170 = 40.0016447
+    const aim = autoAimPoint(START, PIN, 200)
+    expect(aim.lat).toBeCloseTo(40.0016447, 7)
+    expect(aim.lng).toBe(-75)
+    expect(haversineYards(START.lat, START.lng, aim.lat, aim.lng)).toBeCloseTo(200, 6)
+  })
+
+  it('a club that reaches past two thirds: still 0.65, never at or past the pin', () => {
+    expect(autoAimPoint(START, PIN, 400).lat).toBeCloseTo(40.0026, 9)
+    expect(autoAimPoint(START, PIN, 600).lat).toBeCloseTo(40.0026, 9)
+  })
+
+  it('a 0 yd club counts as unknown: 0.65', () => {
+    expect(autoAimPoint(START, PIN, 0).lat).toBeCloseTo(40.0026, 9)
+  })
+
+  it('off a meridian, both coordinates move by the same fraction', () => {
+    // Uncapped: start + 0.65 × (0.003, 0.004) = (40.00195, -74.9974)
+    const pin = { lat: 40.003, lng: -74.996 }
+    const aim = autoAimPoint(START, pin, null)
+    expect(aim.lat).toBeCloseTo(40.00195, 9)
+    expect(aim.lng).toBeCloseTo(-74.9974, 9)
+    // Capped: the aim sits 100 yd from the start, on the start→pin line (to
+    // a thousandth of a yard: the step is linear in lat/lng, not great-circle).
+    const capped = autoAimPoint(START, pin, 100)
+    expect(haversineYards(START.lat, START.lng, capped.lat, capped.lng)).toBeCloseTo(100, 2)
+    expect((capped.lat - 40) / 0.003).toBeCloseTo((capped.lng + 75) / 0.004, 9)
+  })
+
+  it('standing on the pin: the aim is the pin', () => {
+    expect(autoAimPoint(PIN, PIN, 150)).toEqual(PIN)
+  })
+})

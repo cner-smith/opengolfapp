@@ -13,6 +13,7 @@ import {
   DEFAULT_HANDICAP,
   formatBandLabel,
   formatSG,
+  formatWholeHandicap,
   sgFinding,
   sgStandouts,
   type DetailedStats,
@@ -60,8 +61,13 @@ function TrendTip({
   focus: SeriesKey | null
 }) {
   if (!active || !payload?.length || !label) return null
-  const value = (k: SeriesKey) => Number(payload.find((p) => p.dataKey === k)?.value ?? 0)
-  const total = SG_SERIES.reduce((sum, s) => sum + value(s.key), 0)
+  // A category the round has no value for is a gap: recharts leaves it out
+  // of the payload, and the row reads "—", not 0.
+  const value = (k: SeriesKey) => {
+    const v = payload.find((p) => p.dataKey === k)?.value
+    return v == null ? null : Number(v)
+  }
+  const total = SG_SERIES.reduce((sum, s) => sum + (value(s.key) ?? 0), 0)
   return (
     <div className="st-tip">
       <div className="flex items-baseline justify-between" style={{ gap: 14, marginBottom: 6 }}>
@@ -80,8 +86,8 @@ function TrendTip({
           >
             <Key dash={s.dash} color={s.color} />
             <span className="text-caddie-ink" style={{ fontSize: 12, flex: 1 }}>{s.label}</span>
-            <span className="font-serif tabular" style={{ fontSize: 15, fontStyle: 'italic', color: v >= 0 ? '#1C211C' : '#A33A2A' }}>
-              {formatSG(v)}
+            <span className="font-serif tabular" style={{ fontSize: 15, fontStyle: 'italic', color: v == null || v >= 0 ? '#1C211C' : '#A33A2A' }}>
+              {v == null ? '—' : formatSG(v)}
             </span>
           </div>
         )
@@ -95,7 +101,7 @@ export function StrokesGainedSection({ data, wholeCount }: { data: DetailedStats
   const { unit, toDisplay } = useUnits()
   // The trend opens on all four; picking one brings it forward.
   const [focus, setFocus] = useState<SeriesKey | null>(null)
-  const handicap = Math.round(profile?.handicap_index ?? DEFAULT_HANDICAP)
+  const handicap = formatWholeHandicap(profile?.handicap_index ?? DEFAULT_HANDICAP)
   const standouts = sgStandouts(data.sg)
   const sgLabel = (key: keyof SGAverages) => SG_SERIES.find((s) => s.key === key)?.label ?? key
   const weakest = standouts.weakest

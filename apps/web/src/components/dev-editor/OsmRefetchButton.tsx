@@ -70,7 +70,6 @@ export function OsmRefetchButton({
           {refetch.data.missingRefs.length > 0 && <div>Missing 1-18: {refetch.data.missingRefs.join(', ')}</div>}
           {refetch.data.missingParRefs.length > 0 && <div>No/invalid par (defaulted to 4): {refetch.data.missingParRefs.join(', ')}</div>}
           {refetch.data.missingYardsRefs.length > 0 && <div>No yardage: {refetch.data.missingYardsRefs.join(', ')}</div>}
-          {refetch.data.wipedHoles > 0 && <div>Cleared {refetch.data.wipedHoles} existing hole rows first</div>}
         </div>
       )}
     </div>

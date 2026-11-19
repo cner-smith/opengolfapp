@@ -1,5 +1,7 @@
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -7,7 +9,7 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSide, RoundTotals, type ScoredHole } from '../../components/rounds/RoundSummary'
-import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
+import { ShareCardChooser } from '../../components/round/share/ShareCardChooser'
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
@@ -17,6 +19,8 @@ import {
   isFinishedRound,
   projectShotMove,
   resolveCourseTee,
+  scoredTotals,
+  shareCardModel,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
@@ -30,6 +34,7 @@ import {
 } from './state/holeViewReducer'
 import { useRoundData, type RoundRow } from './hooks/useRoundData'
 import { useRoundActions, type ShotDragUndo } from './hooks/useRoundActions'
+import { useClubDispersion } from './hooks/useClubDispersion'
 import { RoundHeader } from './components/RoundHeader'
 import { ScorecardView } from './components/ScorecardView'
 import { MapView } from './components/MapView'
@@ -55,9 +60,7 @@ export function RoundDetailPage() {
   // localStorage so it appears once per device and auto-dismisses after
   // 3s or on tap.
   const [aimHintVisible, setAimHintVisible] = useState(false)
-  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
-  const [sharing, setSharing] = useState(false)
-  const shareCardRef = useRef<HTMLDivElement | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
     holeNumber: number
@@ -132,7 +135,6 @@ export function RoundDetailPage() {
     holesQuery,
     teesQuery,
     holes,
-    holeScores,
     scoresByHoleId,
     shotCountByHoleScore,
     activeHole,
@@ -150,6 +152,8 @@ export function RoundDetailPage() {
   // A finished round is never live, whatever the URL says (#1230).
   const isLiveEntry = urlLiveEntry && !(round.data && isFinishedRound(round.data))
 
+  // One shot-history load: the map's dots and the auto aim's cap share the club pick.
+  const { selectClub } = useClubDispersion(user?.id)
   const actions = useRoundActions({
     roundId,
     user,
@@ -159,18 +163,15 @@ export function RoundDetailPage() {
     captureMode: (round.data?.capture_mode ?? 'track_patterns') as CaptureMode,
     pinOverride,
     teeOverride,
+    selectClub,
     placedAims,
     placedAimAuto,
     shotDragUndo,
-    shareCardRef,
-    sharing,
-    shareTone,
     dispatchHoleView,
     setShotDragUndo,
     setSavingHole,
     setConfirmDelete,
     setCompleteError,
-    setSharing,
     setAimPromptOpen,
   })
   const {
@@ -182,10 +183,27 @@ export function RoundDetailPage() {
     saveReviewedHole,
     handleDelete,
     handleComplete,
-    handleShare,
     completeMutation,
     deleteMutation,
   } = actions
+
+  // Everything the share card styles print (#1437); null with no hole scored.
+  const handicapIndex = profile.data?.handicap_index ?? null
+  const shareModel = useMemo(() => {
+    if (!round.data) return null
+    return shareCardModel({
+      round: round.data,
+      course: round.data.courses ?? null,
+      tee: resolveCourseTee(teesQuery.data ?? [], round.data.course_tee_id, round.data.tee_color),
+      handicapIndex,
+      holes: holes.map((h) => ({
+        number: h.number,
+        par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+        score: scoresByHoleId.get(h.id) ?? null,
+      })),
+    })
+  }, [round.data, teesQuery.data, handicapIndex, holes, resolvedHoleByNumber, scoresByHoleId])
+  const closeShare = useCallback(() => setShareOpen(false), [])
 
   // The round map's Remove and + Add shot (#1239). Failures show where the
   // hole save's do.
@@ -220,18 +238,20 @@ export function RoundDetailPage() {
     return <div style={{ fontSize: 13 }}>Round not found.</div>
   }
 
-  const holesPlayed = holeScores.length
   const holeCount = roundHoleCount(round.data.hole_count, inferHoleCount(holes.map((h) => h.number)))
   // Scored holes with their tee-resolved par: the header's running total,
   // the totals block and the best / worst line all read from these.
   const scored: ScoredHole[] = []
+  let girOf = 0
   for (const h of holes) {
     const hs = scoresByHoleId.get(h.id)
-    if (hs?.score != null && hs.score > 0)
-      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par })
+    if (hs?.score != null && hs.score > 0) {
+      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? h.par })
+      if (hs.gir != null) girOf += 1
+    }
   }
-  const runningScore = scored.reduce((t, h) => t + h.score, 0)
-  const runningPar = scored.reduce((t, h) => t + h.par, 0)
+  const totals = scoredTotals(scored)
+  const holesPlayed = totals.holesPlayed
   const finalized = isFinishedRound(round.data)
   // Save / Recalculate SG and Delete: under the card, and under the map so a
   // live round on a phone (which opens on the map) can still be finished.
@@ -268,13 +288,6 @@ export function RoundDetailPage() {
       </button>
     </div>
   )
-  // The played tee (by id, then by colour) supplies rating/slope/yardage for
-  // the share card — same match RoundHeader uses.
-  const playedTee = resolveCourseTee(
-    teesQuery.data ?? [],
-    round.data.course_tee_id,
-    round.data.tee_color,
-  )
   const switchHole = (n: number) =>
     dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
 
@@ -285,16 +298,11 @@ export function RoundDetailPage() {
         tees={teesQuery.data ?? []}
         holesPlayed={holesPlayed}
         holeCount={holeCount}
-        score={runningScore}
-        toPar={runningPar > 0 ? runningScore - runningPar : null}
-        shareTone={shareTone}
-        sharing={sharing}
+        score={totals.score}
+        toPar={totals.holesPlayed > 0 ? totals.toPar : null}
         completePending={completeMutation.isPending}
         onBack={() => navigate('/rounds')}
-        onShare={handleShare}
-        onToggleShareTone={() =>
-          setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
-        }
+        onShare={shareModel ? () => setShareOpen(true) : undefined}
         onComplete={handleComplete}
       />
 
@@ -302,33 +310,14 @@ export function RoundDetailPage() {
         <Rocker tabs options={VIEWS} value={view} onChange={setView} label="Round view" className="sm:max-w-[420px]" />
       </div>
 
-      {/* Off-screen render target for html-to-image. Position fixed
-          left:-99999px keeps the rasteriser-visible DOM out of the
-          user's view; pointerEvents none so it can never intercept
-          clicks while the card is mounted. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed',
-          left: -99999,
-          top: 0,
-          pointerEvents: 'none',
-        }}
-      >
-        <div ref={shareCardRef}>
-          <ShareableScorecardCard
-            round={{
-              ...round.data,
-              course_rating: playedTee?.course_rating ?? null,
-              slope_rating: playedTee?.slope_rating ?? null,
-              total_yards: playedTee?.total_yards ?? null,
-            }}
-            holes={holes}
-            scoresByHoleId={scoresByHoleId}
-            tone={shareTone}
-          />
-        </div>
-      </div>
+      {shareModel && (
+        <ShareCardChooser
+          open={shareOpen}
+          model={shareModel}
+          filename={shareFilename(round.data.courses?.name, round.data.played_at)}
+          onClose={closeShare}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmDelete}
@@ -417,7 +406,7 @@ export function RoundDetailPage() {
             <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
               <RoundSide
                 round={round.data as unknown as RoundRow}
-                holesPlayed={holesPlayed}
+                girOf={girOf}
                 totalRoundsLogged={allRounds.data?.length ?? 0}
               >
                 {roundKeys}
@@ -429,6 +418,7 @@ export function RoundDetailPage() {
         <MapView
           holes={holes}
           userId={user?.id}
+          selectClub={selectClub}
           handicap={profile.data?.handicap_index ?? DEFAULT_HANDICAP}
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
@@ -475,6 +465,7 @@ export function RoundDetailPage() {
               shotId,
             })
           }}
+          reviewOpen={reviewOpen}
           reviewSheet={
             activeHole ? (
               <>
@@ -538,6 +529,12 @@ export function RoundDetailPage() {
       })()}
     </div>
   )
+}
+
+// "bear-creek-golf-club-2026-10-31"; the chooser adds the style.
+function shareFilename(course: string | null | undefined, playedAt: string) {
+  const slug = (course ?? 'round').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  return `${slug}-${playedAt}`
 }
 
 // Scorecard | Map as the paper rocker (mobile Paper.tsx Rocker, §19.1).

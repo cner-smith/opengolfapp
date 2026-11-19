@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, type Dispatch, type RefObject } from 'react'
+import { useCallback, type Dispatch } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
-import { toBlob } from 'html-to-image'
 import {
+  autoAimPoint,
+  clubTypicalDistance,
   DEFAULT_HANDICAP,
+  haversineYards,
   inferHoleStats,
   isPuttShot,
   obCount,
@@ -24,14 +26,9 @@ import { supabase } from '../../../lib/supabase'
 import { toUserMessage } from '../../../lib/errors'
 import type { HoleViewAction } from '../state/holeViewReducer'
 import type { UseRoundDataResult } from './useRoundData'
+import type { UseClubDispersionResult } from './useClubDispersion'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
-
-// Fraction of the start→pin line where a live-round shot's aim auto-spawns.
-// Mirrors the mobile redesign (useHoleState `AIM_AUTOSPAWN_FRACTION`) so the
-// aim line + aim/remaining readouts appear the moment a shot is placed —
-// no extra tap. Past-round entry keeps the explicit "Set an aim point?" prompt.
-const AIM_AUTOSPAWN_FRACTION = 0.65
 
 // Last drag-edit on a saved shot. Surfaces the Undo button on the
 // bottom chrome for 5s after every drag, then clears itself.
@@ -65,20 +62,19 @@ interface UseRoundActionsInput {
   captureMode: CaptureMode
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** The club the map picks for a start→pin distance; its typical distance
+   *  caps the auto-spawned aim, as on mobile. */
+  selectClub: UseClubDispersionResult['selectClub']
   placedAims: (PlacedPoint | null)[]
   /** Parallel to placedAims — true while an aim is still the auto-spawned
    *  suggestion. Auto/untouched aims are NOT persisted on save. */
   placedAimAuto: boolean[]
   shotDragUndo: ShotDragUndo | null
-  shareCardRef: RefObject<HTMLDivElement | null>
-  sharing: boolean
-  shareTone: 'light' | 'dark'
   dispatchHoleView: Dispatch<HoleViewAction>
   setShotDragUndo: (u: ShotDragUndo | null) => void
   setSavingHole: (b: boolean) => void
   setConfirmDelete: (b: boolean) => void
   setCompleteError: (s: string | null) => void
-  setSharing: (b: boolean) => void
   setAimPromptOpen: (b: boolean) => void
 }
 
@@ -109,7 +105,6 @@ export interface UseRoundActionsResult {
   ) => Promise<void>
   handleDelete: () => Promise<void>
   handleComplete: () => Promise<void>
-  handleShare: () => Promise<void>
   completeMutation: ReturnType<typeof useCompleteRound>
   deleteMutation: ReturnType<typeof useDeleteRound>
   upsertHoleScore: ReturnType<typeof useUpsertHoleScore>
@@ -127,18 +122,15 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     captureMode,
     pinOverride,
     teeOverride,
+    selectClub,
     placedAims,
     placedAimAuto,
     shotDragUndo,
-    shareCardRef,
-    sharing,
-    shareTone,
     dispatchHoleView,
     setShotDragUndo,
     setSavingHole,
     setConfirmDelete,
     setCompleteError,
-    setSharing,
     setAimPromptOpen,
   } = input
   const navigate = useNavigate()
@@ -234,10 +226,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
 
   // Push a placed shot, then either auto-spawn its aim (live entry) or
   // prompt the player to set it (past-round review). The aim seeds on the
-  // straight start→pin line so the aim path + aim/remaining render
-  // immediately. SET_AIM targets the slot PUSH_POINT just appended
-  // (`placedAims.length` before the push), so it always lands on the new
-  // shot. Every placement flows through here now — a near-green shot is no
+  // start→pin line (core autoAimPoint, capped by the picked club as on
+  // mobile) so the aim path + aim/remaining render immediately. SET_AIM
+  // targets the slot PUSH_POINT just appended (`placedAims.length` before the
+  // push), so it always lands on the new shot. Every placement flows through here now — a near-green shot is no
   // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
@@ -247,13 +239,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // end-of-hole review still infers putts and lets the player fill
         // club/lie/result; aim is simply never prompted or spawned.
       } else if (isLiveEntry && effectivePin) {
+        // No club until the shot history loads: the plain 0.65, as on mobile.
+        const club = selectClub(haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng))
+        const clubYards = club ? clubTypicalDistance(club.medianDistanceYards, club.sampleSize, null)?.yards ?? null : null
         dispatchHoleView({
           type: 'SET_AIM',
           index: placedAims.length,
-          point: {
-            lat: p.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - p.lat),
-            lng: p.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - p.lng),
-          },
+          point: autoAimPoint(p, effectivePin, clubYards),
           // Visual suggestion only — flagged auto so it isn't persisted unless
           // the player drags/sets it (keeps inferred aims out of dispersion).
           auto: true,
@@ -262,7 +254,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         setAimPromptOpen(true)
       }
     },
-    [isLiveEntry, captureMode, effectivePin, placedAims.length, dispatchHoleView, setAimPromptOpen],
+    [isLiveEntry, captureMode, effectivePin, selectClub, placedAims.length, dispatchHoleView, setAimPromptOpen],
   )
 
   const placeHandlers = {
@@ -476,90 +468,6 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     }
   }, [round.data, courseId, user, profile.data?.handicap_index, completeMutation, setCompleteError])
 
-  // Pre-rasterise the off-screen ShareableScorecardCard to a Blob so the
-  // share handler can hand `navigator.share()` a ready file with NO
-  // awaited work between the click and the share() call: the Web Share
-  // API needs a live user-activation token, and an `await` inside the
-  // click handler expires that token on iOS Safari. 2x pixel ratio keeps
-  // it crisp on retina without ballooning the file for group-chat shares.
-  const shareBlobRef = useRef<Blob | null>(null)
-  useEffect(() => {
-    const node = shareCardRef.current
-    if (!node || !round.data) return
-    let cancelled = false
-    toBlob(node, {
-      pixelRatio: 2,
-      cacheBust: true,
-      backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
-    })
-      .then((blob) => {
-        if (!cancelled) shareBlobRef.current = blob
-      })
-      .catch(() => {
-        if (!cancelled) shareBlobRef.current = null
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [round.data, shareTone])
-
-  // Open the native share sheet (Web Share API) with the scorecard PNG,
-  // falling back to a download where file-sharing isn't supported (most
-  // desktop Firefox, older browsers) or if share() fails for any reason
-  // other than the user dismissing the sheet.
-  const handleShare = useCallback(async () => {
-    if (sharing) return
-    setSharing(true)
-    try {
-      const courseSlug = (round.data?.courses?.name ?? 'round')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-      const date = round.data?.played_at ?? 'unknown-date'
-      const filename = `${courseSlug}-${date}-scorecard.png`
-
-      // Prefer the pre-captured Blob (keeps the gesture token alive). Only
-      // fall back to a fresh capture if the effect hasn't produced one yet.
-      let blob = shareBlobRef.current
-      if (!blob && shareCardRef.current) {
-        blob = await toBlob(shareCardRef.current, {
-          pixelRatio: 2,
-          cacheBust: true,
-          backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
-        })
-      }
-      // toBlob resolves null (rather than throwing) when rasterisation
-      // fails — surface it through the same path as other share errors
-      // instead of a silent no-op.
-      if (!blob) throw new Error('Could not render the scorecard image.')
-
-      const file = new File([blob], filename, { type: 'image/png' })
-      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'OGA Scorecard' })
-          return
-        } catch (err) {
-          // User dismissed the sheet — not an error worth surfacing.
-          if ((err as Error).name === 'AbortError') return
-          // Any other share failure → fall through to the download path.
-        }
-      }
-
-      // Download fallback. Build the object URL from the same Blob and
-      // revoke it once the download has had a tick to start.
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (err) {
-      setCompleteError(toUserMessage(err))
-    } finally {
-      setSharing(false)
-    }
-  }, [shareCardRef, sharing, shareTone, round.data, setSharing, setCompleteError])
-
   const saveReviewedHole = useCallback(
     async (
       rows: ReviewedShotRow[],
@@ -617,13 +525,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           // A stroke-and-distance OB has no shot row of its own (the re-hit
           // is just the next struck shot number), so the struck-row count
           // alone undercounts the hole by one stroke per OB. `summary.score`
-          // is the ticker the player edited on the review sheet — left alone
-          // here NOT because it's re-seeded OB-aware (it isn't: web has no
-          // live capture, so obCount is always 0 at the sheet's hydration
-          // time), but because the sheet bumps that ticker ±1 itself the
-          // moment a row's result flips to/from 'ob' via the chip — the only
-          // path that can set shotResult 'ob' on web (see HoleReviewSheet's
-          // ShotRow onChange). This fallback term (rows.length +
+          // is the ticker the player edited on the review sheet, left alone:
+          // the sheet seeds it with the stored OB rows and moves it as a
+          // row's OB / Penalty flips (core seedReviewTally /
+          // applyReviewRowEdit). This fallback term (rows.length +
           // obCount(rows)) only fires when the sheet didn't pass a summary
           // at all.
           score: summary?.score ?? rows.length + obCount(rows),
@@ -723,6 +628,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       activeHoleShots,
       round.data,
       scoresByHoleId,
+      resolvedPar,
       ensureRealHole,
       teeOverride,
       pinOverride,
@@ -746,7 +652,6 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     saveReviewedHole,
     handleDelete,
     handleComplete,
-    handleShare,
     completeMutation,
     deleteMutation,
     upsertHoleScore,

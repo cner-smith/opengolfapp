@@ -58,6 +58,7 @@ apps/web/e2e/.auth/
 
 # Generated vendor copy of @oga/core for the Deno Edge Function (run `pnpm email:vendor-core`)
 supabase/functions/_shared/round-summary.ts
+supabase/functions/_shared/hole-tees.ts
 
 # Internal planning + design docs — kept locally, not published to GitHub.
 CLAUDE.md

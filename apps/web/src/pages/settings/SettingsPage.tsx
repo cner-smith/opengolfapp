@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   FACILITIES,
+  formatHandicapIndex,
+  handicapIndexEdited,
+  handicapIndexField,
+  PLUS_HANDICAP_EXPLAINER,
+  PLUS_HANDICAP_QUESTION,
+  plusHandicapToggle,
+  plusStartText,
   GOALS,
   HANDICAP_PROVENANCE_LABEL,
+  readHandicapIndexField,
   SKILL_LEVELS,
+  stepPlusHandicap,
+  typedHandicapSign,
   type Facility,
   type Goal,
   type SkillLevel,
@@ -75,6 +85,13 @@ export function SettingsPage() {
   const [tapError, setTapError] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
+  const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
+  // Turning plus on over a number past the plus end lands on a plus 1.
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next = stepPlusHandicap(plusToggle, action)
+    if (next.plus && !plusToggle.plus) setHandicap((t) => plusStartText(t))
+    setPlusToggle(next)
+  }
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [goal, setGoal] = useState<Goal | null>(null)
   const [facilities, setFacilities] = useState<Facility[]>([])
@@ -109,7 +126,8 @@ export function SettingsPage() {
     if (!profile || hydratedRef.current) return
     hydratedRef.current = true
     setUsername(profile.username ?? '')
-    setHandicap(profile.handicap_index?.toString() ?? '')
+    setHandicap(handicapIndexField(profile.handicap_index).text)
+    setPlusToggle(plusHandicapToggle(profile.handicap_index))
     setSkill((profile.skill_level as SkillLevel | null) ?? null)
     setGoal((profile.goal as Goal | null) ?? null)
     setFacilities((profile.facilities ?? []) as Facility[])
@@ -156,19 +174,15 @@ export function SettingsPage() {
       setError(USERNAME_HELPER)
       return
     }
-    const numericHandicap = handicap === '' ? null : Number(handicap)
-    if (handicap !== '' && Number.isNaN(numericHandicap)) {
-      setError('Handicap must be a number')
-      return
-    }
-    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
-      setError('Handicap must be between -10 and 54')
+    const handicapField = readHandicapIndexField({ text: handicap, plus: plusToggle.plus })
+    if ('error' in handicapField) {
+      setError(handicapField.error)
       return
     }
     try {
       await updateProfile.mutateAsync({
         username: trimmedUsername || null,
-        handicap_index: numericHandicap,
+        handicap_index: handicapField.index,
         skill_level: skill,
         goal,
         facilities,
@@ -211,7 +225,7 @@ export function SettingsPage() {
   const dirty =
     !!profile &&
     (trimmedUsername !== (profile.username ?? '') ||
-      handicap !== (profile.handicap_index?.toString() ?? '') ||
+      handicapIndexEdited({ text: handicap, plus: plusToggle.plus }, profile.handicap_index) ||
       skill !== ((profile.skill_level as SkillLevel | null) ?? null) ||
       goal !== ((profile.goal as Goal | null) ?? null) ||
       [...facilities].sort().join() !== [...((profile.facilities ?? []) as Facility[])].sort().join())
@@ -286,22 +300,50 @@ export function SettingsPage() {
         </Row>
         <Row
           label="Handicap index"
-          value={handicap === '' ? 'Not set' : handicap}
+          value={handicap === '' ? 'Not set' : `${plusToggle.plus ? '+' : ''}${handicap}`}
           serifValue={handicap !== ''}
           open={openRow === 'handicap'}
           onToggle={() => toggleRow('handicap')}
         >
-          <input
-            type="number"
-            inputMode="decimal"
-            aria-label="Handicap index"
-            min={-10}
-            max={54}
-            step={0.1}
-            value={handicap}
-            onChange={(e) => setHandicap(e.target.value)}
-            style={{ ...inputStyle, width: 140 }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Text, not type="number": Chrome drops a typed "+" and ",". */}
+            <input
+              inputMode="decimal"
+              aria-label="Handicap index"
+              value={handicap}
+              onChange={(e) => {
+                const typed = typedHandicapSign(e.target.value)
+                setHandicap(typed.text)
+                if (typed.plus) stepPlus('on')
+              }}
+              style={{ ...inputStyle, width: 140 }}
+            />
+            <Chip
+              label="Plus handicap"
+              active={plusToggle.plus}
+              onClick={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
+            />
+          </div>
+          {plusToggle.asking ? (
+            // Asked in place, and neither key is the forest primary: an
+            // amateur shouldn't turn this on by accident.
+            <div role="group" aria-label={PLUS_HANDICAP_QUESTION} style={{ marginTop: 14, maxWidth: 440 }}>
+              <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.3 }}>
+                {PLUS_HANDICAP_QUESTION}
+              </p>
+              <p className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
+                {PLUS_HANDICAP_EXPLAINER}
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" className="key set-key" onClick={() => stepPlus('confirm')}>
+                  Turn on
+                </button>
+                <button type="button" className="key set-key" onClick={() => stepPlus('cancel')}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
         </Row>
         <Row
           label="Skill level"
@@ -346,7 +388,8 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={saveProfile}
-                disabled={updateProfile.isPending || usernameInvalid}
+                // An open plus-handicap question must be answered first.
+                disabled={updateProfile.isPending || usernameInvalid || plusToggle.asking}
                 className="key key-primary"
                 style={{
                   fontSize: 14,
@@ -533,8 +576,8 @@ function Hero({ value, caption }: { value: number | null; caption: string }) {
       ) : (
         <span className="font-serif tabular text-caddie-ink" style={{ fontSize: 54, fontStyle: 'italic', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: '40px' }}>
           {/* The counting figure is hidden from screen readers; they get the value once. */}
-          <span aria-hidden="true">{shown!.toFixed(1)}</span>
-          <span className="sr-only">{value.toFixed(1)}</span>
+          <span aria-hidden="true">{formatHandicapIndex(shown!)}</span>
+          <span className="sr-only">{formatHandicapIndex(value)}</span>
         </span>
       )}
       <span className="prof-rise" style={{ display: 'block', marginBottom: -3, minWidth: 0 }}>

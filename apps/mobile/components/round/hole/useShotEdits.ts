@@ -52,7 +52,7 @@ export interface UseShotEditsResult {
   lastShotIsOb: boolean
   obBusy: boolean
   // The same OB truth for EVERY shot on the hole, index-aligned with
-  // data.previousShots / previousShotIds. Exposed for the same reason
+  // data.shots. Exposed for the same reason
   // lastShotIsOb is: the end-of-hole summary seeds its rows from this, and
   // reading the fetched flags directly would let it re-seed the score ticker
   // to the struck count during the window before a just-written OB refetches.
@@ -68,9 +68,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     pendingForHole,
     storedPin,
     roundPin,
-    previousShots,
-    previousShotIds,
-    previousShotObs,
+    shots,
   } = data
   // Serializes OB toggles: blocks a tap that arrives while one is in flight,
   // and (because the hole_scores write below is awaited inside the same
@@ -80,8 +78,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   // Mirrors obInFlightRef for the OB key's busy state (#1112).
   const [obBusy, setObBusy] = useState(false)
   // The OB flag we last WROTE for a shot, which outranks the fetched value
-  // until the refetch catches up. `previousShotObs` only refreshes when the
-  // post-write `refreshShots` round-trip lands — a whole extra RTT after the
+  // until the refetch catches up. The fetched flag (`data.shots[i].ob`) only
+  // refreshes when the post-write `refreshShots` round-trip lands — an RTT after the
   // write resolved and the in-flight gate released. Reading the fetched value
   // in that window is what made the penalty chargeable twice: a second tap
   // recomputed `next = true` against stale data, the update matched its (still
@@ -100,17 +98,15 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     ob: boolean
   } | null>(null)
   // Effective OB flag per shot on this hole, index-aligned with
-  // previousShotIds: our own last write for a shot outranks the fetched value
+  // data.shots: our own last write for a shot outranks the fetched value
   // until the refetch catches up (see obOverrideRef above). One array so the
   // chip's label and every score term below read the same truth.
   // Memoized so consumers can use it as a dependency (the end-of-hole
   // summary rebuilds its rows off it) without recomputing every render.
   const shotObs = useMemo(
     () =>
-      previousShotIds.map((shotId, i) =>
-        obOverride?.shotId === shotId ? obOverride.ob : previousShotObs[i] ?? false,
-      ),
-    [previousShotIds, previousShotObs, obOverride],
+      shots.map((s) => (obOverride?.shotId === s.id ? obOverride.ob : s.ob)),
+    [shots, obOverride],
   )
 
   // refreshShots only refetches SHOTS; delete_shot / insert_shot also re-tally
@@ -312,21 +308,21 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   async function markLastShotOb() {
     if (!user || !currentHoleScore) return
     if (obInFlightRef.current) return
-    // The hole's most recent shot. previousShotIds/previousShotObs/previousShots
-    // are built index-aligned in useHoleData, and #852's up-front id stamp is
-    // what puts a just-saved (still pending) shot in them at all — its payload
+    // The hole's most recent shot. #852's up-front id stamp is what puts a
+    // just-saved (still pending) shot in data.shots at all — its payload
     // carries the client id from the moment it is queued, so the shot the
     // player is standing at IS the last entry here. No id is derived or minted.
-    const idx = previousShotIds.length - 1
-    const shotId = previousShotIds[idx]
-    if (!shotId) return
-    const start = previousShots[idx] ?? null
+    const idx = shots.length - 1
+    const last = shots[idx]
+    if (!last) return
+    const shotId = last.id
+    const start = last.start
     // Direction comes from the last value WE WROTE when there is one for this
     // shot, never from the possibly-stale fetched value — see obOverrideRef.
     const currentlyOb =
       obOverrideRef.current?.shotId === shotId
         ? obOverrideRef.current.ob
-        : previousShotObs[idx] ?? false
+        : last.ob
     const next = !currentlyOb
     obInFlightRef.current = true
     setObBusy(true)

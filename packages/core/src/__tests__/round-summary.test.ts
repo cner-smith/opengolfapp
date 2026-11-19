@@ -49,6 +49,21 @@ describe('buildRoundSummary', () => {
     ])
   })
 
+  it('leaves out a category with no strokes gained (null): a gap, not a 0 bar (#1450)', () => {
+    const c = buildRoundSummary({ ...base, sg: { ...base.sg, offTee: null, aroundGreen: null } })
+    expect(c.bars.map((b) => b.label)).toEqual(['Approach', 'Putting'])
+    expect(c.lede).toBe("Here's how your round broke down.")
+  })
+
+  it('a round with no strokes gained has no bars and says so', () => {
+    const c = buildRoundSummary({
+      ...base,
+      sg: { offTee: null, approach: null, aroundGreen: null, putting: null },
+    })
+    expect(c.bars).toEqual([])
+    expect(c.lede).toBe('No strokes gained this round: no tracked shots to measure.')
+  })
+
   it('keeps the inlined toParLabel in lockstep with @oga/core formatToPar', () => {
     for (const totalScore of [60, 70, 72, 73, 90]) {
       const c = buildRoundSummary({ ...base, totalScore })

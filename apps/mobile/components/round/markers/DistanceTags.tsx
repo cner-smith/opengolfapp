@@ -3,7 +3,7 @@ import { Text, View } from 'react-native'
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Path, Rect } from 'react-native-svg'
-import type { LatLng } from '../HoleMap.types'
+import type { LatLng, MapPlate } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
 import { FONT_CAP, P, R } from '../../paper/tokens'
@@ -35,6 +35,7 @@ function LegTag({
   padding,
   toward,
   clamp,
+  onBox,
   children,
 }: {
   id: string
@@ -44,6 +45,9 @@ function LegTag({
   /** Far end of the leg: where the tag slides to stay above `clamp.maxY`. */
   toward?: LatLng
   clamp?: LegTagClamp
+  /** Where the tag settled (null when unmeasured): chrome that floats over
+   *  the map, like the wayfinder, keeps off it. */
+  onBox?: (plate: MapPlate | null) => void
   children: ReactNode
 }) {
   // The MarkerView anchors a fraction of its own width; pin the tick's
@@ -61,12 +65,15 @@ function LegTag({
   const dx = useSharedValue(0)
   const dy = useSharedValue(0)
   const glide = useAnimatedStyle(() => ({ transform: [{ translateX: dx.value }, { translateY: dy.value }] }))
+  // Gone tag, gone box.
+  useEffect(() => () => onBox?.(null), [])
   useEffect(() => {
     let live = true
     const map = clamp?.map.current
     if (!map || !clamp || !toward || !h) {
       dx.value = 0
       dy.value = 0
+      onBox?.(null)
       return
     }
     const lerp = (t: number): LatLng => ({ lat: at.lat + (toward.lat - at.lat) * t, lng: at.lng + (toward.lng - at.lng) * t })
@@ -83,6 +90,7 @@ function LegTag({
         map.getPointInView([p.lng, p.lat]),
       ])
       if (!live) return
+      onBox?.({ at, offset: [bx - ax, by - ay], live: { x: dx, y: dy }, width: w, height: h, lefty })
       const spring = { stiffness: 120, damping: 20, mass: 1 }
       dx.value = reduce ? bx - ax : withSpring(bx - ax, spring)
       dy.value = reduce ? by - ay : withSpring(by - ay, spring)
@@ -100,6 +108,7 @@ function LegTag({
     })().catch(() => {
       dx.value = 0
       dy.value = 0
+      onBox?.(null)
     })
     return () => {
       live = false
@@ -202,10 +211,15 @@ export function AimTag({
   lefty,
   toward,
   clamp,
+  onBox,
+  spread,
 }: {
   at: LatLng
   toward?: LatLng
   clamp?: LegTagClamp
+  onBox?: (plate: MapPlate | null) => void
+  /** The pattern's spread while its ring is up (#1468): "±38 wide · ±20 long". */
+  spread: string | null
   /** e.g. "101.4 yd" */
   display: string
   lie: string | null
@@ -215,7 +229,7 @@ export function AimTag({
   const { whole, dec, unit } = split(display)
   const colH = Math.round(32 * FIG)
   return (
-    <LegTag id="aimDistance" at={at} lefty={lefty} padding={[3, 11, 5, 12]} toward={toward} clamp={clamp}>
+    <LegTag id="aimDistance" at={at} lefty={lefty} padding={[3, 11, 5, 12]} toward={toward} clamp={clamp} onBox={onBox}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 32, lineHeight: 34, letterSpacing: -0.9, color: P.ink }]}>{whole}</Text>
         <View
@@ -240,6 +254,9 @@ export function AimTag({
             {Math.abs(sg).toFixed(1)}
           </Text>
         </Text>
+      )}
+      {spread != null && (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{spread}</Text>
       )}
     </LegTag>
   )

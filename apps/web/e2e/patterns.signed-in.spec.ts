@@ -58,17 +58,42 @@ test.describe('Shot patterns (signed in)', () => {
     await expect.poll(() => holder.evaluate((el) => getComputedStyle(el).opacity)).toBe('0')
   })
 
-  test('the table has one row per shot', async ({ page }) => {
+  test('the list key opens a table with one row per shot', async ({ page }) => {
     await open7i(page)
     const status = await page.getByRole('status').filter({ hasText: 'Showing' }).textContent()
     const n = Number(status?.match(/Showing (\d+) 7-iron/)?.[1])
     expect(n).toBeGreaterThan(0)
     const table = page.getByRole('table', { name: /7-iron shots, newest first/ })
     await expect(table).toHaveCount(0)
-    await page.getByRole('button', { name: 'Show the shots as a table' }).click()
-    await expect(page.getByRole('button', { name: 'Hide the table' })).toHaveAttribute('aria-expanded', 'true')
+    await page.getByRole('button', { name: 'List the shots' }).click()
+    await expect(page.getByRole('button', { name: 'Hide the list' })).toHaveAttribute('aria-expanded', 'true')
     expect((await box(page, table)).height).toBeGreaterThan(0)
     await expect(table.locator('tbody tr')).toHaveCount(n)
+  })
+
+  test('a layer toggle that is off has a solid edge; dashed is only for needs five shots', async ({ page }) => {
+    await open7i(page)
+    const rings = page.getByRole('group', { name: 'Show on the chart' }).getByRole('button', { name: 'Rings' })
+    await rings.click()
+    await expect(rings).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(() => rings.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('solid')
+    await expect.poll(() => rings.locator('svg').evaluate((el) => getComputedStyle(el).opacity)).toBe('0.35')
+  })
+
+  test('on a phone the Filters key counts the filters and the sheet clears them', async ({ page }) => {
+    await page.setViewportSize({ width: 400, height: 860 })
+    await open7i(page)
+    const filters = page.getByRole('button', { name: /^Filters/ })
+    await expect(filters).toHaveText('Filters')
+    await filters.click()
+    const sheet = page.getByRole('dialog', { name: 'Filters' })
+    await expect(sheet.getByRole('button', { name: 'Clear filters' })).toHaveCount(0)
+    await sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Rough' }).click()
+    await sheet.getByRole('button', { name: 'Clear filters' }).click()
+    await expect(sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Any' })).toHaveAttribute('aria-pressed', 'true')
+    await sheet.getByRole('group', { name: 'Lie' }).getByRole('button', { name: 'Rough' }).click()
+    await page.keyboard.press('Escape')
+    await expect(filters).toHaveText('Filters · 1')
   })
 
   test('the tee view draws from where the ball was hit', async ({ page }) => {
@@ -80,5 +105,58 @@ test.describe('Shot patterns (signed in)', () => {
     await expect(label).toHaveCount(1)
     const b = await box(page, label)
     expect(b.width).toBeGreaterThan(0)
+  })
+
+  test('under Latest an older pencil dot opens its own readout', async ({ page }) => {
+    await page.goto('/patterns')
+    const driver = page.getByRole('radiogroup', { name: 'Club' }).getByRole('radio', { name: /^driver,/i })
+    await driver.click()
+    await expect(page.locator('svg.pat-chart [data-shot]').first()).toBeAttached()
+    await page.getByRole('radio', { name: /^Latest \d+$/ }).click()
+    // An older dot (pencil) that no latest dot covers: the hit test at its
+    // centre lands outside every latest dot.
+    const at = await page.locator('svg.pat-chart').evaluate((svg) => {
+      for (const c of svg.querySelectorAll('circle[r="2.2"][fill-opacity="0.45"]')) {
+        const b = c.getBoundingClientRect()
+        const p = { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+        if (!document.elementFromPoint(p.x, p.y)?.closest('[data-shot]')?.querySelector('.pat-pop')) return p
+      }
+      return null
+    })
+    expect(at, 'an older dot clear of the latest ones').not.toBeNull()
+    await expect(page.getByRole('link', { name: 'Open round' })).toHaveCount(0)
+    await page.mouse.click(at!.x, at!.y)
+    // The readout opens, for the older shot (no latest mark in the chosen shot).
+    await expect(page.getByRole('link', { name: 'Open round' })).toHaveCount(1)
+    const chosen = await page.evaluate(() => {
+      const d = document.activeElement?.closest('[data-shot]')
+      return d ? { older: !d.querySelector('.pat-pop'), label: d.getAttribute('aria-label') } : null
+    })
+    expect(chosen?.older).toBe(true)
+    const first = chosen!.label!.split('. ')[0]!
+    await expect(page.locator('svg.pat-chart text', { hasText: first }).first()).toBeAttached()
+  })
+})
+
+test.describe('Shot patterns on a touch screen (signed in)', () => {
+  test.use({ viewport: { width: 400, height: 860 }, hasTouch: true, isMobile: true })
+
+  test('the first tap on a legend group brings it forward, the second hides it', async ({ page }) => {
+    await page.goto('/patterns')
+    const seven = page.getByRole('radiogroup', { name: 'Club' }).getByRole('radio', { name: /^7-iron,/ })
+    await seven.tap()
+    await expect(seven).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('svg.pat-chart [data-shot]').first()).toBeAttached()
+    await page.getByRole('radiogroup', { name: 'Colour the shots by' }).getByRole('radio', { name: 'Shape' }).tap()
+    await expect(page.getByText('Tap a group once to bring it forward, twice to hide it.')).toBeVisible()
+    const group = page.getByRole('group', { name: 'Show or hide groups of shots' }).getByRole('button').first()
+    const stepped = () => page.locator('svg.pat-chart [data-shot]').evaluateAll((els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.5).length)
+    await expect.poll(stepped).toBe(0)
+    await group.tap()
+    // Still shown, and the other groups' shots step back.
+    await expect(group).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(stepped).toBeGreaterThan(0)
+    await group.tap()
+    await expect(group).toHaveAttribute('aria-pressed', 'false')
   })
 })

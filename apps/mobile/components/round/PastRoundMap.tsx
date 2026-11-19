@@ -2,20 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, View } from 'react-native'
 import {
   DEFAULT_HANDICAP,
-  bearingDegrees,
-  destinationYards,
+  ballReadout,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
-  getExpectedStrokes,
-  startCategory,
   isPuttShot,
+  isTeeLineShot,
   obCount,
   plateWidth,
   projectShotMove,
   resolveHole,
+  savedPuttFt,
   shortClubLabel,
+  shotLegReadout,
   summarizeShotStep,
+  holeTeeBox,
   type DistanceUnit,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -83,10 +84,6 @@ type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
 // Mode rocker's bottom over the map: 8 above the footer per §19.4, plus the
 // Mapbox logo's strip (bottom-left of the map, which ToS keeps visible).
 const ROCKER_BOTTOM = 36
-
-// Half-width of the tee box (each dot sits this far to either side of the
-// tee shot, perpendicular to the line of play). ~4 yd ≈ a real teeing ground.
-const TEE_BOX_HALF_YARDS = 4
 
 interface PastRoundMapProps {
   roundId: string
@@ -310,21 +307,12 @@ export function PastRoundMap({
     [placed],
   )
 
-  // Tee box = two dots flanking the tee shot, perpendicular to the line of
-  // play. ALWAYS derived from the first placed shot's start (where the player
-  // actually teed off) — the stored course tee is consulted ONLY as a last
-  // resort when no first shot exists yet. Oriented toward that shot's aim, then pin.
+  // Tee box: core holeTeeBox, the same rule as the live round and web (#1483).
+  // `placed[0]` is shot 1 (saved or a draft); the course tee only before it has a start.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin = placed[0]?.start ?? tee
-    if (!origin) return null
-    const toward = placed[0]?.aim ?? effectivePin
-    const heading = toward
-      ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
-      : 0
-    return [
-      destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
-      destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
-    ]
+    const first = placed[0]
+    const shot1 = first?.start ? { start: first.start, aim: first.aim ?? null } : null
+    return holeTeeBox(shot1, null, tee, effectivePin)
   }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot
@@ -675,25 +663,24 @@ export function PastRoundMap({
   const heroRow = heroShot?.id ? shots.find((s) => s.id === heroShot.id) ?? null : null
   const heroYards =
     heroShot?.start && effectivePin ? distanceYards(heroShot.start, effectivePin) : null
-  const heroPutt = isPuttShot(heroRow?.lie_type ?? null)
-  const heroTee = (par === 4 || par === 5) && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
+  const heroTee = isTeeLineShot(par, heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
   // A putt reads its saved putt length, in putt units, so the hero, the flag
   // callout and the stepper ("Putt · 3 ft") show one number.
-  const heroFeet = heroPutt
-    ? heroRow?.putt_distance_ft ?? heroRow?.distance_to_target ?? (heroYards == null ? null : heroYards * 3)
-    : null
+  const hero = ballReadout({
+    toPinYards: heroYards,
+    putt: isPuttShot(heroRow?.lie_type ?? null),
+    savedPuttFt: heroRow ? savedPuttFt(heroRow) : null,
+    teeShot: heroTee,
+    handicap,
+  })
+  const heroFeet = hero?.puttFt ?? null
   const heroDistance =
     heroFeet != null
       ? splitDisplay(formatPuttDistance(heroFeet, unit))
-      : heroYards == null
+      : hero?.yards == null
         ? null
-        : splitDisplay(formatDistance(heroYards, unit, 1))
-  const expected =
-    heroFeet != null
-      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
-      : heroYards == null
-        ? null
-        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
+        : splitDisplay(formatDistance(hero.yards, unit, 1))
+  const expected = hero?.expected ?? null
 
   // Corner (§19.9 A). While logging, the map keeps hole_scores.score equal
   // to the placed shots + penalties (syncScore), so that running tally reads
@@ -750,18 +737,22 @@ export function PastRoundMap({
   const legEnd = aimLeg ?? nextStart ?? effectivePin
   const club = activeShotRow?.club ? formatClubLabel({ club_type: activeShotRow.club }) : null
   const legTo = aimLeg ? 'aim' : nextStart ? `to shot ${(active?.shotNumber ?? 0) + 1}` : 'to the pin'
-  // The callout sits on the hero's shot (active has a start), so a putt's leg
-  // to the pin is the hero's putt length.
-  const legFeet = isPuttShot(activeShotRow?.lie_type ?? null) && active?.start && legEnd
-    ? (legTo === 'to the pin' && heroFeet != null) ? heroFeet : distanceYards(active.start, legEnd) * 3
+  // A putt's leg to the pin is its putt length: saved first (core shotLegReadout).
+  const leg = active?.start && legEnd
+    ? shotLegReadout({
+        legYards: distanceYards(active.start, legEnd),
+        toPin: legTo === 'to the pin',
+        putt: isPuttShot(activeShotRow?.lie_type ?? null),
+        savedPuttFt: activeShotRow ? savedPuttFt(activeShotRow) : null,
+      })
     : null
   const callout =
-    active?.start && legEnd
+    leg
       ? {
           ...splitDisplay(
-            legFeet != null
-              ? formatPuttDistance(legFeet, unit)
-              : formatDistance(distanceYards(active.start, legEnd), unit, 1),
+            leg.puttFt != null
+              ? formatPuttDistance(leg.puttFt, unit)
+              : formatDistance(leg.yards, unit, 1),
           ),
           sub: club ? `${club} · ${legTo}` : legTo,
         }
@@ -779,6 +770,8 @@ export function PastRoundMap({
   const onCameraChanged = useCallback(() => cameraListenerRef.current?.(), [])
 
   const n = active?.shotNumber ?? 1
+
+  const wayfinderClear = completed ? 36 : ROCKER_BOTTOM + 51
 
   return (
     <View style={{ flex: 1, backgroundColor: P.chrome }}>
@@ -830,6 +823,8 @@ export function PastRoundMap({
           // No GPS here, and nothing floats over this map's bottom edge —
           // its controls are a solid panel below it.
           aimBallInset={50}
+          // Clear of the Mapbox logo, and the mode rocker while logging.
+          wayfinderBottom={{ clear: wayfinderClear }}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}

@@ -467,3 +467,59 @@ export async function countCourses(): Promise<number> {
   if (error) throw error
   return count ?? 0
 }
+
+// The course's own holes (not loop_of repeats, which read their front-nine hole's
+// green) for the green_maps pass (#1374).
+export async function fetchHolesForGreens(
+  courseIds: string[],
+): Promise<{ id: string; course_id: string; number: number; pin_lat: number | null; pin_lng: number | null }[]> {
+  const out: { id: string; course_id: string; number: number; pin_lat: number | null; pin_lng: number | null }[] = []
+  // holes.number is 1..18 and unique per course, so 50 courses = at most 900 rows,
+  // under PostgREST's 1000-row cap.
+  const CHUNK = 50
+  for (let i = 0; i < courseIds.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from('holes')
+      .select('id, course_id, number, pin_lat, pin_lng')
+      .in('course_id', courseIds.slice(i, i + CHUNK))
+      .is('loop_of', null)
+    if (error) throw new Error(`holes fetch for greens failed: ${error.message ?? JSON.stringify(error)}`)
+    out.push(...(data ?? []))
+  }
+  return out
+}
+
+export async function fetchGreenMaps(
+  holeIds: string[],
+): Promise<Map<string, { outline: string; outline_source: string }>> {
+  const out = new Map<string, { outline: string; outline_source: string }>()
+  const CHUNK = 200
+  for (let i = 0; i < holeIds.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from('green_maps')
+      .select('hole_id, outline, outline_source')
+      .in('hole_id', holeIds.slice(i, i + CHUNK))
+    if (error) throw new Error(`green_maps fetch failed: ${error.message ?? JSON.stringify(error)}`)
+    for (const r of data ?? []) out.set(r.hole_id, { outline: r.outline, outline_source: r.outline_source })
+  }
+  return out
+}
+
+export interface GreenMapRow {
+  hole_id: string
+  outline: string
+  area_m2: number
+  outline_source: 'osm'
+  outline_score: null
+  outline_flagged: boolean
+  outline_flag_reason: string | null
+}
+
+// Upsert touches only these columns, so a row's grid survives a new outline.
+export async function upsertGreenMaps(rows: GreenMapRow[]): Promise<void> {
+  const CHUNK = 500
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabase.from('green_maps').upsert(rows.slice(i, i + CHUNK), { onConflict: 'hole_id' })
+    if (error) throw error
+  }
+}

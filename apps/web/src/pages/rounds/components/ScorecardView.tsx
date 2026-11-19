@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Database } from '@oga/supabase'
-import { formatToPar, type ResolvedHole } from '@oga/core'
+import { formatToPar, scoredTotals, type ResolvedHole } from '@oga/core'
 import { CARD_COLS, HoleScoreCard } from '../../../components/rounds/HoleScoreCard'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -38,17 +38,15 @@ export function ScorecardView({
 
   // Per-nine totals for the title's right side, as on the phone's card.
   const nine = (lo: number, hi: number) => {
-    let score = 0
-    let par = 0
-    for (const h of holes) {
-      if (h.number < lo || h.number > hi) continue
-      const hs = scoresByHoleId.get(h.id)
-      if (hs?.score != null && hs.score > 0) {
-        score += hs.score
-        par += resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par
-      }
-    }
-    return score > 0 ? { score, toPar: score - par } : null
+    const t = scoredTotals(
+      holes
+        .filter((h) => h.number >= lo && h.number <= hi)
+        .map((h) => ({
+          score: scoresByHoleId.get(h.id)?.score,
+          par: resolvedHoleByNumber.get(h.number)?.par ?? h.par,
+        })),
+    )
+    return t.holesPlayed > 0 ? t : null
   }
   const front = nine(1, 9)
   const back = holes.some((h) => h.number > 9) ? nine(10, 99) : null

@@ -13,12 +13,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
   generateMaySendToAi,
   isAiWrittenPlan,
+  homeSummary,
   insightUnderFinding,
-  isPartialRound,
   normalizeCategoryProse,
-  sgBreakdown,
   parseLocalDate,
-  sgFinding,
   shouldPromptPlanRefresh,
   todayLocalDate,
 } from '@oga/core'
@@ -77,15 +75,8 @@ function formatDate(value: string | null): string {
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off the tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around the green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
-
 // Home's finding over the same window (the 20 most recent whole rounds), so
-// the plan opens on the leak it was built for; null with no whole rounds.
+// the plan opens on the leak it was built for; null with no counted category.
 function useFinding(): string | null {
   const { user } = useAuth()
   const [text, setText] = useState<string | null>(null)
@@ -99,12 +90,7 @@ function useFinding(): string | null {
         console.warn('[practice/getRecentRounds]', error.message)
         return
       }
-      const whole = (data ?? []).filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20)
-      if (whole.length === 0) return setText(null)
-      const { breakdown } = sgBreakdown(whole)
-      const avgs = SG_KEYS.map((c) => ({ label: c.label, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
-      const sorted = [...avgs].sort((a, b) => b.value - a.value)
-      setText(sgFinding(sorted[sorted.length - 1]!, sorted[0]!, 'every part'))
+      setText(homeSummary(data ?? []).finding)
     })
     return () => {
       active = false

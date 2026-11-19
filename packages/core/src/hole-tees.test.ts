@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveCourseTee, resolveHole, type HoleBase } from './hole-tees'
+import { resolveCourseTee, resolveHole, scoredHolePars, type HoleBase } from './hole-tees'
 
 const base: HoleBase = {
   par: 4,
@@ -101,5 +101,33 @@ describe('resolveCourseTee', () => {
   it('returns null when neither id nor color match', () => {
     expect(resolveCourseTee(tees, null, null)).toBeNull()
     expect(resolveCourseTee(tees, 'nope', 'green')).toBeNull()
+  })
+})
+
+describe('scoredHolePars', () => {
+  // holes.par 4 everywhere; tee t1 plays it as a 5, tee t2 as a 3.
+  const rows = [
+    { course_tee_id: 't1', par: 5 },
+    { course_tee_id: 't2', par: 3 },
+  ]
+  const scored = (par: number | null, score: number | null = 5) => ({ score, par, holes: { par: 4, hole_tees: rows } })
+
+  it("uses the played tee's par over holes.par", () => {
+    expect(scoredHolePars([scored(null)], 't1')).toEqual([5])
+    expect(scoredHolePars([scored(null)], 't2')).toEqual([3])
+  })
+
+  it('hole_scores.par beats the tee par', () => {
+    expect(scoredHolePars([scored(6)], 't1')).toEqual([6])
+  })
+
+  it("no tee, or a tee with no row for the hole: holes.par", () => {
+    expect(scoredHolePars([scored(null)], null)).toEqual([4])
+    expect(scoredHolePars([scored(null)], 't3')).toEqual([4])
+    expect(scoredHolePars([{ score: 5, par: null, holes: { par: 4, hole_tees: [{ course_tee_id: 't1', par: null }] } }], 't1')).toEqual([4])
+  })
+
+  it('skips holes with no score; a hole row missing reads as par 4', () => {
+    expect(scoredHolePars([scored(null, 0), scored(null, null), { score: 3, par: null, holes: null }], 't1')).toEqual([4])
   })
 })

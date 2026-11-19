@@ -67,3 +67,24 @@ test('a finished round opened on the map keeps the shot editor mini-map', async 
   await editor.getByRole('button', { name: /^edit$/i }).first().click()
   await expect(editor.locator('.mapboxgl-map')).toHaveCount(1, { timeout: 15_000 })
 })
+
+// #1437: Share opens the chooser; a style and a paper can be picked.
+test('Share opens the card chooser and switches styles', async ({ page }) => {
+  await page.goto('/rounds')
+  const finished = page
+    .locator('main li a[href^="/rounds/"]')
+    .filter({ has: page.locator('span', { hasText: /^\d+$/ }) })
+    .first()
+  await page.goto((await finished.getAttribute('href'))!)
+  await page.getByRole('button', { name: /^Share$/ }).click()
+  const chooser = page.getByRole('dialog', { name: 'Share your card' })
+  await expect(chooser.getByRole('button', { name: 'Big number', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await chooser.getByRole('button', { name: 'Par line', exact: true }).click()
+  await expect(chooser.getByRole('button', { name: 'Par line', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(chooser.getByRole('img', { name: 'Par line, light' })).toHaveCount(1)
+  await chooser.getByRole('radio', { name: 'Dark' }).click()
+  await expect(chooser.getByRole('img', { name: 'Par line, dark' })).toHaveCount(1)
+  await expect(chooser.getByRole('button', { name: /^(Share|Download) image$/ })).toBeEnabled({ timeout: 30_000 })
+  await chooser.getByRole('button', { name: 'Cancel' }).click()
+  await expect(chooser).toHaveCount(0)
+})

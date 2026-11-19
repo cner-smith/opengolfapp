@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withSpring,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated'
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
@@ -21,10 +22,11 @@ import { Icon } from '../paper/icons'
 import { marksPath, pencilEllipse } from '@oga/core'
 import { CoachTarget } from '../help/CoachMarks'
 import { haptic } from '../../lib/haptics'
-import { FONT_CAP, GAP, MARGIN, P, R } from '../paper/tokens'
+import { FONT_CAP, GAP, LEDGE, MARGIN, P, R } from '../paper/tokens'
 import { APPR_RULER_FEET, RULER_STEP, RulerCard, TEE_RULER_YARDS } from './HoleMapOverlays'
+import { GrowKey } from './GrowKey'
 import type { RoundState } from './hole/types'
-import type { OffscreenArrow } from './HoleMap.types'
+import type { KeyColumn, OffscreenArrow } from './HoleMap.types'
 
 export interface LiveRoundDockProps {
   /** The shot the last Mark measured (#1087). */
@@ -50,6 +52,9 @@ export interface LiveRoundDockProps {
   onTogglePattern: () => void
   /** Club wheel (§4); hidden while putting or with no pin. */
   wheel: WheelProps
+  /** The mini green key, or the flag key on a hole with no outline (#1381). */
+  greenKey: ReactNode
+  /** The no-flag voice line's "set the pin": the map's placement mode. */
   onTogglePin: () => void
   overlayMode: 'tee' | 'appr'
   onSetOverlayMode: (m: 'tee' | 'appr') => void
@@ -92,11 +97,20 @@ export interface LiveRoundDockProps {
   onDockHeight?: (h: number) => void
   /** The ruler drawer's top in dp above the footer while it's up, else 0. */
   onRulerDrawer?: (box: { width: number; top: number } | null) => void
+  /** The key columns standing on the footer, for the wayfinder to slide clear of. */
+  onKeyColumns?: (cols: KeyColumn[]) => void
+  /** False after a few seconds with no touch: the map keys fade (#1468). */
+  keysAwake: boolean
 }
 
 // The ruler drawer stands on the 64-high ruler key, in a 96-wide column.
 const KEY_H = 64
 const RULER_W = 96
+/** How far the ruler-side keys stand above the footer: what a map tag on that
+ *  side must clear (the left column stands taller). */
+export const RULER_SIDE_CLEAR = GAP + KEY_H + LEDGE + GAP
+// Idle map keys fade to this (#1468).
+const FADED = 0.4
 
 // Live-round dock (#611 §4–§6): the side stacks standing 8 above a paper
 // footer that holds the voice line and the bottom row. Absolute over the map,
@@ -107,46 +121,34 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
   const putting = p.roundState === 'PUTTING'
   const showStacks = p.editStepper == null
 
+  // The key column (L1, #1381; #1468): the Pattern icon key over the mini
+  // green key, the club key under them. The Pin key is retired: the pin is
+  // set in the green view.
+  const patternOff = putting || !p.hasPin
   const keys = (
-    <View style={{ flexDirection: 'row', gap: GAP, width: 124 }}>
-      <CoachTarget id="live.pattern" style={{ flex: 1 }}>
-      <Key
-        accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
-        onPress={() => {
-          haptic(p.patternOn ? 'toggleOff' : 'toggleOn')
-          p.onTogglePattern()
-        }}
-        latched={p.patternOn && !putting && p.hasPin}
-        pressHaptic={false}
-        disabled={putting || !p.hasPin}
-        style={{ flex: 1 }}
-        faceStyle={{ height: 46, gap: 1 }}
-      >
-        <Icon.pattern size={20} color={putting || !p.hasPin ? P.ink35 : P.ink} />
-        <KeyText size={11} bold={p.patternOn && !putting && p.hasPin} disabled={putting || !p.hasPin}>
-          Pattern
-        </KeyText>
-      </Key>
+    <>
+      <CoachTarget id="live.pattern">
+        <Key
+          accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
+          onPress={() => {
+            haptic(p.patternOn ? 'toggleOff' : 'toggleOn')
+            p.onTogglePattern()
+          }}
+          latched={p.patternOn && !patternOff}
+          pressHaptic={false}
+          disabled={patternOff}
+          glass
+          faceStyle={{ width: 46, height: 46 }}
+        >
+          {/* Latched: an ink face with a paper glyph, like the latched club and tee keys. */}
+          {p.patternOn && !patternOff && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: P.ink }} />
+          )}
+          <Icon.pattern size={22} color={patternOff ? P.ink35 : p.patternOn ? P.raised : P.ink} />
+        </Key>
       </CoachTarget>
-      <CoachTarget id="live.pin" style={{ flex: 1 }}>
-      <Key
-        accessibilityLabel={p.pinPlacementOpen ? 'Cancel pin placement' : 'Place pin'}
-        onPress={() => {
-          haptic(p.pinPlacementOpen ? 'toggleOff' : 'toggleOn')
-          p.onTogglePin()
-        }}
-        latched={p.pinPlacementOpen}
-        pressHaptic={false}
-        style={{ flex: 1 }}
-        faceStyle={{ height: 46, gap: 1 }}
-      >
-        <Icon.pin size={20} />
-        <KeyText size={11} bold={p.pinPlacementOpen}>
-          Pin
-        </KeyText>
-      </Key>
-      </CoachTarget>
-    </View>
+      <CoachTarget id="live.green">{p.greenKey}</CoachTarget>
+    </>
   )
 
   // The ruler folds into one key. A tap opens the drawer (Tee/Appr and the
@@ -189,48 +191,46 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     .onFinalize((_e, success) => runOnJS(endScrub)(success))
   const right = aimLike ? (
     <CoachTarget id="live.ruler" style={{ width: RULER_W }}>
-      <Grow
-        open={drawerUp}
+      <GrowKey
+        open={rulerOpen}
         ghost={scrubbing && !rulerOpen}
-        onHeight={setDrawerH}
-        style={{ position: 'absolute', bottom: KEY_H + GAP, left: 0, right: 0, gap: GAP }}
+        width={RULER_W}
+        keyH={KEY_H}
+        accessibilityLabel={`${p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}: tap to change, or hold and drag`}
+        onPress={() => setRulerOpen((o) => !o)}
+        gesture={keyPan}
+        onDrawerHeight={setDrawerH}
+        drawer={
+          <>
+            <Rocker
+              options={[
+                { value: 'tee', label: 'Tee' },
+                { value: 'appr', label: 'Appr' },
+              ]}
+              value={p.overlayMode}
+              onChange={(v) => v && p.onSetOverlayMode(v)}
+            />
+            <RulerCard
+              bare
+              mode={p.overlayMode}
+              index={p.rulerIndex}
+              pos={p.rulerPos}
+              onSelect={(i) => {
+                p.onSelectRuler(i)
+                setRulerOpen(false)
+              }}
+              onScrub={p.onScrubRuler}
+              lefty={p.lefty}
+            />
+          </>
+        }
       >
-        <Rocker
-          options={[
-            { value: 'tee', label: 'Tee' },
-            { value: 'appr', label: 'Appr' },
-          ]}
-          value={p.overlayMode}
-          onChange={(v) => v && p.onSetOverlayMode(v)}
-        />
-        <RulerCard
-          mode={p.overlayMode}
-          index={p.rulerIndex}
-          pos={p.rulerPos}
-          onSelect={(i) => {
-            p.onSelectRuler(i)
-            setRulerOpen(false)
-          }}
-          onScrub={p.onScrubRuler}
-          lefty={p.lefty}
-        />
-      </Grow>
-      <GestureDetector gesture={keyPan}>
-        <View>
-          <Key
-            accessibilityLabel={`${p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}: tap to change, or hold and drag`}
-            onPress={() => setRulerOpen((o) => !o)}
-            latched={rulerOpen}
-            faceStyle={{ height: KEY_H, gap: 0 }}
-          >
-            <KeyText size={11}>{p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}</KeyText>
-            <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
-              {rulerValues[Math.round(p.rulerPos)]}
-              <Text style={[TYPE.body, { fontSize: 12 }]}> {p.overlayMode === 'tee' ? 'yd' : 'ft'}</Text>
-            </Text>
-          </Key>
-        </View>
-      </GestureDetector>
+        <KeyText size={11}>{p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}</KeyText>
+        <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+          {rulerValues[Math.round(p.rulerPos)]}
+          <Text style={[TYPE.body, { fontSize: 12 }]}> {p.overlayMode === 'tee' ? 'yd' : 'ft'}</Text>
+        </Text>
+      </GrowKey>
     </CoachTarget>
   ) : p.showRecenter ? (
     <CoachTarget id="live.recenter">
@@ -238,6 +238,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
         accessibilityLabel="Put the ball on my GPS spot"
         onPress={p.onRecenter}
         disabled={!p.hasGps}
+        glass
         faceStyle={{ width: 48, height: 48 }}
       >
         <Icon.gps size={24} color={p.hasGps ? P.ink : P.ink35} />
@@ -246,6 +247,22 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
   ) : (
     <View />
   )
+
+  // Each column's box as laid out in the full-width stack row; none when hidden.
+  const columns = useRef<{ keys: KeyColumn | null; right: KeyColumn | null }>({ keys: null, right: null })
+  const measureColumn = (which: 'keys' | 'right') => (e: LayoutChangeEvent) => {
+    const { x, width, height } = e.nativeEvent.layout
+    columns.current[which] = width && height ? { left: x, right: x + width, above: GAP + height } : null
+    p.onKeyColumns?.([columns.current.keys, columns.current.right].filter((c): c is KeyColumn => c != null))
+  }
+  useEffect(() => {
+    if (showStacks) return
+    columns.current = { keys: null, right: null }
+    p.onKeyColumns?.([])
+  }, [showStacks])
+
+  // An open wheel or drawer keeps the keys up.
+  const keysFade = useKeysFade(p.keysAwake || p.wheel.open || rulerOpen || scrubbing)
 
   const voice = voiceLine(p)
   const buttons = bottomRow(p)
@@ -258,27 +275,37 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
       style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
     >
       {showStacks && (
-        <View
+        <Animated.View
           pointerEvents="box-none"
-          style={{
-            flexDirection: p.lefty ? 'row-reverse' : 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            paddingHorizontal: MARGIN,
-            paddingBottom: GAP,
-          }}
+          style={[
+            keysFade,
+            {
+              flexDirection: p.lefty ? 'row-reverse' : 'row',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              paddingHorizontal: MARGIN,
+              paddingBottom: GAP,
+            },
+          ]}
         >
-          <View style={{ width: 124, gap: GAP }}>
+          {/* Keys keep to the column's outer edge, so the icon key mirrors for lefty. */}
+          <View
+            pointerEvents="box-none"
+            onLayout={measureColumn('keys')}
+            style={{ width: 124, gap: GAP, alignItems: p.lefty ? 'flex-end' : 'flex-start' }}
+          >
             {keys}
             {!putting && p.hasPin && (
-              <CoachTarget id="live.wheel">
+              <CoachTarget id="live.wheel" style={{ alignSelf: 'stretch' }}>
                 {/* Keyed by shot to reset the card's animation; open state is the parent's. */}
                 <ClubWheel key={p.totalShotsThisHole} {...p.wheel} />
               </CoachTarget>
             )}
           </View>
-          {right}
-        </View>
+          <View pointerEvents="box-none" onLayout={measureColumn('right')}>
+            {right}
+          </View>
+        </Animated.View>
       )}
       <PaperSurface
         onLayout={(e) => p.onFooterHeight(e.nativeEvent.layout.height)}
@@ -493,6 +520,7 @@ function ClubWheel(props: WheelProps) {
     <Key
       accessibilityLabel={`${spoken.filter(Boolean).join(', ')}. Change it`}
       onPress={() => props.onOpenChange(true)}
+      glass
       faceStyle={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 }}
     >
       <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, color: P.ink }]}>{row.label}</Text>
@@ -827,50 +855,14 @@ function WheelRowView({
   )
 }
 
-// The ruler drawer grows up out of its key and sinks back in, staying mounted
-// while it closes. A ghost is see-through and lets touches pass.
-function Grow({
-  open,
-  ghost,
-  onHeight,
-  style,
-  children,
-}: {
-  open: boolean
-  ghost: boolean
-  onHeight: (h: number) => void
-  style: object
-  children: ReactNode
-}) {
-  const reduce = useReducedMotion()
-  const t = useSharedValue(open ? 1 : 0)
-  const fade = useSharedValue(ghost ? 0.82 : 1)
-  const [mounted, setMounted] = useState(open)
+// The map keys fade while idle (#1468). Waking is at once; falling asleep
+// eases out unless motion is reduced.
+function useKeysFade(up: boolean) {
+  const reduceMotion = useReducedMotion()
+  const fade = useSharedValue(1)
   useEffect(() => {
-    if (open) setMounted(true)
-    fade.value = ghost ? 0.82 : 1
-    if (reduce) {
-      t.value = open ? 1 : 0
-      if (!open) setMounted(false)
-      return
-    }
-    t.value = withSpring(open ? 1 : 0, { stiffness: 140, damping: 22, mass: 1 }, (done) => {
-      if (done && !open) runOnJS(setMounted)(false)
-    })
-  }, [open, ghost, reduce, t, fade])
-  const anim = useAnimatedStyle(() => ({
-    opacity: Math.min(1, t.value * 1.6) * fade.value,
-    transform: [{ translateY: (1 - t.value) * 28 }, { scaleY: 0.7 + 0.3 * t.value }],
-    transformOrigin: 'bottom',
-  }))
-  if (!mounted) return null
-  return (
-    <Animated.View
-      pointerEvents={open && !ghost ? 'auto' : 'none'}
-      onLayout={(e) => onHeight(e.nativeEvent.layout.height)}
-      style={[style, anim]}
-    >
-      {children}
-    </Animated.View>
-  )
+    const to = up ? 1 : FADED
+    fade.value = up || reduceMotion ? to : withTiming(to, { duration: 600 })
+  }, [up, reduceMotion, fade])
+  return useAnimatedStyle(() => ({ opacity: fade.value }))
 }

@@ -1,7 +1,10 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  getExpectedStrokes,
-  startCategory,
+  ballReadout,
+  shotLegReadout,
+  greenApproach,
+  isTeeLineShot,
+  paceLines,
   haversineYards,
   type ShotMarkerCategory,
 } from '@oga/core'
@@ -13,17 +16,25 @@ import {
   type PlacedPoint,
 } from '../../../components/round/RoundMap'
 import {
+  AimWidthTile,
   chromeSurface,
   FooterKeys,
+  Glyph,
+  GreenKey,
   HoleBlock,
+  MapKeyStack,
   OverlayRail,
   P,
   PatternKey,
+  SquareKey,
   StepperRow,
   type HoleResult,
 } from '../../../components/round/map/PaperChrome'
+import { PhoneFoot } from '../../../components/round/map/MapBottomChrome'
 import { useUnits } from '../../../hooks/useUnits'
-import { useClubDispersion } from '../hooks/useClubDispersion'
+import { GreenView } from '../../../components/round/green/GreenView'
+import { useGreenMap, type GreenViewMode } from '../../../components/round/green/useGreenMap'
+import type { UseClubDispersionResult } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -46,8 +57,10 @@ const FEET_PER_YARD = 3
 
 interface MapViewProps {
   holes: HoleRow[]
-  /** Current user id — feeds the dispersion-dots overlay's club history. */
+  /** Current user id — keys the green-view preference. */
   userId: string | undefined
+  /** Picks the dispersion-dots overlay's club (the page's useClubDispersion). */
+  selectClub: UseClubDispersionResult['selectClub']
   /** Player handicap index — calibrates the live expected-strokes / SG HUD. */
   handicap: number
   activeHoleNumber: number
@@ -101,6 +114,8 @@ interface MapViewProps {
   shotDragUndoLabel: string | null
   onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
+  /** The review sheet covers the map; on a phone the foot's keys step aside. */
+  reviewOpen: boolean
   /** The active hole's hole_scores row, for the score corner. */
   holeScore: { score: number | null; putts: number | null } | null
   /** A Remove or Add shot is saving. */
@@ -121,6 +136,7 @@ function splitDisplay(s: string): { value: string; unit: string } {
 export function MapView({
   holes,
   userId,
+  selectClub,
   handicap,
   activeHoleNumber,
   onSwitchHole,
@@ -145,13 +161,14 @@ export function MapView({
   saveError,
   editingOnMap,
   reviewSheet,
+  reviewOpen,
   holeScore,
   shotBusy,
   onRemoveShot,
   onAddShot,
   onEditShot,
 }: MapViewProps) {
-  const { toDisplay, toDisplayFt } = useUnits()
+  const { unit, toDisplay, toDisplayFt } = useUnits()
   // Notice banner sits above the map when the active hole has no tee
   // or pin coords. Dismiss state resets on every hole switch so the
   // player isn't surprised by a missing-data hole later in the round.
@@ -183,7 +200,6 @@ export function MapView({
   // Pattern key (Phase C dots + the overlay). Off by default so a reviewed
   // hole reads as clean as mobile's; on, it shows the arc/circle and dots.
   const [dotsVisible, setDotsVisible] = useState(false)
-  const { selectClub } = useClubDispersion(userId)
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -195,9 +211,29 @@ export function MapView({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // "+ Add shot": the next map tap is the new shot's start.
   const [adding, setAdding] = useState(false)
+  // The green view (#1380). The Green key draws it on the map at green zoom;
+  // on desktop the scorecard panel always shows it, at phone width the key
+  // opens it as a sheet.
+  const { courseHasGreens, green } = useGreenMap(holes, activeHoleGeo?.id)
+  const [greenView, setGreenView] = useGreenViewPref(userId)
+  const [greenOn, setGreenOn] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [paceLinesOn, setPaceLinesOn] = useState(false)
+  const [pinMovedInView, setPinMovedInView] = useState(0)
+  // The green view's flag is held: the map sets its other green effects aside (#1385).
+  const [pinHeld, setPinHeld] = useState(false)
+  const wide = useWide()
+  useEffect(() => {
+    if (!sheetOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheetOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sheetOpen])
   useEffect(() => {
     setSelectedId(null)
     setAdding(false)
+    setGreenOn(false)
+    setSheetOpen(false)
   }, [activeHoleNumber])
   const found = steps.findIndex((s) => s.id === selectedId)
   const stepPos = found >= 0 ? found : steps.length - 1
@@ -228,8 +264,9 @@ export function MapView({
   const needsTee = activeHoleGeo != null && effectiveTee == null
   // "Set pin" is available while logging or editing a PAST round on a
   // geo-anchored hole — shown even when a pin coord already exists so the
-  // player can override a wrong crawled pin. Hidden during live-aim.
-  const showPinButton = !isLiveEntry && activeHoleGeo != null
+  // player can override a wrong crawled pin. Hidden during live-aim, and on a
+  // course with green outlines: the green view sets the pin there (#1385).
+  const showPinButton = !isLiveEntry && activeHoleGeo != null && !courseHasGreens
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
@@ -239,7 +276,8 @@ export function MapView({
 
   // Hole block hero (§19.2): To the pin from the SELECTED shot's start (the
   // stepper's shot in review, the last placed ball while logging), and the
-  // expected strokes to hole out from there. A putt reads in feet.
+  // expected strokes to hole out from there. A putt reads in feet: its saved
+  // length, else the map distance.
   const par = activeHoleGeo?.par ?? null
   const heroStart = selected
     ? { lat: selected.startLat!, lng: selected.startLng! }
@@ -248,37 +286,100 @@ export function MapView({
     heroStart && effectivePin
       ? haversineYards(heroStart.lat, heroStart.lng, effectivePin.lat, effectivePin.lng)
       : null
-  const heroTee =
-    (par === 4 || par === 5) &&
-    (selected ? selected.shotNumber === 1 : placedPoints.length === 1 && existingShots.length === 0)
-  const heroFeet = selected?.category === 'putt' && heroYards != null ? heroYards * 3 : null
+  const hero = ballReadout({
+    toPinYards: heroYards,
+    putt: selected?.category === 'putt',
+    savedPuttFt: selected?.savedPuttFt ?? null,
+    teeShot: isTeeLineShot(
+      par,
+      selected ? selected.shotNumber === 1 : placedPoints.length === 1 && existingShots.length === 0,
+    ),
+    handicap,
+  })
   const heroDistance =
-    heroFeet != null
-      ? splitDisplay(toDisplayFt(heroFeet))
-      : heroYards == null
+    hero?.puttFt != null
+      ? splitDisplay(toDisplayFt(hero.puttFt))
+      : hero?.yards == null
         ? null
-        : splitDisplay(toDisplay(heroYards, 1))
-  const expected =
-    heroFeet != null
-      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
-      : heroYards == null
-        ? null
-        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
+        : splitDisplay(toDisplay(hero.yards, 1))
+  const expected = hero?.expected ?? null
   const score = holeScore?.score ?? 0
   const result: HoleResult =
     score > 0
       ? { scored: true, score, toPar: par != null ? score - par : null, putts: holeScore?.putts ?? null }
       : { scored: false, shots: placedPoints.length }
 
-  // Leg length of each saved shot: its start to the next start, or the pin.
+  // Leg length of each saved shot: its start to the next start, or the pin
+  // (a putt's leg to the pin is its saved length first, core shotLegReadout).
   const legOf = (i: number): string | null => {
     const s = steps[i]
     if (!s) return null
     const nx = steps[i + 1]
     const end = nx ? { lat: nx.startLat!, lng: nx.startLng! } : effectivePin
     if (!end) return null
-    const yd = haversineYards(s.startLat!, s.startLng!, end.lat, end.lng)
-    return s.category === 'putt' ? toDisplayFt(yd * 3) : toDisplay(yd, 1)
+    const leg = shotLegReadout({
+      legYards: haversineYards(s.startLat!, s.startLng!, end.lat, end.lng),
+      toPin: !nx,
+      putt: s.category === 'putt',
+      savedPuttFt: s.savedPuttFt ?? null,
+    })
+    return leg.puttFt != null ? toDisplayFt(leg.puttFt) : toDisplay(leg.yards, 1)
+  }
+
+  // Front and back are set by the approach (core greenApproach): the newest
+  // start off the green among the tee, the saved shots up to the selected one
+  // (never a putt; steps all have a start) and the balls being placed.
+  const approachStarts = [
+    ...(effectiveTee ? [effectiveTee] : []),
+    ...(selected ? steps.slice(0, stepPos + 1) : steps)
+      .filter((s) => s.category !== 'putt')
+      .map((s) => ({ lat: s.startLat!, lng: s.startLng! })),
+    ...placedPoints,
+  ]
+  const approachDeg = Math.round((green && greenApproach(green.outline, approachStarts)) ?? 0)
+  const pinLat = effectivePin?.lat
+  const pinLng = effectivePin?.lng
+  const greenPaceLines = useMemo(
+    () =>
+      paceLinesOn && green && pinLat != null && pinLng != null
+        ? paceLines(green.outline, { lat: pinLat, lng: pinLng }, approachDeg)
+        : [],
+    [paceLinesOn, green, pinLat, pinLng, approachDeg],
+  )
+  const greenMap = useMemo(
+    () => ({ data: green, mode: greenView, show: greenOn, paceLines: greenPaceLines, approachDeg, held: pinHeld }),
+    [green, greenView, greenOn, greenPaceLines, approachDeg, pinHeld],
+  )
+  const greenPanel = (size: number) => (
+    <GreenView
+      green={green}
+      holeNumber={activeHoleNumber}
+      pin={effectivePin}
+      approachDeg={approachDeg}
+      unit={unit}
+      view={greenView}
+      onView={setGreenView}
+      paceLines={paceLinesOn}
+      onPaceLines={setPaceLinesOn}
+      onMovePin={(q) => {
+        setPinMovedInView((n) => n + 1)
+        handlers.onMovePin(q)
+      }}
+      onSetPinOnMap={() => {
+        setSheetOpen(false)
+        handlers.onStartPlacePin()
+      }}
+      onHold={setPinHeld}
+      size={size}
+    />
+  )
+  const toggleGreen = () => {
+    if (wide) setGreenOn((v) => !v)
+    else if (greenOn) setGreenOn(false)
+    else {
+      setGreenOn(true)
+      setSheetOpen(true)
+    }
   }
 
   const overlayControlsVisible =
@@ -287,6 +388,35 @@ export function MapView({
       ? dotsVisible && selected?.aimLat != null
       : placedAims.some((a) => a != null))
   const mapKeysBottom = review ? 34 : 128
+  const chromeProps = {
+    hasExistingShots,
+    editing: editingOnMap,
+    shotsPlaced: placedPoints.length,
+    remainingToPin,
+    pinAvailable: effectivePin != null,
+    aimMode,
+    aimsSet: placedAims.filter((a) => a != null).length,
+    holeNumber: activeHoleNumber,
+    needsTee,
+    showPinButton,
+    placementMode,
+    shotDragUndoLabel,
+    onApplyShotDragUndo,
+    onStartPlaceTee: handlers.onStartPlaceTee,
+    onStartPlacePin: handlers.onStartPlacePin,
+    onCancelPlacement: handlers.onCancelPlacement,
+    onToggleAimMode: handlers.onToggleAimMode,
+    onClearLastAim: () => {
+      const idx = placedAims.length - 1
+      if (idx >= 0) handlers.onSetAim(idx, null)
+    },
+    onUndo: handlers.onUndoPoint,
+    onClear: handlers.onClearPoints,
+    onDone: handlers.onDoneWithHole,
+    onDoneEditing: handlers.onDoneEditing,
+  }
+  const overlayValues = overlayMode === 'tee' ? TEE_RAIL_YARDS : APPR_RAIL_FEET
+  const overlayUnit = overlayMode === 'tee' ? 'yd' : 'ft'
 
   return (
     <div>
@@ -344,10 +474,23 @@ export function MapView({
             selectedId={review ? selected?.id ?? null : null}
             onSelect={setSelectedId}
           />
-          <HolePicker holes={holes} activeNumber={activeHoleNumber} onSelect={onSwitchHole} />
-          <div style={{ flex: 1 }} />
+          {courseHasGreens ? (
+            // Round 6 (#1379): the green takes the hole picker's place; holes
+            // stay a ‹ › away in the hole block.
+            <>
+              <div style={{ flex: 1 }} />
+              <div data-testid="green-panel" style={{ flexShrink: 0, borderTop: `1px solid ${P.ink}`, padding: '12px 16px 14px' }}>
+                {greenPanel(220)}
+              </div>
+            </>
+          ) : (
+            <>
+              <HolePicker holes={holes} activeNumber={activeHoleNumber} onSelect={onSwitchHole} />
+              <div style={{ flex: 1 }} />
+            </>
+          )}
         </div>
-        <div style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
+        <div data-map-area style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
           <Suspense fallback={<MapLoading />}>
             <RoundMap
               hole={activeHoleGeo}
@@ -378,51 +521,66 @@ export function MapView({
               handicap={handicap}
               selectedShotId={selected?.id ?? null}
               onSelectShot={setSelectedId}
+              green={greenMap}
+              pinMovedInView={pinMovedInView}
+              ball={heroStart}
             />
           </Suspense>
           {reviewSheet}
-          {placementMode == null && (
-            <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
-          )}
-          {overlayControlsVisible && (
-            <OverlayRail
-              mode={overlayMode}
-              onSetMode={setOverlayMode}
-              values={overlayMode === 'tee' ? TEE_RAIL_YARDS : APPR_RAIL_FEET}
-              unit={overlayMode === 'tee' ? 'yd' : 'ft'}
-              index={railIndex}
-              onSelect={selectRail}
-              bottom={mapKeysBottom}
-            />
-          )}
-          {!review && (
-            <MapBottomChrome
-              hasExistingShots={hasExistingShots}
-              editing={editingOnMap}
-              shotsPlaced={placedPoints.length}
-              remainingToPin={remainingToPin}
-              pinAvailable={effectivePin != null}
-              aimMode={aimMode}
-              aimsSet={placedAims.filter((a) => a != null).length}
-              holeNumber={activeHoleNumber}
-              needsTee={needsTee}
-              showPinButton={showPinButton}
-              placementMode={placementMode}
-              shotDragUndoLabel={shotDragUndoLabel}
-              onApplyShotDragUndo={onApplyShotDragUndo}
-              onStartPlaceTee={handlers.onStartPlaceTee}
-              onStartPlacePin={handlers.onStartPlacePin}
-              onCancelPlacement={handlers.onCancelPlacement}
-              onToggleAimMode={handlers.onToggleAimMode}
-              onClearLastAim={() => {
-                const idx = placedAims.length - 1
-                if (idx >= 0) handlers.onSetAim(idx, null)
-              }}
-              onUndo={handlers.onUndoPoint}
-              onClear={handlers.onClearPoints}
-              onDone={handlers.onDoneWithHole}
-              onDoneEditing={handlers.onDoneEditing}
-            />
+          {wide ? (
+            <>
+              {placementMode == null && courseHasGreens && (
+                <GreenKey active={greenOn} onToggle={toggleGreen} bottom={mapKeysBottom + 64} />
+              )}
+              {placementMode == null && (
+                <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
+              )}
+              {overlayControlsVisible && (
+                <OverlayRail
+                  mode={overlayMode}
+                  onSetMode={setOverlayMode}
+                  values={overlayValues}
+                  unit={overlayUnit}
+                  index={railIndex}
+                  onSelect={selectRail}
+                  bottom={mapKeysBottom}
+                />
+              )}
+              {!review && <MapBottomChrome {...chromeProps} />}
+            </>
+          ) : (
+            // Phone (owner pick A, #1489): the app's layout. The keys sit in
+            // the paper foot; the map keeps small keys in its bottom corners.
+            <>
+              {placementMode == null && (
+                <MapKeyStack>
+                  {courseHasGreens && (
+                    <SquareKey label="Show the green" pressed={greenOn} onClick={toggleGreen}>
+                      {Glyph.green()}
+                    </SquareKey>
+                  )}
+                  {showPinButton && !review && (
+                    <SquareKey label="Set pin" onClick={handlers.onStartPlacePin}>
+                      {Glyph.flag()}
+                    </SquareKey>
+                  )}
+                  <SquareKey label="Show your shot pattern" pressed={dotsVisible} onClick={() => setDotsVisible((v) => !v)}>
+                    {Glyph.pattern()}
+                  </SquareKey>
+                </MapKeyStack>
+              )}
+              {overlayControlsVisible && (
+                <AimWidthTile
+                  key={placedPoints.length}
+                  mode={overlayMode}
+                  onSetMode={setOverlayMode}
+                  values={overlayValues}
+                  unit={overlayUnit}
+                  index={railIndex}
+                  onSelect={selectRail}
+                />
+              )}
+            </>
           )}
         </div>
         <div
@@ -474,11 +632,43 @@ export function MapView({
                 />
               )}
             </>
-          ) : (
+          ) : wide || reviewOpen ? (
             <div style={{ minHeight: 10 }} />
+          ) : (
+            <PhoneFoot {...chromeProps} lastHasAim={placedAims[placedPoints.length - 1] != null} />
           )}
         </div>
       </div>
+      {!wide && sheetOpen && courseHasGreens && (
+        <div
+          role="dialog"
+          aria-label={`Green ${activeHoleNumber}`}
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 40,
+            maxHeight: '78dvh',
+            overflowY: 'auto',
+            background: P.raised,
+            borderTop: `1px solid ${P.ink}`,
+            borderRadius: '12px 12px 0 0',
+            padding: '8px 16px 18px',
+          }}
+        >
+          <div style={{ width: 32, height: 4, borderRadius: 2, background: P.line, margin: '0 auto 12px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 22 }}>
+              Green {activeHoleNumber}
+            </span>
+            <button type="button" className="key key-primary" onClick={() => setSheetOpen(false)}>
+              Done
+            </button>
+          </div>
+          {greenPanel(Math.min(340, window.innerWidth - 32))}
+        </div>
+      )}
       {saveError && (
         <div
           className="text-caddie-neg"
@@ -665,4 +855,43 @@ function HolePicker({
       </div>
     </div>
   )
+}
+
+// Plain | Height | Slope, remembered per player on this device.
+function useGreenViewPref(userId: string | undefined): [GreenViewMode, (v: GreenViewMode) => void] {
+  const key = `oga.green-view.${userId ?? 'anon'}`
+  const read = (): GreenViewMode => {
+    try {
+      const v = window.localStorage.getItem(key)
+      return v === 'plain' || v === 'height' || v === 'slope' ? v : 'slope'
+    } catch {
+      return 'slope'
+    }
+  }
+  const [view, setView] = useState<GreenViewMode>(read)
+  useEffect(() => setView(read()), [key])
+  return [
+    view,
+    (v) => {
+      setView(v)
+      try {
+        window.localStorage.setItem(key, v)
+      } catch {
+        // Private mode: the pick lasts this visit.
+      }
+    },
+  ]
+}
+
+// Tailwind's lg: the scorecard panel shows from here up.
+function useWide(): boolean {
+  const q = '(min-width: 1024px)'
+  const [wide, setWide] = useState(() => window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const on = () => setWide(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return wide
 }

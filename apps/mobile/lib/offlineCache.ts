@@ -17,6 +17,8 @@ export const offlineKeys = {
   round: (userId: string, roundId: string) => `oga.roundData.${userId}.${roundId}`,
   holeShots: (userId: string, roundId: string, holeScoreId: string) =>
     `oga.holeShots.${userId}.${roundId}.${holeScoreId}`,
+  /** The last course's green_maps rows (#1381): outlines + bytea grids, ~50 KB. */
+  greenMaps: (userId: string) => `oga.greenMaps.${userId}`,
 }
 
 // postgrest-js resolves a failed fetch in-band as status 0 with message

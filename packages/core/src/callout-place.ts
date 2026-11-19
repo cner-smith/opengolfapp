@@ -2,6 +2,7 @@
 // box on a staff from the shot's start, put where it covers least. Screen
 // space (px/dp), y down, shared by both apps.
 import type { ScreenPt } from './plate-fan'
+import type { ScreenBox } from './green/wayfinder'
 
 export interface CalloutInput {
   /** The selected shot's start, the staff's foot. */
@@ -99,4 +100,55 @@ export function placeAimTag(q: {
   x = Math.max(TAG_EDGE, Math.min(q.size.w - TAG_EDGE - w, x))
   const y = Math.max(TAG_EDGE, Math.min(q.size.h - TAG_EDGE - h, ay - h / 2))
   return { x, y }
+}
+
+// The drag magnifier (#1356): a circle of radius `r` showing what the finger
+// covers. Straight above the finger by default, past the thumb; then above and
+// to one side, beside the finger, below. A spot must sit inside the map and
+// keep off every `keepOut` box (the Mapbox logo and attribution, which the
+// terms want visible, and the remaining-distance tag). `away` is the side
+// (+1 right, −1 left) to try first: away from the aim line's tags.
+// Nothing fits: the in-map spot touching the fewest boxes.
+const LOUPE_LIFT = 90
+const LOUPE_SIDE = 12
+const LOUPE_EDGE = 8
+
+export function placeLoupe(q: {
+  finger: ScreenPt
+  r: number
+  size: { w: number; h: number }
+  keepOut: ScreenBox[]
+  away: 1 | -1
+}): ScreenPt {
+  const [x, y] = q.finger
+  const { r } = q
+  const up = LOUPE_LIFT + r
+  const s = q.away
+  const shift = r + LOUPE_SIDE
+  // In order of preference: above, above-away, above-toward, beside away, beside toward, below.
+  const candidates: ScreenPt[] = [
+    [x, y - up],
+    [x + s * shift, y - up],
+    [x - s * shift, y - up],
+    [x + s * up, y],
+    [x - s * up, y],
+    [x, y + up],
+  ]
+  const inMap = ([cx, cy]: ScreenPt) =>
+    cx - r >= LOUPE_EDGE && cx + r <= q.size.w - LOUPE_EDGE && cy - r >= LOUPE_EDGE && cy + r <= q.size.h - LOUPE_EDGE
+  // A circle touches a box when the box's nearest point is within r.
+  const touches = ([cx, cy]: ScreenPt, k: ScreenBox) =>
+    Math.hypot(cx - Math.max(k.left, Math.min(k.right, cx)), cy - Math.max(k.top, Math.min(k.bottom, cy))) < r
+  let best: { p: ScreenPt; n: number } | null = null
+  for (const c of candidates) {
+    // Near a side edge the above spots slide in rather than give up.
+    const p: ScreenPt = [Math.max(LOUPE_EDGE + r, Math.min(q.size.w - LOUPE_EDGE - r, c[0])), c[1]]
+    if (!inMap(p)) continue
+    // A slide can't bring the circle back over the finger.
+    if (Math.hypot(p[0] - x, p[1] - y) < r + 20) continue
+    const n = q.keepOut.filter((k) => touches(p, k)).length
+    if (n === 0) return p
+    if (!best || n < best.n) best = { p, n }
+  }
+  return best?.p ?? [x, y - up]
 }

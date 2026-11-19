@@ -21,10 +21,11 @@ import {
   formatClubLabel,
   horizontalBreakFromAim,
   isPuttEntry,
-  isPuttShot,
   lieSlopeLabel,
-  obCount,
-  withReplayLies,
+  applyReviewRowDelete,
+  applyReviewRowEdit,
+  reviewRowsAfterEdit,
+  seedReviewTally,
   PUTTING_BASELINES,
   reviewedPuttLengthFt,
   type BreakDirectionHorizontal,
@@ -34,6 +35,7 @@ import {
   type LieType,
   type PuttDirectionResult,
   type PuttDistanceResult,
+  type ReviewTally,
   type ReviewedShotRow,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
@@ -123,9 +125,8 @@ export function HoleReviewSheet({
   // Score / putts / penalties are editable tickers. Score and putts pre-fill
   // from the placed shots (shot count, green-lie shots); penalties from the
   // OB-marked shots. All three become the hole_scores values on save.
-  const [score, setScore] = useState(0)
-  const [putts, setPutts] = useState(0)
-  const [penalties, setPenalties] = useState(0)
+  const [tally, setTally] = useState<ReviewTally>({ score: 0, putts: 0, penalties: 0 })
+  const { score, putts, penalties } = tally
   // Which putt row (by shotNumber) has the on-demand aimer open, if any. The
   // read tool is a full-screen overlay — never auto-opens.
   const [aimingShot, setAimingShot] = useState<number | null>(null)
@@ -166,68 +167,19 @@ export function HoleReviewSheet({
     const next = initialRowsRef.current
     const ids = shotIdsRef.current
     setRows(next.map((r, i) => ({ ...r, _shotId: ids[i] })))
-    // Score seeds from the rows: struck rows + penalty strokes. A
-    // stroke-and-distance OB has no row of its own, and the caller marks it on
-    // the row it belongs to (shotResult 'ob') — without that term the ticker
-    // would re-seed to the struck count and Save would persist it back over
-    // the live chip's bump (#839).
-    setScore(next.length + obCount(next))
-    // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
-    // putting engine + putt-count readers — a bladed wedge on the green still
-    // counts as a putt here even though its row shows normal-shot UI (the
-    // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
-    setPutts(next.filter((r) => isPuttShot(r.lieType)).length)
-    // An OB's stroke is already in the score above; the penalties ticker has
-    // to say so too (it read 0 next to a score that counted it).
-    setPenalties(obCount(next))
+    // The caller marks a live OB on its row (shotResult 'ob'), so the seed
+    // counts its stroke; without it Save would persist the struck count back
+    // over the live chip's bump (#839).
+    setTally(seedReviewTally(next))
   }, [visible, holeNumber])
 
   if (!visible) return null
 
   const setRow = (idx: number, nextRow: ReviewedShotRow) => {
-    // Keep the Score ticker in step when the result picker flips a row into
-    // or out of 'ob'. An OB row is worth two strokes (the shot plus its
-    // rowless stroke-and-distance penalty), and hydration already counted
-    // any seeded OB — so without this, clearing OB on a row leaves the
-    // score a stroke high and setting it leaves the score a stroke low.
-    // Transition-driven, not value-driven: re-selecting the same result is
-    // a no-op and cannot double-count. Mirrors web's bump in
-    // apps/web/src/components/round/HoleReviewSheet.tsx (#839).
+    // Transition-driven, so a hand-set ticker is kept (#839, #1039).
     const prevRow = rows[idx]
-    if (prevRow && nextRow.shotResult !== prevRow.shotResult) {
-      if (nextRow.shotResult === 'ob') {
-        setScore((s) => s + 1)
-        setPenalties((n) => n + 1)
-      } else if (prevRow.shotResult === 'ob') {
-        setScore((s) => Math.max(0, s - 1))
-        setPenalties((n) => Math.max(0, n - 1))
-      }
-    }
-    if (prevRow) {
-      // A penalty stroke has no row of its own either, so the Penalty key is
-      // worth one stroke on both tickers (#1039). Same transition rule as OB.
-      const pen = Number(!!nextRow.penalty) - Number(!!prevRow.penalty)
-      if (pen !== 0) {
-        setScore((s) => Math.max(0, s + pen))
-        setPenalties((n) => Math.max(0, n + pen))
-      }
-      // Putts follows the rows: a lie moved onto or off the green is a putt
-      // more or fewer.
-      const putt = Number(isPuttShot(nextRow.lieType)) - Number(isPuttShot(prevRow.lieType))
-      if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
-    }
-    const penalized =
-      (nextRow.shotResult === 'ob' && prevRow?.shotResult !== 'ob') ||
-      (!!nextRow.penalty && !prevRow?.penalty)
-    setRows((prev) => {
-      const copy = prev.slice()
-      copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
-      // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
-      if (penalized && copy[idx + 1]) {
-        copy[idx + 1] = withReplayLies([copy[idx]!, copy[idx + 1]!])[1]!
-      }
-      return copy
-    })
+    if (prevRow) setTally((t) => applyReviewRowEdit(t, prevRow, nextRow))
+    setRows((prev) => reviewRowsAfterEdit(prev, idx, { ...nextRow, _shotId: prev[idx]?._shotId }))
   }
 
   const confirmDelete = (row: EditableRow) => {
@@ -253,16 +205,9 @@ export function HoleReviewSheet({
             : r,
         ),
     )
-    // Keep the tickers honest: one fewer shot, and one fewer putt if it
-    // was a green-lie shot (matches the RPC's re-tally). An OB row is
-    // worth TWO strokes — the shot plus its stroke-and-distance
-    // penalty, which has no row of its own — so deleting it drops 2,
-    // matching what delete_shot re-tallies server-side. A Penalty-key
-    // stroke set in this sheet goes with its row the same way.
-    const penaltyStrokes = (row.shotResult === 'ob' ? 1 : 0) + (row.penalty ? 1 : 0)
-    setScore((s) => Math.max(0, s - 1 - penaltyStrokes))
-    if (penaltyStrokes > 0) setPenalties((n) => Math.max(0, n - penaltyStrokes))
-    if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
+    // Matches delete_shot's server-side re-tally: the row, its OB and
+    // Penalty strokes, and its putt.
+    setTally((t) => applyReviewRowDelete(t, row))
   }
 
   return (
@@ -312,9 +257,14 @@ export function HoleReviewSheet({
         </View>
 
         <View style={{ flexDirection: 'row', gap: GAP, paddingTop: 4, paddingHorizontal: 22, paddingBottom: 14 }}>
-          <Ticker label="Score" value={score} onChange={setScore} />
-          <Ticker label="Putts" value={putts} onChange={setPutts} />
-          <Ticker label="Penalties" value={penalties} onChange={setPenalties} warn />
+          <Ticker label="Score" value={score} onChange={(n) => setTally((t) => ({ ...t, score: n }))} />
+          <Ticker label="Putts" value={putts} onChange={(n) => setTally((t) => ({ ...t, putts: n }))} />
+          <Ticker
+            label="Penalties"
+            value={penalties}
+            onChange={(n) => setTally((t) => ({ ...t, penalties: n }))}
+            warn
+          />
         </View>
 
         <ScrollView
@@ -356,7 +306,7 @@ export function HoleReviewSheet({
             pressHaptic={false}
             onPress={() => {
               haptic('confirm')
-              onSave(rows, { score, putts, penalties })
+              onSave(rows, tally)
             }}
             faceStyle={{ minHeight: 50 }}
           >

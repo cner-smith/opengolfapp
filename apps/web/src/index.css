@@ -176,6 +176,12 @@ body {
 .rocker button[aria-selected='true'] {
   font-weight: 600;
 }
+.rocker button:disabled {
+  color: rgba(28, 33, 28, 0.35);
+  background: #fbf8f1;
+  box-shadow: inset 0 -3px 0 rgba(28, 33, 28, 0.35);
+  cursor: default;
+}
 .rocker-tight button,
 .rocker-tight button[aria-checked='true'] {
   padding-left: 3px;
@@ -629,5 +635,15 @@ dialog.pat-dialog::backdrop {
   from {
     opacity: 0;
     transform: translateY(var(--nf-from, 6px));
+  }
+}
+
+/* Phone round map (#1489): Mapbox's logo and (i) sit in the map's top
+   corners, as in the app, so the bottom corners hold the map keys. */
+@media (max-width: 1023.98px) {
+  [data-map-area] .mapboxgl-ctrl-bottom-left,
+  [data-map-area] .mapboxgl-ctrl-bottom-right {
+    top: 0;
+    bottom: auto;
   }
 }

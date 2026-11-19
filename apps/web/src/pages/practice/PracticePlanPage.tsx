@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom'
 import {
   generateMaySendToAi,
   isAiWrittenPlan,
+  homeSummary,
   insightUnderFinding,
-  isPartialRound,
   normalizeCategoryProse,
   parseLocalDate,
-  sgBreakdown,
-  sgFinding,
   shouldPromptPlanRefresh,
   todayLocalDate,
 } from '@oga/core'
@@ -58,27 +56,12 @@ function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
 }
 
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off the tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around the green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
-
-// Home's strokes-gained finding over the same last 20 whole rounds: the plan
-// exists because of that leak, so the leak leads. Null with no whole rounds.
+// Home's strokes-gained finding over the same newest 20 whole rounds (the
+// Dashboard's query, so the cache is shared): the plan exists because of that
+// leak, so the leak leads. Null with no counted category.
 function useFinding(): string | null {
-  const sg = useRecentSG(20)
-  return useMemo(() => {
-    const whole = (sg.data ?? []).filter((r) => !isPartialRound(r.hole_scores, r.hole_count))
-    if (whole.length === 0) return null
-    const { breakdown } = sgBreakdown(whole)
-    const sorted = SG_KEYS.map((c) => ({
-      label: c.label,
-      value: breakdown.find((b) => b.key === c.key)?.value ?? 0,
-    })).sort((a, b) => b.value - a.value)
-    return sgFinding(sorted[sorted.length - 1]!, sorted[0]!, 'every part')
-  }, [sg.data])
+  const sg = useRecentSG(40)
+  return useMemo(() => homeSummary(sg.data ?? []).finding, [sg.data])
 }
 
 // ---------------------------------------------------------------------------

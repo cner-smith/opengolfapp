@@ -23,7 +23,7 @@ import {
   SHOT_SHAPE_LABELS,
   SHOT_START_LINE_LABELS,
 } from './constants'
-import { formatDistance, formatPuttDistance, haversineYards } from './units'
+import { aimOffsetInchesToYards, formatDistance, formatPuttDistance, haversineYards } from './units'
 import { REPLAY_YARDS } from './sg-calculator'
 import type {
   BreakDirection,
@@ -238,6 +238,33 @@ export function roundHolesPlayed(
   }
 }
 
+// Score, par and to-par over the holes actually played (score > 0; 0 is the
+// not-played sentinel). Callers pass each hole's par already resolved by
+// resolveHole: the round's override, then the tee played, then the course
+// hole. An unplayed hole adds nothing to par either, so a partial round reads
+// against the par of the holes it played.
+export interface ScoredTotals {
+  score: number
+  par: number
+  toPar: number
+  holesPlayed: number
+}
+
+export function scoredTotals(
+  holes: readonly { score: number | null | undefined; par: number }[],
+): ScoredTotals {
+  let score = 0
+  let par = 0
+  let holesPlayed = 0
+  for (const h of holes) {
+    if (h.score == null || h.score <= 0) continue
+    score += h.score
+    par += h.par
+    holesPlayed++
+  }
+  return { score, par, toPar: score - par, holesPlayed }
+}
+
 // Ended early — kept out of round-level stats (avg / best / SG per round),
 // whose values only compare across whole rounds.
 export function isPartialRound(
@@ -371,6 +398,14 @@ export interface ShotSummaryFields {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/** A putt row's saved length in feet: putt_distance_ft, else the legacy
+ *  distance_to_target older putts kept it in. */
+export function savedPuttFt(
+  shot: Pick<ShotSummaryFields, 'putt_distance_ft' | 'distance_to_target'>,
+): number | null {
+  return shot.putt_distance_ft ?? shot.distance_to_target ?? null
+}
+
 // One-line putt summary parts — unit-aware distance + result, e.g.
 // ["4 ft", "Made"] or ["12 ft", "Short Left"]. The miss is derived
 // axes-first (putt_distance_result / putt_direction_result are the canonical
@@ -381,7 +416,7 @@ export function summarizePuttParts(
   shot: ShotSummaryFields,
   unit: DistanceUnit,
 ): string[] {
-  const feet = shot.putt_distance_ft ?? shot.distance_to_target
+  const feet = savedPuttFt(shot)
   const distance = feet != null ? formatPuttDistance(feet, unit) : null
   let result: string | null
   if (shot.putt_result === 'made') {
@@ -532,6 +567,87 @@ export function withReplayLies<R extends ReviewedShotRow>(rows: R[]): R[] {
   return out
 }
 
+// The end-of-hole review's Score / Putts / Penalties tickers, which become the
+// hole_scores values on save. Both review sheets (web and mobile) keep them
+// in step with the rows through these. A stroke-and-distance OB and a Penalty
+// key stroke have no row of their own, so each is worth one stroke on Score
+// and Penalties beside its shot's row (#839, #1039); Putts counts green-lie
+// rows (isPuttShot). The player can set any ticker by hand, so edits move
+// them by transitions (a re-picked value is a no-op), never by recount.
+export interface ReviewTally {
+  score: number
+  putts: number
+  penalties: number
+}
+
+export type ReviewTallyRow = Pick<ReviewedShotRow, 'lieType' | 'shotResult' | 'penalty'>
+
+// Seeds from OB only, not the Penalty flag: no review opens on rows that
+// already carry a stored penalty today (a saved hole can't be re-reviewed,
+// #1042).
+export function seedReviewTally(rows: readonly ReviewTallyRow[]): ReviewTally {
+  const obs = obCount(rows)
+  return {
+    score: rows.length + obs,
+    putts: rows.filter((r) => isPuttShot(r.lieType)).length,
+    penalties: obs,
+  }
+}
+
+// Steps apply one at a time, each floored at 0, in the order the sheets
+// always applied them (OB, then penalty), so a hand-set 0 behaves as before.
+export function applyReviewRowEdit(
+  tally: ReviewTally,
+  before: ReviewTallyRow,
+  after: ReviewTallyRow,
+): ReviewTally {
+  const ob = Number(after.shotResult === 'ob') - Number(before.shotResult === 'ob')
+  const pen = Number(!!after.penalty) - Number(!!before.penalty)
+  const putt = Number(isPuttShot(after.lieType)) - Number(isPuttShot(before.lieType))
+  return {
+    score: floorAdd(floorAdd(tally.score, ob), pen),
+    putts: floorAdd(tally.putts, putt),
+    penalties: floorAdd(floorAdd(tally.penalties, ob), pen),
+  }
+}
+
+// Matches what the delete_shot RPC re-tallies server-side: the row's stroke,
+// plus its OB and Penalty strokes, plus a putt for a green-lie row.
+export function applyReviewRowDelete(tally: ReviewTally, row: ReviewTallyRow): ReviewTally {
+  const penaltyStrokes = Number(row.shotResult === 'ob') + Number(!!row.penalty)
+  return {
+    score: floorAdd(tally.score, -1 - penaltyStrokes),
+    putts: floorAdd(tally.putts, -Number(isPuttShot(row.lieType))),
+    penalties: floorAdd(tally.penalties, -penaltyStrokes),
+  }
+}
+
+function floorAdd(n: number, delta: number): number {
+  return Math.max(0, n + delta)
+}
+
+// Puts an edited row in place. When the edit newly flags the row OB or
+// penalty, the next row is re-checked as its replay, which keeps this row's
+// lie (#1098). The seed runs withReplayLies over the whole hole; this is the
+// same test for a flag set in the review. Nothing re-pairs ends: a row's end
+// is the next row's start by construction (ADR 0001) and no review control
+// moves a start. A control that does must re-pair the previous row's end.
+export function reviewRowsAfterEdit<R extends ReviewedShotRow>(
+  rows: readonly R[],
+  idx: number,
+  next: R,
+): R[] {
+  const before = rows[idx]
+  const penalized =
+    (next.shotResult === 'ob' && before?.shotResult !== 'ob') ||
+    (!!next.penalty && !before?.penalty)
+  const out = rows.slice()
+  out[idx] = next
+  const following = out[idx + 1]
+  if (penalized && following) out[idx + 1] = withReplayLies([next, following])[1]!
+  return out
+}
+
 // The `shots` columns the end-of-hole review owns. Derived from the insert
 // type, not hand-written: both save paths spread this into their payload, a
 // spread is exempt from excess-property checks, so this type is the only thing
@@ -646,9 +762,7 @@ export function reviewedRowToShotFields(
     break_direction_vertical: isPutt ? row.breakDirectionVertical ?? null : null,
     break_direction_horizontal: isPutt ? row.breakDirectionHorizontal ?? null : null,
     aim_offset_yards:
-      isPutt && row.aimOffsetInches != null
-        ? Math.round((row.aimOffsetInches / 36) * 10) / 10
-        : null,
+      isPutt && row.aimOffsetInches != null ? aimOffsetInchesToYards(row.aimOffsetInches) : null,
     notes: row.notes ?? null,
   }
 }
@@ -658,14 +772,18 @@ export interface CapturedShot {
   club: string | null
   lie_type: string | null
   putt_result: string | null
+  /** The putt length the round saved. Optional: offline caches written before it was read lack it. */
+  putt_distance_ft?: number | null
 }
 
 // buildInitialRows guesses club and lie from distance alone, and only calls a
 // shot a putt within 15 yd of the pin. Where the live round stored the
 // player's own answer it wins — today that is a putt logged with "On the
-// green": putter, green lie, and whether it dropped. The live round stores
-// nothing else about a putt (no miss direction, no green read), so there is
-// nothing more to carry. Without this a putt over 45 ft
+// green": putter, green lie, whether it dropped and its saved length. The
+// saved length is the review's chosen length, so the sheet shows it and Save
+// keeps it instead of writing the start → pin distance over it (#1481). The
+// live round stores nothing else about a putt (no miss direction, no green
+// read), so there is nothing more to carry. Without this a putt over 45 ft
 // came back as a wedge and the review save overwrote it (#1038). `captured`
 // is aligned to `rows` by index.
 export function applyCapturedShots(
@@ -683,6 +801,7 @@ export function applyCapturedShots(
     // The stored result, not the "last putt was holed" guess.
     if (isPuttEntry(next.lieType, next.club)) {
       next.puttMade = c.putt_result === 'made' ? true : undefined
+      if (c.putt_distance_ft != null) next.puttLengthFt = c.putt_distance_ft
     }
     return next
   })

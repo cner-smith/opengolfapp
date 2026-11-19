@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  formatHandicapIndex,
   formatSG,
   formatToPar,
   pickRoundFocus,
   roundFocusHeadline,
+  scoredTotals,
   selectNudgeDrills,
   type RoundFocus,
 } from '@oga/core'
@@ -46,8 +48,7 @@ export function RoundTotals({
   scored: ScoredHole[]
   handicap: number | null
 }) {
-  const score = scored.reduce((s, h) => s + h.score, 0)
-  const par = scored.reduce((s, h) => s + h.par, 0)
+  const { score, par } = scoredTotals(scored)
   let best: ScoredHole | undefined
   let worst: ScoredHole | undefined
   for (const h of scored) {
@@ -108,7 +109,7 @@ export function RoundTotals({
               {handicap != null && (
                 <>
                   <br />
-                  vs a {handicap} handicap
+                  vs a {formatHandicapIndex(handicap)} handicap
                 </>
               )}
             </div>
@@ -180,12 +181,13 @@ function SGBarRow({ label, value, max }: { label: string; value: number | null; 
 // the rest of the numbers as a divided list, then the round's actions.
 export function RoundSide({
   round,
-  holesPlayed,
+  girOf,
   totalRoundsLogged,
   children,
 }: {
   round: RoundRow
-  holesPlayed: number
+  /** Played holes with GIR recorded: a blank is not a miss. */
+  girOf: number
   totalRoundsLogged: number
   children: ReactNode
 }) {
@@ -205,9 +207,9 @@ export function RoundSide({
     {
       label: 'Greens in regulation',
       value:
-        round.gir != null ? (
+        round.gir != null && girOf > 0 ? (
           <>
-            {round.gir} <Of n={holesPlayed} />
+            {round.gir} <Of n={girOf} />
           </>
         ) : (
           '—'

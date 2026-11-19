@@ -21,27 +21,23 @@ import {
   DEFAULT_BAG,
   LIE_TYPE_LABELS,
   LIE_TYPES,
-  combinedBreakDirection,
-  combinedPuttResult,
+  draftToShotUpdate,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
+  savedPuttFt,
   isPuttShot,
-  legacyShotResult,
-  shotAxesFromLegacy,
+  shotRowToDraft,
   summarizeShotParts,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
+  type Club,
   type DistanceUnit,
+  type DraftShot,
   type GreenSpeed,
-  type LieSlopeForward,
-  type LieSlopeSide,
   type LieType,
   type PuttDirectionResult,
   type PuttDistanceResult,
-  type ShotContact,
-  type ShotShape,
-  type ShotStartLine,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -286,6 +282,7 @@ function ShotRowView({
   onPress: () => void
 }) {
   const isPutt = isPuttShot(shot.lie_type)
+  const puttFt = savedPuttFt(shot)
   const clubLabel = isPutt
     ? 'Putt'
     : shot.club
@@ -295,7 +292,7 @@ function ShotRowView({
   const sub = isPutt
     ? [
         // formatPuttDistance: metres mode read "6 ft" here.
-        shot.putt_distance_ft != null ? formatPuttDistance(shot.putt_distance_ft, unit) : null,
+        puttFt != null ? formatPuttDistance(puttFt, unit) : null,
         shot.putt_result === 'made'
           ? 'Made'
           : [shot.putt_distance_result, shot.putt_direction_result]
@@ -390,50 +387,17 @@ function EditShotSheet({
 }: EditShotSheetProps) {
   const insets = useSafeAreaInsets()
   const stacked = useStackedLabels()
-  const [club, setClub] = useState<string | null>(shot.club ?? null)
-  const [lieType, setLieType] = useState<LieType | null>(
-    (shot.lie_type as LieType | null) ?? null,
-  )
-  // Rows saved before 0057 carry only the legacy value.
-  const [result, setResult] = useState<ResultValue>(() => {
-    const axes =
-      shot.contact || shot.shape || shot.start_line
-        ? {
-            contact: (shot.contact as ShotContact | null) ?? null,
-            shape: (shot.shape as ShotShape | null) ?? null,
-            startLine: (shot.start_line as ShotStartLine | null) ?? null,
-          }
-        : shotAxesFromLegacy(shot.shot_result)
-    return { ...axes, penalty: !!shot.penalty || shot.shot_result === 'penalty', ob: !!shot.ob || shot.shot_result === 'ob' }
-  })
-  const [slopeForward, setSlopeForward] = useState<LieSlopeForward | null>(
-    (shot.lie_slope_forward as LieSlopeForward | null) ?? null,
-  )
-  const [slopeSide, setSlopeSide] = useState<LieSlopeSide | null>(
-    (shot.lie_slope_side as LieSlopeSide | null) ?? null,
-  )
-  // Putt state.
-  const [puttMade, setPuttMade] = useState<boolean>(shot.putt_result === 'made')
-  const [puttDistanceFt, setPuttDistanceFt] = useState<string>(
-    shot.putt_distance_ft != null ? String(shot.putt_distance_ft) : '',
-  )
-  const [distanceResult, setDistanceResult] = useState<PuttDistanceResult | null>(
-    (shot.putt_distance_result as PuttDistanceResult | null) ?? null,
-  )
-  const [directionResult, setDirectionResult] = useState<PuttDirectionResult | null>(
-    (shot.putt_direction_result as PuttDirectionResult | null) ?? null,
-  )
-  const [greenSpeed, setGreenSpeed] = useState<GreenSpeed | null>(
-    (shot.green_speed as GreenSpeed | null) ?? null,
-  )
-  const [breakV, setBreakV] = useState<BreakDirectionVertical | null>(
-    (shot.break_direction_vertical as BreakDirectionVertical | null) ?? null,
-  )
-  const [breakH, setBreakH] = useState<BreakDirectionHorizontal | null>(
-    (shot.break_direction_horizontal as BreakDirectionHorizontal | null) ?? null,
-  )
+  const [draft, setDraft] = useState<DraftShot>(() => shotRowToDraft(shot))
+  const edit = (patch: Partial<DraftShot>) => setDraft((d) => ({ ...d, ...patch }))
+  const result: ResultValue = {
+    contact: draft.contact ?? null,
+    shape: draft.shape ?? null,
+    startLine: draft.startLine ?? null,
+    penalty: !!draft.penalty,
+    ob: !!draft.ob,
+  }
 
-  const isPutt = isPuttShot(lieType)
+  const isPutt = isPuttShot(draft.lieType)
 
   // The bag in its own order, plus the shot's club when it isn't in the bag,
   // so the picker always shows what was saved (same as the live review sheet).
@@ -455,67 +419,22 @@ function EditShotSheet({
   const nextShot =
     idx >= 0 && idx < allShots.length - 1 ? allShots[idx + 1]! : null
 
+  const puttFt = isPuttShot(shot.lie_type) ? savedPuttFt(shot) : null
   const toPin =
-    isPuttShot(shot.lie_type) && shot.putt_distance_ft != null
-      ? `${formatPuttDistance(shot.putt_distance_ft, unit)} to the hole`
+    puttFt != null
+      ? `${formatPuttDistance(puttFt, unit)} to the hole`
       : shot.distance_to_target != null
         ? `${formatDistance(shot.distance_to_target, unit)} to the pin`
         : null
   const subtitle = [holeNumber != null ? `Hole ${holeNumber}` : null, toPin].filter(Boolean).join(' · ')
 
-  function buildUpdates(): ShotUpdate {
-    if (isPutt) {
-      const distance = puttMade ? null : distanceResult
-      const direction = puttMade ? null : directionResult
-      return {
-        club: 'putter',
-        lie_type: 'green',
-        lie_slope_forward: null,
-        lie_slope_side: null,
-        shot_result: null,
-        contact: null,
-        shape: null,
-        start_line: null,
-        penalty: false,
-        ob: false,
-        putt_distance_ft: puttDistanceFt === '' ? null : Number(puttDistanceFt),
-        putt_result: combinedPuttResult({ made: puttMade, distance, direction }),
-        putt_distance_result: distance,
-        putt_direction_result: direction,
-        green_speed: greenSpeed,
-        break_direction: combinedBreakDirection({ vertical: breakV, horizontal: breakH }),
-        break_direction_vertical: breakV,
-        break_direction_horizontal: breakH,
-      }
-    }
-    return {
-      club,
-      lie_type: lieType,
-      lie_slope_forward: slopeForward,
-      lie_slope_side: slopeSide,
-      shot_result: legacyShotResult(result),
-      contact: result.contact,
-      shape: result.shape,
-      start_line: result.startLine,
-      penalty: result.penalty,
-      ob: !!result.ob,
-      // Clear putt-only columns when this isn't a putt.
-      putt_distance_ft: null,
-      putt_result: null,
-      putt_distance_result: null,
-      putt_direction_result: null,
-      green_speed: null,
-      break_direction: null,
-      break_direction_vertical: null,
-      break_direction_horizontal: null,
-    }
-  }
+  const buildUpdates = () => draftToShotUpdate(draft)
 
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
 
   const lieField = (
     <PickerField title="Lie">
-      <RockerRows options={LIE_TYPES.map((lt) => ({ value: lt, label: LIE_TYPE_LABELS[lt] }))} value={lieType} onChange={setLieType} />
+      <RockerRows options={LIE_TYPES.map((lt) => ({ value: lt, label: LIE_TYPE_LABELS[lt] }))} value={draft.lieType ?? null} onChange={(v) => edit({ lieType: v ?? undefined })} />
     </PickerField>
   )
 
@@ -573,14 +492,17 @@ function EditShotSheet({
                     { value: 'made', label: 'Made' },
                     { value: 'missed', label: 'Missed' },
                   ]}
-                  value={puttMade ? 'made' : 'missed'}
-                  onChange={(v) => v && setPuttMade(v === 'made')}
+                  value={draft.puttMade ? 'made' : 'missed'}
+                  onChange={(v) => v && edit({ puttMade: v === 'made' ? true : undefined })}
                 />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: 52, fontSize: 12, color: P.ink }]}>Length</Text>
                   <TextInput
-                    value={puttDistanceFt}
-                    onChangeText={(t) => setPuttDistanceFt(t.replace(/[^0-9]/g, '').slice(0, 3))}
+                    value={draft.puttDistanceFt != null ? String(draft.puttDistanceFt) : ''}
+                    onChangeText={(t) => {
+                      const digits = t.replace(/[^0-9]/g, '').slice(0, 3)
+                      edit({ puttDistanceFt: digits === '' ? undefined : Number(digits) })
+                    }}
                     keyboardType="number-pad"
                     placeholder="—"
                     placeholderTextColor={P.ink35}
@@ -606,31 +528,36 @@ function EditShotSheet({
               </PickerField>
 
               {/* Putt miss = two independent axes (CLAUDE.md) — never one picker. */}
-              {!puttMade && (
+              {!draft.puttMade && (
                 <PickerField title="Miss">
-                  <RockerRows label="Distance" options={PUTT_DISTANCE_OPTIONS} value={distanceResult} onChange={setDistanceResult} stacked={stacked} />
-                  <RockerRows label="Missed" options={PUTT_DIRECTION_OPTIONS} value={directionResult} onChange={setDirectionResult} stacked={stacked} />
+                  <RockerRows label="Distance" options={PUTT_DISTANCE_OPTIONS} value={draft.puttDistanceResult ?? null} onChange={(v) => edit({ puttDistanceResult: v ?? undefined })} stacked={stacked} />
+                  <RockerRows label="Missed" options={PUTT_DIRECTION_OPTIONS} value={draft.puttDirectionResult ?? null} onChange={(v) => edit({ puttDirectionResult: v ?? undefined })} stacked={stacked} />
                 </PickerField>
               )}
 
               <PickerField title="Green speed">
-                <RockerRows options={SPEED_OPTIONS} value={greenSpeed} onChange={setGreenSpeed} />
+                <RockerRows options={SPEED_OPTIONS} value={draft.greenSpeed ?? null} onChange={(v) => edit({ greenSpeed: v ?? undefined })} />
               </PickerField>
               <PickerField title="Break">
-                <RockerRows label="Line" options={BREAK_LINE_OPTIONS} value={breakH} onChange={setBreakH} stacked={stacked} />
-                <RockerRows label="Slope" options={BREAK_SLOPE_OPTIONS} value={breakV} onChange={setBreakV} stacked={stacked} />
+                <RockerRows label="Line" options={BREAK_LINE_OPTIONS} value={draft.breakDirectionHorizontal ?? null} onChange={(v) => edit({ breakDirectionHorizontal: v ?? undefined })} stacked={stacked} />
+                <RockerRows label="Slope" options={BREAK_SLOPE_OPTIONS} value={draft.breakDirectionVertical ?? null} onChange={(v) => edit({ breakDirectionVertical: v ?? undefined })} stacked={stacked} />
               </PickerField>
             </>
           ) : (
             <>
               <PickerField title="Club">
-                <ClubPicker clubs={clubOptions} value={club} onChange={setClub} />
+                <ClubPicker clubs={clubOptions} value={draft.club ?? null} onChange={(v) => edit({ club: (v ?? undefined) as Club | undefined })} />
               </PickerField>
               {lieField}
               <PickerField title="Slope">
-                <SlopeGrid forward={slopeForward} side={slopeSide} onForward={setSlopeForward} onSide={setSlopeSide} />
+                <SlopeGrid
+                  forward={draft.lieSlopeForward ?? null}
+                  side={draft.lieSlopeSide ?? null}
+                  onForward={(v) => edit({ lieSlopeForward: v ?? undefined })}
+                  onSide={(v) => edit({ lieSlopeSide: v ?? undefined })}
+                />
               </PickerField>
-              <ResultPicker value={result} onChange={setResult} withOb />
+              <ResultPicker value={result} onChange={(v) => edit({ ...v, ob: !!v.ob })} withOb />
             </>
           )}
         </ScrollView>

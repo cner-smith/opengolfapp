@@ -116,12 +116,14 @@ export function devCourseApi(): Plugin {
               if (lat == null || lng == null) {
                 return sendJson(res, 400, { error: 'lat/lng required (course has neither set nor provided)' })
               }
+              const core = (await server.ssrLoadModule('@oga/core')) as typeof import('@oga/core')
               const summary = await mod.runOsmImport(client, {
                 name: course.name,
                 lat,
                 lng,
                 radius: body.radius ?? 1200,
                 updateExisting: true,
+                greenMap: core.osmGreenMap,
               })
               return sendJson(res, 200, summary)
             }

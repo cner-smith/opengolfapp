@@ -21,11 +21,15 @@ import {
   countWord,
   distanceText as dist,
   filterDispersionByLie,
+  filtersDoneWords,
   findingLine,
+  latestLine,
   puttMissHeadline,
   puttMissTally,
-  legacySlopeToAxes,
   mostlyTeeShots,
+  practiceCategory,
+  patternRowToShot,
+  LIE_PHRASE,
   readQuality,
   recentPoints,
   recentVsAll,
@@ -33,6 +37,7 @@ import {
   shapeTally,
   shotWords,
   tallyWords,
+  teeBreakFor,
   wholeDistance as numIn,
   type Club,
   type ColourBy,
@@ -41,8 +46,6 @@ import {
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
-  type PlanCategory,
-  type Shot,
   type ShotContact,
   type ShotExtras,
   type ShotShape,
@@ -63,9 +66,9 @@ import { useClubDispersion } from '../../components/round/hole/useClubDispersion
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
 import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
 import { AimPlot } from '../../components/patterns/AimPlot'
-import { TeePlot, teeBreakOf } from '../../components/patterns/TeePlot'
+import { TeePlot } from '../../components/patterns/TeePlot'
 import { flightOf, type ChartProps } from '../../components/patterns/chartParts'
-import { ColourRow, LAYER_INFO, LayerBar, type LegendEntry } from '../../components/patterns/LayerControls'
+import { ColourControl, LAYER_INFO, LayerBar, LegendBand, ScopeControl, type LegendEntry, type Scope } from '../../components/patterns/LayerControls'
 import { FilterSheet } from '../../components/patterns/FilterSheet'
 import { PatternNumbers } from '../../components/patterns/PatternNumbers'
 import { PuttPatterns, type MissedPutt, type PuttView } from '../../components/patterns/PuttPatterns'
@@ -103,49 +106,6 @@ interface ShotRow {
   } | null
 }
 
-function rowToShot(r: ShotRow): Shot {
-  // Most stored shots predate the two-axis slope columns and only carry the
-  // legacy single-select `lie_slope`. Fall back to it so the slope filter
-  // matches whichever axis those shots recorded — otherwise every selection
-  // filters to zero. (A legacy shot only ever recorded one axis, so it can
-  // never match a forward AND a side selection at once — that's unrecoverable.)
-  const legacy = legacySlopeToAxes(r.lie_slope ?? null)
-  return {
-    id: r.id,
-    holeScoreId: r.hole_score_id,
-    userId: r.user_id,
-    shotNumber: r.shot_number,
-    aimLat: r.aim_lat ?? undefined,
-    aimLng: r.aim_lng ?? undefined,
-    endLat: r.end_lat ?? undefined,
-    endLng: r.end_lng ?? undefined,
-    startLat: r.start_lat ?? undefined,
-    startLng: r.start_lng ?? undefined,
-    distanceToTarget: r.distance_to_target ?? undefined,
-    club: (r.club as Shot['club']) ?? undefined,
-    lieType: r.lie_type ?? undefined,
-    lieSlope: r.lie_slope ?? undefined,
-    lieSlopeForward: r.lie_slope_forward ?? legacy.forward,
-    lieSlopeSide: r.lie_slope_side ?? legacy.side,
-    shotResult: (r.shot_result as Shot['shotResult']) ?? undefined,
-    shape: r.shape,
-    startLine: r.start_line,
-    playedAt: r.hole_scores?.rounds?.played_at,
-    penalty: r.penalty,
-    ob: r.ob,
-  }
-}
-
-const LIE_PHRASE: Record<LieType, string> = {
-  tee: 'the tee',
-  fairway: 'the fairway',
-  rough: 'the rough',
-  sand: 'sand',
-  fringe: 'the fringe',
-  recovery: 'a recovery lie',
-  green: 'the green',
-}
-const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
 const RECENT = 20
 const NO_ROWS: ShotRow[] = []
 
@@ -204,9 +164,14 @@ export default function Patterns() {
   const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
   const [colourBy, setColourBy] = useState<ColourBy>('none')
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [focus, setFocus] = useState<string | null>(null)
   const [hot, setHot] = useState<string | null>(null)
   const [listOpen, setListOpen] = useState(false)
-  useEffect(() => setHidden(new Set()), [colourBy, club])
+  const [scope, setScope] = useState<Scope>('all')
+  useEffect(() => {
+    setHidden(new Set())
+    setFocus(null)
+  }, [colourBy, club])
   useEffect(() => setHot(null), [club, view, lieType, forward, side])
   // Rows are kept with the club they belong to, so a new club never shows the
   // last one's shots, finding or share card while it loads.
@@ -270,7 +235,7 @@ export default function Patterns() {
     setAttempt((a) => a + 1)
   }
 
-  const allPoints = useMemo(() => computeDispersion(shots.map(rowToShot)), [shots])
+  const allPoints = useMemo(() => computeDispersion(shots.map(patternRowToShot)), [shots])
   const points = useMemo(
     () => filterDispersionByLie(allPoints, { lieType: lieType ?? undefined, lieSlopeForward: forward ?? undefined, lieSlopeSide: side ?? undefined }),
     [allPoints, lieType, forward, side],
@@ -323,7 +288,7 @@ export default function Patterns() {
       onChange={setClub}
       typical={ladderNumber}
       aimed={aimed}
-      unitWords={metres ? 'metres' : 'yards'}
+      unit={unit}
       width={screenWidth - 36}
       missedPutts={putts && !putts.error ? puttTally.misses : null}
     />
@@ -393,7 +358,6 @@ export default function Patterns() {
   const pad = 18
   const chartWidth = screenWidth - pad * 2 - 2 - 16
   const n = points.length
-  const tee = mostlyTeeShots(points)
 
   const slopes = [forward, side].filter((v): v is LieSlopeForward | LieSlopeSide => v != null).map((v) => v.replace(/_/g, ' '))
   const filterCount = (lieType ? 1 : 0) + slopes.length
@@ -405,27 +369,28 @@ export default function Patterns() {
     setSide(null)
   }
 
-  // The rings to draw, and a faint outline to compare them with.
-  const recentOn = layers.recent && rva != null
-  const drawStats = recentOn ? rva.recent : stats
-  const ghost = recentOn ? { stats: rva.all, label: 'all shots' } : filtered && allStats ? { stats: allStats, label: 'all lies' } : null
+  // Latest: the rings, the finding and the numbers all describe the newest
+  // 20; the chart keeps the older shots in pencil under a ghost of all of them.
+  const recentOn = scope === 'recent' && rva != null
   const newest = recentPoints(points, RECENT)
+  const shown = recentOn ? newest.recent : points
+  const shownStats = recentOn ? rva.recent : stats
+  const shownN = shown.length
+  const tee = mostlyTeeShots(shown)
+  const ghost = recentOn ? { stats: rva.all, label: `all ${n}` } : filtered && allStats ? { stats: allStats, label: 'all lies' } : null
   const recentIds = recentOn ? new Set(newest.recent.map((p) => p.id)) : null
 
-  const finding = stats && !loading ? findingLine(stats, points, club, unit, tee) : null
+  const finding = shownStats && !loading ? findingLine(shownStats, shown, club, unit, tee) : null
   // One line, so the chart starts higher: the club is in the finding and the ladder.
-  const subline = `${n} shot${n === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${stats ? `: ${readQuality(n)}` : ''}.`
-  const recentLine = rva
-    ? Math.abs(rva.width68Change) < 1
-      ? `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, the same as over all ${n}.`
-      : `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, ${rva.width68Change < 0 ? 'down' : 'up'} from ${num(rva.all.cone68.lateral * 2)} over all ${n}.`
-    : null
+  const subline = `${shownN} shot${shownN === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${shownStats ? `: ${readQuality(shownN)}` : ''}.`
+  const recentLine = rva ? latestLine(rva, RECENT, n, unit) : null
 
-  // The legend: each group of shots under the chosen colour, with its count.
+  // The legend: each group of shots under the chosen colour, with its count
+  // (under Latest, the latest only: the older ones are in pencil).
   const cats = styledCategories(colourBy, leftHanded)
   const catMap = new Map(cats.map((c) => [c.key, c]))
   const counts = new Map<string, number>()
-  for (const p of points) {
+  for (const p of shown) {
     const k = categoryOf(p, extras[p.id], colourBy)
     counts.set(k, (counts.get(k) ?? 0) + 1)
   }
@@ -436,8 +401,8 @@ export default function Patterns() {
           ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
           ...(counts.has(NOT_RECORDED) ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }] : []),
         ]
-  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, points, extras, noun)
-  const available: Layer[] = [...(['shots', 'rings', 'average'] as Layer[]), ...(view === 'tee' ? (['flights'] as Layer[]) : []), ...(rva ? (['recent'] as Layer[]) : [])]
+  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, shown, extras, noun)
+  const available: Layer[] = [...(['shots', 'rings', 'average'] as Layer[]), ...(view === 'tee' ? (['flights'] as Layer[]) : [])]
   const disabled = new Set<Layer>(stats ? [] : ['rings', 'average'])
   const toggleGroup = (k: string) =>
     setHidden((h) => {
@@ -446,6 +411,12 @@ export default function Patterns() {
       else next.add(k)
       return next
     })
+  // As on the web on a touch screen: the first tap brings a group forward, the second hides it.
+  const tapGroup = (k: string) => {
+    if (!hidden.has(k) && focus !== k) return setFocus(k)
+    toggleGroup(k)
+    setFocus(null)
+  }
 
   // How each flight's record reads (a conflict is flagged in every readout).
   const avgAim = averageAimDistance(points)
@@ -454,7 +425,7 @@ export default function Patterns() {
   const neither = [...kinds.values()].filter((k) => k === 'none').length
 
   const hiddenGroups = legend.filter((e) => hidden.has(e.key)).map((e) => (e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)))
-  const offLayers = available.filter((l) => !layers[l] && !disabled.has(l) && l !== 'recent').map((l) => LAYER_INFO[l].hides)
+  const offLayers = available.filter((l) => !layers[l] && !disabled.has(l)).map((l) => LAYER_INFO[l].hides)
   const hiddenText = offLayers.length || hiddenGroups.length ? `Hidden: ${[...offLayers, ...hiddenGroups].join('; ')}.` : ''
   const caption = [
     view === 'aim'
@@ -462,11 +433,11 @@ export default function Patterns() {
         ? `Your next ${noun} will probably finish inside the pencil ring; the brackets give its width and depth.`
         : ''
       : 'Lines leave on your recorded start line and bend by your recorded shape.',
-    view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
+    view === 'tee' && avgAim != null && teeBreakFor(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
     view === 'tee' && conflicts > 0 ? `${conflicts} shot${conflicts === 1 ? " doesn't" : "s don't"} add up, so the second half is dashed.` : '',
     view === 'tee' && neither > 0 ? `${neither} dashed straight line${neither === 1 ? ' has' : 's have'} neither recorded.` : '',
     view === 'tee' && n > 40 && layers.flights ? 'The bold line is the typical flight.' : '',
-    recentOn ? `The rings are your last ${RECENT} shots; the grey dotted ring is all ${n}, and older shots are in pencil.` : filtered && ghost ? 'The grey dotted ring is two in three from every lie.' : '',
+    recentOn ? `The rings are your latest ${RECENT} shots; the grey dotted ring is all ${n}, and older shots are in pencil.` : filtered && ghost ? 'The grey dotted ring is two in three from every lie.' : '',
     'Tap a shot to read it.',
     hiddenText,
     hiddenGroups.length && stats ? 'Hidden shots still count in the rings and the numbers.' : '',
@@ -474,9 +445,9 @@ export default function Patterns() {
     .filter(Boolean)
     .join(' ')
   const summary = [
-    `${cap(noun)} shot pattern, ${view === 'aim' ? 'around the aim' : 'from the tee'}: ${n} shots.`,
+    `${cap(noun)} shot pattern, ${view === 'aim' ? 'around the aim' : 'from the tee'}: ${n} shots${recentOn ? `, rings and numbers on the latest ${shownN}` : ''}.`,
     finding ?? '',
-    stats ? `Two in three finish inside ${mag(stats.cone68.lateral * 2)} wide and ${mag(stats.cone68.distance * 2)} deep.` : '',
+    shownStats ? `Two in three finish inside ${mag(shownStats.cone68.lateral * 2)} wide and ${mag(shownStats.cone68.distance * 2)} deep.` : '',
     legend.length ? `${COLOUR_BY.find((o) => o.value === colourBy)!.label}: ${legend.map((e) => `${e.label} ${e.count}`).join(', ')}.` : '',
     hiddenText,
     'Use List the shots to read each one.',
@@ -491,7 +462,7 @@ export default function Patterns() {
   }
   const chartProps: ChartProps = {
     points,
-    stats: drawStats,
+    stats: shownStats,
     ghost,
     extras,
     kinds,
@@ -499,6 +470,7 @@ export default function Patterns() {
     colourBy,
     categories: catMap,
     hidden,
+    focus,
     recentIds,
     leftHanded,
     width: chartWidth,
@@ -526,9 +498,8 @@ export default function Patterns() {
     if (!sides.length) return ''
     return ` ${n === 1 ? 'It' : `All ${n}`} ${where} finished ${sides.join(' and ')} of your usual average.`
   })()
-  const doneLabel = stats ? `Show ${n} shots` : n === 0 ? 'No shots with these filters' : `Only ${n} ${filterPhrase}`
-  const practice: PlanCategory = tee || OFF_THE_TEE.includes(club) ? 'off_tee' : 'approach'
-  const shapeValue = tallyWords(shapeTally(points, leftHanded), SHOT_SHAPE_LABELS, n).value
+  const doneLabel = filtersDoneWords(shownN, filtered, filterPhrase)
+  const shapeValue = tallyWords(shapeTally(shown, leftHanded), SHOT_SHAPE_LABELS, shownN).value
 
   return (
     <PaperSurface style={{ flex: 1 }}>
@@ -574,7 +545,8 @@ export default function Patterns() {
             <View style={{ marginTop: 10, backgroundColor: P.raised, borderWidth: 1, borderColor: P.line, borderRadius: 3 }}>
               <View style={{ padding: 8, gap: 8, borderBottomWidth: 1, borderColor: '#ECE6D8' }}>
                 <LayerBar layers={layers} available={available} disabled={disabled} onToggle={(l) => setLayers((v) => ({ ...v, [l]: !v[l] }))} />
-                <ColourRow colourBy={colourBy} onColourBy={setColourBy} entries={legend} hidden={hidden} onToggle={toggleGroup} />
+                {n > 0 && <ColourControl value={colourBy} onChange={setColourBy} />}
+                {rva && <ScopeControl value={scope} onChange={setScope} total={n} latest={RECENT} />}
               </View>
               <View style={{ padding: 8 }}>
                 {loading ? (
@@ -596,13 +568,7 @@ export default function Patterns() {
                   <TeePlot key={club} {...chartProps} />
                 )}
               </View>
-              {recorded && (
-                <View style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
-                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>
-                    {recorded.recorded === 0 ? recorded.note : `${recorded.note} Tap a group above to hide it.`}
-                  </Text>
-                </View>
-              )}
+              {recorded && legend.length > 0 && <LegendBand entries={legend} hidden={hidden} focus={focus} onTap={tapGroup} note={recorded.note} />}
             </View>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 8 }]}>
               {caption}
@@ -640,18 +606,18 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={2}>
-          {stats && !loading ? (
+          {shownStats && !loading ? (
             <PatternNumbers
-              stats={stats}
-              points={points}
+              stats={shownStats}
+              points={shown}
               typicalYards={typicalYards(club)}
               unit={unit}
-              shotsNote={filtered ? 'With these filters' : 'With an aim, from any lie'}
+              shotsNote={recentOn ? `Your latest ${shownN} of ${n}` : filtered ? 'With these filters' : 'With an aim, from any lie'}
               filtered={filtered}
               teeShots={tee}
               leftHanded={leftHanded}
               onColour={setColourBy}
-              practice={practice}
+              practice={practiceCategory(club, shown)}
               onExport={handleShare}
               sharing={sharing}
             />
@@ -686,10 +652,10 @@ export default function Patterns() {
       {/* Off-screen render target for react-native-view-shot. Laid out
           far off the left edge so it's never visible; collapsable={false}
           keeps RN from optimising out the subtree the rasteriser reads. */}
-      {stats && finding && !loading && (
+      {shownStats && finding && !loading && (
         <View pointerEvents="none" collapsable={false} style={{ position: 'absolute', left: -10000, top: 0 }}>
           <View ref={shareCardRef} collapsable={false}>
-            <ShareCard points={points} stats={stats} noun={noun} finding={finding} width68={mag(stats.cone68.lateral * 2)} shape={shapeValue} />
+            <ShareCard points={shown} stats={shownStats} noun={noun} finding={finding} width68={mag(shownStats.cone68.lateral * 2)} shape={shapeValue} />
           </View>
         </View>
       )}

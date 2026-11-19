@@ -1,6 +1,6 @@
 import { bearingDegrees, haversineYards } from './units'
 import { destinationYards, type GeoPoint } from './shot-dispersion-geo'
-import { getExpectedStrokes } from './sg-calculator'
+import { calculateShotSG, expectedFromBall, getExpectedStrokes } from './sg-calculator'
 import type { AimRelativeDispersion } from './shot-patterns'
 
 export interface SgAtAim {
@@ -35,6 +35,23 @@ export function expectedStrokesFromPin(distanceYards: number, handicap: number):
   const putting = getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
   const w = (d - BLEND_FROM_YARDS) / (BLEND_TO_YARDS - BLEND_FROM_YARDS)
   return putting + w * (aroundGreen - putting)
+}
+
+/**
+ * Strokes gained by a shot from a ball `startYards` from the pin that finishes
+ * on its aim, `aimToPinYards` from the pin: the value of reaching the aim if
+ * struck clean, not weighted by the player's dispersion. The aim's side uses
+ * the same blended curve as the planner, so it has no step at the green.
+ */
+export function aimStrokesGained(args: {
+  startYards: number
+  aimToPinYards: number
+  teeShot: boolean
+  handicap: number
+}): number | null {
+  const start = expectedFromBall(args.startYards, args.teeShot, args.handicap)
+  if (start == null) return null
+  return calculateShotSG(start, expectedStrokesFromPin(args.aimToPinYards, args.handicap))
 }
 
 /**

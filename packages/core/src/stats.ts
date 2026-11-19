@@ -182,7 +182,8 @@ export type SGBreakdownKey =
 
 export interface SGBreakdownEntry {
   key: SGBreakdownKey
-  value: number
+  /** null when no round has the category: a gap, never 0 (owner rule, 2026-11-09). */
+  value: number | null
 }
 
 export interface SGBreakdownResult {
@@ -204,20 +205,17 @@ const SG_BREAKDOWN_KEYS: readonly SGBreakdownKey[] = [
   'sg_putting',
 ] as const
 
-// null-only category treated as 0. maxAbs is the true peak magnitude;
-// UI consumers that need a non-zero scale should compose with barScale().
+// maxAbs is the true peak magnitude over the counted categories; UI consumers
+// that need a non-zero scale should compose with barScale().
 export function sgBreakdown(rounds: SGRoundLike[]): SGBreakdownResult {
   const breakdown: SGBreakdownEntry[] = SG_BREAKDOWN_KEYS.map((key) => {
     const values = rounds
       .map((r) => r[key])
-      .filter((v): v is number => v !== null)
-    const avg =
-      values.length === 0
-        ? 0
-        : values.reduce((a, b) => a + b, 0) / values.length
-    return { key, value: Number(avg.toFixed(2)) }
+      .filter((v): v is number => v != null)
+    if (values.length === 0) return { key, value: null }
+    return { key, value: Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(2)) }
   })
-  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value)), 0)
+  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value ?? 0)), 0)
   return { breakdown, maxAbs }
 }
 
@@ -228,24 +226,27 @@ export function barScale(maxAbs: number): number {
   return Math.max(maxAbs, 0.5)
 }
 
+// null = the round has no value in that category: a gap in the line, never a
+// 0 (owner ruling, 2026-11-09).
 export interface SGTrendPoint {
   date: string
-  offTee: number
-  approach: number
-  aroundGreen: number
-  putting: number
+  offTee: number | null
+  approach: number | null
+  aroundGreen: number | null
+  putting: number | null
 }
 
+// Oldest to newest. A round with no SG at all is not a point.
 export function sgTrend(rounds: DetailedRound[]): SGTrendPoint[] {
   return wholeRounds(rounds)
     .reverse()
     .filter((r) => r.sg_total != null)
     .map((r) => ({
       date: r.played_at,
-      offTee: r.sg_off_tee ?? 0,
-      approach: r.sg_approach ?? 0,
-      aroundGreen: r.sg_around_green ?? 0,
-      putting: r.sg_putting ?? 0,
+      offTee: r.sg_off_tee,
+      approach: r.sg_approach,
+      aroundGreen: r.sg_around_green,
+      putting: r.sg_putting,
     }))
 }
 

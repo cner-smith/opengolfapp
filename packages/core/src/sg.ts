@@ -1,5 +1,6 @@
-import { calculateRoundSG } from './sg-calculator'
+import { calculateRoundSG, perShotSG } from './sg-calculator'
 import type { ShotWithContext } from './sg-calculator'
+import type { ShotCategory } from './constants'
 import type { SGBreakdown, Shot } from './types'
 import type { Database } from '@oga/supabase'
 
@@ -10,13 +11,29 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 export interface RoundSGResult {
   round: SGBreakdown
   perHoleScore: Record<string, SGBreakdown>
+  /** True where at least one shot this round was valued in that category. */
+  counted: Record<SGCategoryKey, boolean>
+  /** The same, per hole score id (only holes with shots). */
+  perHoleCounted: Record<string, Record<SGCategoryKey, boolean>>
   totals: {
     totalScore: number
     totalPutts: number
+    /** Fairways and GIR count only played holes where they were recorded
+     *  (owner, 2026-11-11): a blank is not a miss. */
     fairwaysHit: number
     fairwaysTotal: number
     gir: number
+    girTotal: number
   }
+}
+
+export type SGCategoryKey = Exclude<keyof SGBreakdown, 'total'>
+
+const CATEGORY_KEY: Record<ShotCategory, SGCategoryKey> = {
+  off_tee: 'offTee',
+  approach: 'approach',
+  around_green: 'aroundGreen',
+  putting: 'putting',
 }
 
 // DB-string → narrow-union casts. Postgres CHECK constraints (migrations
@@ -62,12 +79,19 @@ export function computeRoundSG(args: {
   const { holes, holeScores, shots, handicap } = args
   const holesById = new Map(holes.map((h) => [h.id, h]))
   const perHoleScore: Record<string, SGBreakdown> = {}
+  const perHoleCounted: Record<string, Record<SGCategoryKey, boolean>> = {}
   const round: SGBreakdown = {
     offTee: 0,
     approach: 0,
     aroundGreen: 0,
     putting: 0,
     total: 0,
+  }
+  const counted: Record<SGCategoryKey, boolean> = {
+    offTee: false,
+    approach: false,
+    aroundGreen: false,
+    putting: false,
   }
 
   for (const hs of holeScores) {
@@ -84,7 +108,14 @@ export function computeRoundSG(args: {
       isLastShot: idx === holeShots.length - 1,
     }))
     const sg = calculateRoundSG(ctxList, handicap)
+    const holeCounted = { offTee: false, approach: false, aroundGreen: false, putting: false }
+    for (const shot of perShotSG(ctxList, handicap)) {
+      if (!shot) continue
+      holeCounted[CATEGORY_KEY[shot.category]] = true
+      counted[CATEGORY_KEY[shot.category]] = true
+    }
     perHoleScore[hs.id] = sg
+    perHoleCounted[hs.id] = holeCounted
     round.offTee += sg.offTee
     round.approach += sg.approach
     round.aroundGreen += sg.aroundGreen
@@ -97,20 +128,28 @@ export function computeRoundSG(args: {
   let fairwaysHit = 0
   let fairwaysTotal = 0
   let gir = 0
+  let girTotal = 0
   for (const hs of holeScores) {
     totalScore += hs.score
     totalPutts += hs.putts ?? 0
-    if (hs.gir === true) gir += 1
+    // Score 0 = not played: a round ended early counts only its played holes.
+    if (hs.score <= 0) continue
+    if (hs.gir != null) {
+      girTotal += 1
+      if (hs.gir) gir += 1
+    }
     const hole = holesById.get(hs.hole_id)
-    if (hole && hole.par > 3) {
+    if (hole && hole.par > 3 && hs.fairway_hit != null) {
       fairwaysTotal += 1
-      if (hs.fairway_hit === true) fairwaysHit += 1
+      if (hs.fairway_hit) fairwaysHit += 1
     }
   }
 
   return {
     round,
     perHoleScore,
-    totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir },
+    counted,
+    perHoleCounted,
+    totals: { totalScore, totalPutts, fairwaysHit, fairwaysTotal, gir, girTotal },
   }
 }

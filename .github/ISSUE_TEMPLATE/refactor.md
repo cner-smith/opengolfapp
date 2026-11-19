@@ -44,4 +44,4 @@ XS / S / M / L / XL
 - [ ] No new lint warnings
 
 ## Project rules / invariants to preserve
-- 3-caller extraction rule (if relevant): don't lift to `@oga/core` until ≥3 callers
+- Function design (CONTRIBUTING.md): honest core, thin shell; a new file needs 3+ callers or the 1,000-line cap

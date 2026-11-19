@@ -1,8 +1,12 @@
-import { useMemo, useRef } from 'react'
-import { DEFAULT_HANDICAP, type ShotMarkerCategory } from '@oga/core'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { DEFAULT_HANDICAP, ellipsePoint, nearestTurn, wayfinder, type ShotMarkerCategory, type Wayfinder } from '@oga/core'
+import type mapboxgl from 'mapbox-gl'
+import { useUnits } from '../../hooks/useUnits'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers, type ClubPick } from './map/useMapLayers'
+import { useGreenLayers } from './map/useGreenLayers'
+import type { GreenData, GreenViewMode } from './green/useGreenMap'
 
 // Re-export the map bottom chrome so existing imports
 // (`{ MapBottomChrome } from '.../RoundMap'`) keep working.
@@ -48,6 +52,8 @@ export interface ExistingShot {
   /** Penalty-stroke flag. Read (not re-derived) so saveReviewedHole's
    *  replace-all rewrite can preserve it — see useRoundActions. */
   penalty?: boolean | null
+  /** A putt's saved length in feet (the hero reads it before the map distance). */
+  savedPuttFt?: number | null
   /** Club type, for the selected shot's callout (#1217). */
   club?: string | null
   /** One-line summary for the shot stepper ("pw · fairway · 132 yd to the pin"). */
@@ -122,7 +128,23 @@ interface RoundMapProps {
   /** The selected saved shot and a click on another one (#1217). */
   selectedShotId?: string | null
   onSelectShot?: (shotId: string) => void
+  /** The green overlay (#1380): drawn while the Green key is on; pace lines whenever switched on. */
+  green?: {
+    data: GreenData | null
+    mode: GreenViewMode
+    show: boolean
+    paceLines: PlacedPoint[][]
+    approachDeg: number
+    /** The green view's flag is held: only the outline stays (#1385). */
+    held?: boolean
+  }
+  /** Bumped when the green view moves the pin, so the camera stays put as it does for a map drag. */
+  pinMovedInView?: number
+  /** The player's ball (the hero's start): the wayfinder points at it from the green (#1386). */
+  ball?: PlacedPoint | null
 }
+
+const NO_GREEN: NonNullable<RoundMapProps['green']> = { data: null, mode: 'plain', show: false, paceLines: [], approachDeg: 0 }
 
 export function RoundMap({
   hole,
@@ -153,6 +175,9 @@ export function RoundMap({
   handicap = DEFAULT_HANDICAP,
   selectedShotId = null,
   onSelectShot,
+  green = NO_GREEN,
+  pinMovedInView = 0,
+  ball = null,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -211,7 +236,7 @@ export function RoundMap({
     effectiveCourseLng,
   ])
 
-  const { mapRef, userPlacedRef, mapFailed } = useMapSetup({
+  const { mapRef, mapLoaded, userPlacedRef, mapFailed } = useMapSetup({
     containerRef,
     cameraTarget,
     effectivePin,
@@ -226,6 +251,11 @@ export function RoundMap({
     onMovePin,
     onMoveTee,
   })
+
+  // Runs before the camera effect sees the new pin.
+  useLayoutEffect(() => {
+    if (pinMovedInView) userPlacedRef.current = true
+  }, [pinMovedInView, userPlacedRef])
 
   useMapLayers({
     mapRef,
@@ -253,6 +283,19 @@ export function RoundMap({
     onSelectShot,
   })
 
+  useGreenLayers({
+    mapRef,
+    mapLoaded,
+    green: green.data,
+    mode: green.mode,
+    show: green.show,
+    paceLines: green.paceLines,
+    approachDeg: green.approachDeg,
+    held: green.held ?? false,
+    tee: effectiveTee,
+    pin: effectivePin,
+  })
+
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <div
@@ -263,6 +306,7 @@ export function RoundMap({
           background: '#1C211C',
         }}
       />
+      {mapLoaded && <WayfinderKey mapRef={mapRef} ball={ball} pin={effectivePin} />}
       {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
         // One message for a missing token and a runtime failure (owner,
         // 2026-11-02). lib/mapbox logs both.
@@ -276,6 +320,187 @@ export function RoundMap({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// The wayfinder (#1386): at green zoom with the ball off screen, a compass
+// rose: the chevron rides an ellipse inside the map, turned toward the ball,
+// with its distance to the pin on the inner side. Ink with a paper halo, no
+// backdrop. Not a control: taps go through to the map. Re-measured on map
+// moves at most once a frame, in its own component so a pan re-renders only it.
+const WAYFINDER_ARROW = 20 // half the arrow's box: what it keeps clear of chrome
+const WAYFINDER_INSET = 24
+const WAYFINDER_LABEL = { width: 84, height: 26 }
+// A solid paper outline: the text's shadow 2.5px out in eight directions, then a soft edge.
+const PAPER_HALO = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((d) => `${(2.5 * Math.cos((d * Math.PI) / 180)).toFixed(2)}px ${(2.5 * Math.sin((d * Math.PI) / 180)).toFixed(2)}px 0 #fbf8f1`)
+  .concat('0 0 6px #fbf8f1')
+  .join(', ')
+const CHROME_GAP = 6
+
+function WayfinderKey({
+  mapRef,
+  ball,
+  pin,
+}: {
+  mapRef: MutableRefObject<mapboxgl.Map | null>
+  ball: PlacedPoint | null
+  pin: PlacedPoint | null
+}) {
+  const { unit } = useUnits()
+  const [wf, setWf] = useState<Wayfinder | null>(null)
+  const ballLat = ball?.lat
+  const ballLng = ball?.lng
+  const pinLat = pin?.lat
+  const pinLng = pin?.lng
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const el = map.getContainer()
+      const box = el.getBoundingClientRect()
+      // The keys and chrome over the map (MapView marks the area and them), and Mapbox's
+      // own logo and attribution corners.
+      const chrome = [
+        ...(el.closest('[data-map-area]')?.querySelectorAll('[data-map-chrome]') ?? []),
+        ...el.querySelectorAll('.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right'),
+      ]
+      const avoid = chrome.map((c) => {
+        const r = c.getBoundingClientRect()
+        return {
+          left: r.left - box.left - CHROME_GAP,
+          top: r.top - box.top - CHROME_GAP,
+          right: r.right - box.left + CHROME_GAP,
+          bottom: r.bottom - box.top + CHROME_GAP,
+        }
+      })
+      const next = wayfinder({
+        ball: ballLat != null && ballLng != null ? { lat: ballLat, lng: ballLng } : null,
+        pin: pinLat != null && pinLng != null ? { lat: pinLat, lng: pinLng } : null,
+        zoom: map.getZoom(),
+        project: (p) => {
+          const q = map.project([p.lng, p.lat])
+          return [q.x, q.y]
+        },
+        // The whole map: a ball anywhere on it is in view. The ellipse keeps
+        // 8 px further in than the inset, clear of the map's rounded edge.
+        area: { left: 0, top: 0, right: box.width, bottom: box.height },
+        inset: WAYFINDER_INSET + 8,
+        arrow: WAYFINDER_ARROW,
+        avoid,
+        unit,
+      })
+      setWf((cur) =>
+        next && cur && Math.abs(next.x - cur.x) < 0.5 && Math.abs(next.y - cur.y) < 0.5 &&
+        Math.abs(next.rotate - cur.rotate) < 0.5 && next.distance === cur.distance
+          ? cur
+          : next,
+      )
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    schedule()
+    map.on('move', schedule)
+    map.on('resize', schedule)
+    return () => {
+      map.off('move', schedule)
+      map.off('resize', schedule)
+      cancelAnimationFrame(frame)
+    }
+  }, [mapRef, ballLat, ballLng, pinLat, pinLng, unit])
+
+  // The arrow travels the curve: its angle on the ellipse eases over 200 ms
+  // (the short way round), never its x/y, and the label rides it. It fades
+  // in and out; a new showing starts where it lands.
+  const [shown, setShown] = useState<Wayfinder | null>(null)
+  const [pose, setPose] = useState<{ theta: number; rotate: number } | null>(null)
+  const [on, setOn] = useState(false)
+  const poseRef = useRef<{ theta: number; rotate: number } | null>(null)
+  useEffect(() => {
+    if (!wf) {
+      poseRef.current = null
+      setOn(false)
+      return
+    }
+    setShown(wf)
+    const from = poseRef.current
+    if (!from) {
+      poseRef.current = { theta: wf.theta, rotate: wf.rotate }
+      setPose(poseRef.current)
+      const show = requestAnimationFrame(() => setOn(true))
+      return () => cancelAnimationFrame(show)
+    }
+    const to = { theta: nearestTurn(from.theta, wf.theta, 2 * Math.PI), rotate: nearestTurn(from.rotate, wf.rotate, 360) }
+    const start = performance.now()
+    let raf = 0
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / 200)
+      const ease = 1 - (1 - k) ** 3
+      poseRef.current = { theta: from.theta + (to.theta - from.theta) * ease, rotate: from.rotate + (to.rotate - from.rotate) * ease }
+      setPose(poseRef.current)
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [wf])
+
+  if (!shown || !pose) return null
+  const e = shown.ellipse
+  const [x, y] = ellipsePoint(pose.theta, e)
+  // "150 yd" → a serif number and its unit; '—' has no unit.
+  const cut = shown.distance.lastIndexOf(' ')
+  const [num, unitLabel] = cut < 0 ? [shown.distance, ''] : [shown.distance.slice(0, cut), shown.distance.slice(cut + 1)]
+  // The label's centre: in from the arrow along the ellipse's inner side.
+  const toCentre = Math.hypot(e.cx - x, e.cy - y) || 1
+  const ix = (e.cx - x) / toCentre
+  const iy = (e.cy - y) / toCentre
+  const reach =
+    WAYFINDER_ARROW + 2 + (Math.abs(ix) * WAYFINDER_LABEL.width) / 2 + (Math.abs(iy) * WAYFINDER_LABEL.height) / 2
+  return (
+    <div
+      role="img"
+      aria-label={`Your ball, ${shown.distance} from the pin`}
+      aria-hidden={!wf}
+      data-testid="wayfinder"
+      style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', opacity: on ? 1 : 0, transition: 'opacity 150ms' }}
+    >
+      <svg
+        width="48"
+        height="48"
+        viewBox="-24 -24 48 48"
+        aria-hidden
+        style={{ position: 'absolute', left: x - 24, top: y - 24 }}
+      >
+        <g transform={`rotate(${pose.rotate.toFixed(1)})`}>
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#fbf8f1" stroke="#fbf8f1" strokeWidth="5" strokeLinejoin="round" />
+          <path d="M0,-11 L16,11 L0,2 L-16,11 Z" fill="#1C211C" />
+        </g>
+      </svg>
+      <span
+        style={{
+          position: 'absolute',
+          left: x + ix * reach - WAYFINDER_LABEL.width / 2,
+          top: y + iy * reach - WAYFINDER_LABEL.height / 2,
+          width: WAYFINDER_LABEL.width,
+          height: WAYFINDER_LABEL.height,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#1C211C',
+          fontSize: 11,
+          textShadow: PAPER_HALO,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 18 }}>
+          {num}
+        </span>
+        {unitLabel && <>&nbsp;{unitLabel}</>}
+      </span>
     </div>
   )
 }

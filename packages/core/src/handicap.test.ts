@@ -4,8 +4,17 @@ import {
   calculateDifferential,
   calculateHandicapIndex,
   formatHandicapIndex,
+  formatWholeHandicap,
+  handicapIndexEdited,
+  handicapIndexField,
+  plusHandicapToggle,
+  plusStartNumber,
+  plusStartText,
+  stepPlusHandicap,
+  typedHandicapSign,
   handicapProvenance,
   parseHandicapIndex,
+  readHandicapIndexField,
 } from './handicap'
 
 describe('calculateDifferential', () => {
@@ -240,5 +249,136 @@ describe('parseHandicapIndex', () => {
     expect(parseHandicapIndex('abc')).toBeNull()
     expect(parseHandicapIndex('1.2.3')).toBeNull()
     expect(parseHandicapIndex('+')).toBeNull()
+  })
+})
+
+describe('formatWholeHandicap', () => {
+  it('rounds to the stroke and gives a plus handicap its plus', () => {
+    expect(formatWholeHandicap(12.4)).toBe('12')
+    expect(formatWholeHandicap(14.5)).toBe('15')
+    expect(formatWholeHandicap(-2)).toBe('+2')
+    expect(formatWholeHandicap(-2.4)).toBe('+2')
+    // Math.round(-0.4) is -0: still scratch, no sign.
+    expect(formatWholeHandicap(-0.4)).toBe('0')
+  })
+})
+
+describe('handicapIndexField', () => {
+  it('pre-fills the number alone, with the toggle on for a plus handicap', () => {
+    expect(handicapIndexField(null)).toEqual({ text: '', plus: false })
+    expect(handicapIndexField(undefined)).toEqual({ text: '', plus: false })
+    expect(handicapIndexField(-2)).toEqual({ text: '2.0', plus: true })
+    expect(handicapIndexField(13)).toEqual({ text: '13.0', plus: false })
+    // -0.04 rounds to scratch: no plus.
+    expect(handicapIndexField(-0.04)).toEqual({ text: '0.0', plus: false })
+  })
+})
+
+describe('readHandicapIndexField', () => {
+  // The stored range is the 0012 check: -10 (a plus 10) to 54.
+  const read = (text: string, plus = false) => readHandicapIndexField({ text, plus })
+
+  it('reads the number, signed by the toggle; blank clears', () => {
+    expect(read('')).toEqual({ index: null })
+    expect(read('   ', true)).toEqual({ index: null })
+    expect(read('15')).toEqual({ index: 15 })
+    expect(read('2', true)).toEqual({ index: -2 })
+    // Number('12,4') is NaN: the old forms rejected it.
+    expect(read('12,4')).toEqual({ index: 12.4 })
+    expect(read('10', true)).toEqual({ index: -10 })
+    expect(read('54')).toEqual({ index: 54 })
+    expect(read('0', true)).toEqual({ index: 0 })
+  })
+
+  it('still reads a sign left in the text as plus', () => {
+    // Number('+2') is 2: the old forms saved a plus 2 as a 2.
+    expect(read('+2')).toEqual({ index: -2 })
+    expect(read('-2')).toEqual({ index: -2 })
+    expect(read('+2', true)).toEqual({ index: -2 })
+  })
+
+  it('says why it cannot save', () => {
+    expect(read('abc')).toEqual({ error: 'Handicap must be a number' })
+    expect(read('54.1')).toEqual({ error: 'Handicap must be between +10 and 54' })
+    expect(read('10.1', true)).toEqual({ error: 'Handicap must be between +10 and 54' })
+    // A plus toggle on a 12 is a plus 12: past the plus end.
+    expect(read('12', true)).toEqual({ error: 'Handicap must be between +10 and 54' })
+  })
+
+  it('round-trips a stored index through the pre-fill', () => {
+    for (const index of [-10, -2, 0, 12.4, 54]) {
+      expect(readHandicapIndexField(handicapIndexField(index))).toEqual({ index })
+    }
+  })
+})
+
+describe('handicapIndexEdited', () => {
+  it('is an edit only when the field would save a different index', () => {
+    expect(handicapIndexEdited({ text: '13', plus: false }, 13)).toBe(false)
+    expect(handicapIndexEdited({ text: '13.0', plus: false }, 13)).toBe(false)
+    expect(handicapIndexEdited({ text: '2', plus: true }, -2)).toBe(false)
+    expect(handicapIndexEdited({ text: '', plus: false }, null)).toBe(false)
+    expect(handicapIndexEdited({ text: '', plus: true }, undefined)).toBe(false)
+    // The toggle alone flips the sign: that is an edit.
+    expect(handicapIndexEdited({ text: '2', plus: false }, -2)).toBe(true)
+    expect(handicapIndexEdited({ text: '', plus: false }, 13)).toBe(true)
+    expect(handicapIndexEdited({ text: '13', plus: false }, null)).toBe(true)
+    // Text that can't save still counts, so Save stays on and shows the error.
+    expect(handicapIndexEdited({ text: 'abc', plus: false }, 13)).toBe(true)
+  })
+})
+
+describe('typedHandicapSign', () => {
+  it('takes a typed sign off the number and asks for the plus toggle', () => {
+    expect(typedHandicapSign('+2')).toEqual({ text: '2', plus: true })
+    expect(typedHandicapSign(' -1.5')).toEqual({ text: '1.5', plus: true })
+    expect(typedHandicapSign('+')).toEqual({ text: '', plus: true })
+    expect(typedHandicapSign('12,4')).toEqual({ text: '12,4', plus: false })
+    expect(typedHandicapSign('')).toEqual({ text: '', plus: false })
+  })
+})
+
+describe('stepPlusHandicap', () => {
+  it('asks the first time it turns on for a golfer who is not plus', () => {
+    const start = plusHandicapToggle(12.4)
+    expect(start).toEqual({ plus: false, asking: false, confirmed: false })
+    const asking = stepPlusHandicap(start, 'on')
+    expect(asking).toEqual({ plus: false, asking: true, confirmed: false })
+    expect(stepPlusHandicap(asking, 'cancel')).toEqual(start)
+    const on = stepPlusHandicap(asking, 'confirm')
+    expect(on).toEqual({ plus: true, asking: false, confirmed: true })
+    // Once confirmed, off and on again does not ask a second time.
+    const off = stepPlusHandicap(on, 'off')
+    expect(off).toEqual({ plus: false, asking: false, confirmed: true })
+    expect(stepPlusHandicap(off, 'on')).toEqual(on)
+  })
+
+  it('does not ask a golfer whose stored index is already plus', () => {
+    const start = plusHandicapToggle(-2)
+    expect(start).toEqual({ plus: true, asking: false, confirmed: true })
+    const off = stepPlusHandicap(start, 'off')
+    expect(stepPlusHandicap(off, 'on')).toEqual(start)
+    // A new golfer (no index) is asked.
+    expect(stepPlusHandicap(plusHandicapToggle(null), 'on').asking).toBe(true)
+  })
+
+  it('leaves the toggle alone when it is already on', () => {
+    const on = plusHandicapToggle(-2)
+    expect(stepPlusHandicap(on, 'on')).toBe(on)
+  })
+})
+
+describe('plusStartNumber / plusStartText', () => {
+  it('keeps a number a plus can have, and lands past the plus end on a plus 1', () => {
+    expect(plusStartNumber(28)).toBe(1)
+    expect(plusStartNumber(10.1)).toBe(1)
+    expect(plusStartNumber(10)).toBe(10)
+    expect(plusStartNumber(3)).toBe(3)
+    expect(plusStartNumber(0)).toBe(0)
+    expect(plusStartText('15')).toBe('1.0')
+    expect(plusStartText('12,4')).toBe('1.0')
+    expect(plusStartText('3')).toBe('3')
+    expect(plusStartText('')).toBe('')
+    expect(plusStartText('abc')).toBe('abc')
   })
 })

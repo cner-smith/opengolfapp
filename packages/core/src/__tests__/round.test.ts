@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { resolveHole, type HoleBase, type HoleTeeOverride } from '../hole-tees'
 import {
   buildInitialRows,
   inferHoleCount,
@@ -15,16 +16,24 @@ import {
   resumeHoleNumber,
   formatHoleList,
   roundHolesPlayed,
+  scoredTotals,
   isPartialRound,
   wholeRoundWindow,
   isStaleEmptyRound,
   isFinishedRound,
   partialRoundLabel,
+  savedPuttFt,
   summarizePuttParts,
   summarizeShotParts,
   summarizeShotStep,
   withReplayLies,
+  seedReviewTally,
+  applyReviewRowEdit,
+  applyReviewRowDelete,
+  reviewRowsAfterEdit,
   type PlacedPoint,
+  type ReviewTally,
+  type ReviewTallyRow,
   type ShotSummaryFields,
 } from '../round'
 import { decombinedPuttResult } from '../types'
@@ -237,6 +246,16 @@ function summaryFields(
     ...overrides,
   }
 }
+
+describe('savedPuttFt', () => {
+  it('reads putt_distance_ft, then the legacy distance_to_target, else null', () => {
+    expect(savedPuttFt({ putt_distance_ft: 12, distance_to_target: 30 })).toBe(12)
+    expect(savedPuttFt({ putt_distance_ft: null, distance_to_target: 7 })).toBe(7)
+    expect(savedPuttFt({ putt_distance_ft: null, distance_to_target: null })).toBeNull()
+    // A saved 0 is a length, not a gap.
+    expect(savedPuttFt({ putt_distance_ft: 0, distance_to_target: 9 })).toBe(0)
+  })
+})
 
 describe('summarizePuttParts', () => {
   it('made putt: distance + Made', () => {
@@ -750,5 +769,204 @@ describe('wholeRoundWindow', () => {
 
   it('returns everything when there are fewer than n whole rounds', () => {
     expect(wholeRoundWindow([partial('p'), whole('a')], 5).map((r) => r.id)).toEqual(['p', 'a'])
+  })
+})
+
+// End-of-hole review tickers. Each case is worked by hand from the rule: a row
+// is one stroke, an OB or a Penalty key adds one stroke to Score and Penalties
+// (#839, #1039), a green-lie row is a putt, decrements floor at 0.
+const lie = (lieType: ReviewTallyRow['lieType'], flags: Partial<ReviewTallyRow> = {}): ReviewTallyRow => ({
+  lieType,
+  ...flags,
+})
+const tally = (score: number, putts: number, penalties: number): ReviewTally => ({
+  score,
+  putts,
+  penalties,
+})
+
+describe('seedReviewTally', () => {
+  it.each<[string, ReviewTallyRow[], ReviewTally]>([
+    ['no shots', [], tally(0, 0, 0)],
+    // 4 rows, 2 on the green.
+    ['plain hole', [lie('tee'), lie('fairway'), lie('green'), lie('green')], tally(4, 2, 0)],
+    // #839: 5 rows + 1 OB = 6; greens 2; penalties 1.
+    [
+      'OB drive and re-tee',
+      [lie('tee', { shotResult: 'ob' }), lie('tee'), lie('fairway'), lie('green'), lie('green')],
+      tally(6, 2, 1),
+    ],
+    // Two OB rows add two strokes: 4 + 2 = 6.
+    [
+      'two OBs',
+      [lie('tee', { shotResult: 'ob' }), lie('tee', { shotResult: 'ob' }), lie('tee'), lie('green')],
+      tally(6, 1, 2),
+    ],
+    // A stored Penalty flag is not seeded (no review opens on one today): 3 rows, 1 putt.
+    ['penalty flag at open', [lie('fairway', { penalty: true }), lie('fairway'), lie('green')], tally(3, 1, 0)],
+    // A non-OB result is just a struck row.
+    ['shank', [lie('tee', { shotResult: 'shank' }), lie('rough'), lie('green')], tally(3, 1, 0)],
+  ])('%s', (_name, rows, expected) => {
+    expect(seedReviewTally(rows)).toEqual(expected)
+  })
+})
+
+describe('applyReviewRowEdit', () => {
+  it.each<[string, ReviewTally, ReviewTallyRow, ReviewTallyRow, ReviewTally]>([
+    // #839: OB on = score 4+1, penalties 0+1.
+    ['OB on', tally(4, 1, 0), lie('fairway'), lie('fairway', { shotResult: 'ob' }), tally(5, 1, 1)],
+    // #839: a seeded OB cleared = score 5-1, penalties 1-1.
+    ['OB off', tally(5, 1, 1), lie('fairway', { shotResult: 'ob' }), lie('fairway'), tally(4, 1, 0)],
+    ['OB re-picked', tally(5, 1, 1), lie('fairway', { shotResult: 'ob' }), lie('fairway', { shotResult: 'ob' }), tally(5, 1, 1)],
+    ['OB to shank', tally(5, 1, 1), lie('fairway', { shotResult: 'ob' }), lie('fairway', { shotResult: 'shank' }), tally(4, 1, 0)],
+    ['shank to solid', tally(4, 1, 0), lie('fairway', { shotResult: 'shank' }), lie('fairway', { shotResult: 'solid' }), tally(4, 1, 0)],
+    // #1039: the Penalty key is one stroke on Score and Penalties.
+    ['penalty on', tally(4, 1, 0), lie('fairway'), lie('fairway', { penalty: true }), tally(5, 1, 1)],
+    ['penalty off', tally(5, 1, 1), lie('fairway', { penalty: true }), lie('fairway', { penalty: false }), tally(4, 1, 0)],
+    // #1039: Putts follows the lie onto (1+1) and off (1-1) the green.
+    ['lie onto the green', tally(4, 1, 0), lie('fringe'), lie('green'), tally(4, 2, 0)],
+    ['lie off the green', tally(4, 1, 0), lie('green'), lie('fringe'), tally(4, 0, 0)],
+    ['lie fairway to rough', tally(4, 1, 0), lie('fairway'), lie('rough'), tally(4, 1, 0)],
+    // OB off (-1) and penalty on (+1) in one edit: 5, 1.
+    ['OB swapped for penalty', tally(5, 1, 1), lie('tee', { shotResult: 'ob' }), lie('tee', { penalty: true }), tally(5, 1, 1)],
+    // OB and penalty both on (+2): 4+2, 0+2.
+    ['OB and penalty on', tally(4, 1, 0), lie('tee'), lie('tee', { shotResult: 'ob', penalty: true }), tally(6, 1, 2)],
+    // A hand-set ticker is kept; only the transition moves it: 7+1, 3, 0+1.
+    ['hand-set tickers kept', tally(7, 3, 0), lie('rough'), lie('rough', { penalty: true }), tally(8, 3, 1)],
+    // Floor at 0, steps in order: OB off 0-1 floors to 0, then penalty on 0+1 = 1.
+    ['floor then step', tally(0, 0, 0), lie('tee', { shotResult: 'ob' }), lie('tee', { penalty: true }), tally(1, 0, 1)],
+    ['putts floor at 0', tally(3, 0, 0), lie('green'), lie('fringe'), tally(3, 0, 0)],
+  ])('%s', (_name, start, before, after, expected) => {
+    expect(applyReviewRowEdit(start, before, after)).toEqual(expected)
+  })
+})
+
+describe('applyReviewRowDelete', () => {
+  it.each<[string, ReviewTally, ReviewTallyRow, ReviewTally]>([
+    ['plain row', tally(4, 2, 0), lie('fairway'), tally(3, 2, 0)],
+    ['putt', tally(4, 2, 0), lie('green'), tally(3, 1, 0)],
+    // An OB row is two strokes (#839): 6-2, penalties 1-1.
+    ['OB row', tally(6, 2, 1), lie('tee', { shotResult: 'ob' }), tally(4, 2, 0)],
+    // A Penalty-key row takes its stroke with it (#1039): 5-2, 1-1.
+    ['penalty row', tally(5, 1, 1), lie('fairway', { penalty: true }), tally(3, 1, 0)],
+    // OB + penalty on one row: 7-3, 2-2.
+    ['OB and penalty row', tally(7, 1, 2), lie('tee', { shotResult: 'ob', penalty: true }), tally(4, 1, 0)],
+    ['floor at 0', tally(1, 0, 0), lie('green', { shotResult: 'ob' }), tally(0, 0, 0)],
+  ])('%s', (_name, start, row, expected) => {
+    expect(applyReviewRowDelete(start, row)).toEqual(expected)
+  })
+})
+
+describe('reviewRowsAfterEdit', () => {
+  // Shot 1 from the tee, shot 2 `apart` yd up the same line, then 220 yd and
+  // a putt. buildInitialRows reads shot 2 as rough, not tee (#1098).
+  const rows = (apart: number) =>
+    buildInitialRows(
+      [
+        TEE,
+        { lat: offsetLatYards(apart), lng: TEE.lng },
+        { lat: offsetLatYards(220), lng: TEE.lng },
+        { lat: offsetLatYards(379), lng: TEE.lng },
+      ],
+      4,
+      PIN,
+      TEE.lng,
+    )
+
+  it('starts with shot 2 not on the tee', () => {
+    expect(rows(5)[1]!.lieType).not.toBe('tee')
+  })
+
+  it('OB set in the review: the re-tee 5 yd away keeps the tee lie (#1098)', () => {
+    const before = rows(5)
+    const out = reviewRowsAfterEdit(before, 0, { ...before[0]!, shotResult: 'ob' })
+    expect(out[0]!.shotResult).toBe('ob')
+    expect(out[1]!.lieType).toBe('tee')
+    expect(out[2]).toBe(before[2])
+  })
+
+  it('Penalty set in the review: the replay keeps the lie (#1098)', () => {
+    const before = rows(5)
+    const out = reviewRowsAfterEdit(before, 0, { ...before[0]!, penalty: true })
+    expect(out[1]!.lieType).toBe('tee')
+  })
+
+  it('a drop 11 yd away keeps its own lie', () => {
+    const before = rows(11)
+    const out = reviewRowsAfterEdit(before, 0, { ...before[0]!, shotResult: 'ob' })
+    expect(out[1]!.lieType).toBe(before[1]!.lieType)
+  })
+
+  it('an edit that does not newly flag the row leaves the next lie alone', () => {
+    const ob = rows(5).map((r, i) => (i === 0 ? { ...r, shotResult: 'ob' as const } : r))
+    ob[1] = { ...ob[1]!, lieType: 'rough' }
+    const out = reviewRowsAfterEdit(ob, 0, { ...ob[0]!, club: '3w' })
+    expect(out[0]!.club).toBe('3w')
+    expect(out[1]!.lieType).toBe('rough')
+  })
+
+  it('the last row flagged OB adds no row and leaves the input untouched', () => {
+    const before = rows(5)
+    const out = reviewRowsAfterEdit(before, 3, { ...before[3]!, shotResult: 'ob' })
+    expect(out).toHaveLength(4)
+    expect(out[3]!.shotResult).toBe('ob')
+    expect(before[3]!.shotResult).toBeUndefined()
+  })
+})
+
+describe('scoredTotals', () => {
+  const base = (par: number): HoleBase => ({ par, yards: null, stroke_index: null, tee_lat: null, tee_lng: null })
+  const tee = (par: number | null): HoleTeeOverride => ({ par, yards: null, stroke_index: null, tee_lat: null, tee_lng: null })
+
+  it('is all zeros with nothing played', () => {
+    expect(scoredTotals([])).toEqual({ score: 0, par: 0, toPar: 0, holesPlayed: 0 })
+  })
+
+  it('counts only the holes played on a partial round, not the whole course par', () => {
+    // 18 holes, played 1-3 only: score 5+6+3 = 14, par 4+5+3 = 12, +2.
+    // (The old share cards took 14 against all 18 pars, 4·16+5+3 = 72: −58.)
+    const pars = [4, 5, 3, ...Array(15).fill(4)]
+    const scores = [5, 6, 3, ...Array(15).fill(0)]
+    const holes = pars.map((par, i) => ({ score: scores[i], par }))
+    expect(scoredTotals(holes)).toEqual({ score: 14, par: 12, toPar: 2, holesPlayed: 3 })
+  })
+
+  it('skips unplayed holes, whether their score is 0, null or missing', () => {
+    // Only the first: 5 on a par 4 = +1.
+    const holes = [
+      { score: 5, par: 4 },
+      { score: 0, par: 4 },
+      { score: null, par: 3 },
+      { score: undefined, par: 5 },
+    ]
+    expect(scoredTotals(holes)).toEqual({ score: 5, par: 4, toPar: 1, holesPlayed: 1 })
+  })
+
+  it('sums a 9-hole round', () => {
+    // Pars 4+4+3+5+4+4+3+5+4 = 36; scores 5+4+3+6+4+5+3+5+4 = 39; +3.
+    const pars = [4, 4, 3, 5, 4, 4, 3, 5, 4]
+    const scores = [5, 4, 3, 6, 4, 5, 3, 5, 4]
+    const holes = pars.map((par, i) => ({ score: scores[i], par }))
+    expect(scoredTotals(holes)).toEqual({ score: 39, par: 36, toPar: 3, holesPlayed: 9 })
+  })
+
+  it('goes under par', () => {
+    // 3 on a par 5 + 3 on a par 4 = 6 against 9: −3.
+    expect(scoredTotals([{ score: 3, par: 5 }, { score: 3, par: 4 }]).toPar).toBe(-3)
+  })
+
+  it('takes par from the round override, then the tee played, then the course hole', () => {
+    // Hole 1: course 4, tee 5, round override 3 → par 3; scored 4 → +1.
+    // Hole 2: course 4, tee 5, no override → par 5; scored 5 → E.
+    // Hole 3: course 4, tee row with no par → falls to the course's 4; scored 6 → +2.
+    // Hole 4: course 3, no tee row → 3; scored 3 → E.
+    // Score 4+5+6+3 = 18, par 3+5+4+3 = 15, +3.
+    const holes = [
+      { score: 4, par: resolveHole(base(4), tee(5), { par: 3 }).par },
+      { score: 5, par: resolveHole(base(4), tee(5), { par: null }).par },
+      { score: 6, par: resolveHole(base(4), tee(null), {}).par },
+      { score: 3, par: resolveHole(base(3), null).par },
+    ]
+    expect(scoredTotals(holes)).toEqual({ score: 18, par: 15, toPar: 3, holesPlayed: 4 })
   })
 })

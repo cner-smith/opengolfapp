@@ -1,6 +1,7 @@
 // #611 "paper" system (LOCKED-SPEC §0–§1). Square (radius 3), hard ink
 // ledges under everything pressable, grain on opaque paper, translucent
-// "glass" only on the two map plates.
+// "glass" only on the two map plates. The keys over the live map are a
+// fainter glass (#1468, MAP_KEY).
 export const P = {
   chrome: '#F2EEE5',
   raised: '#FBF8F1',
@@ -26,6 +27,16 @@ export const P = {
   scrim: 'rgba(28,33,28,.48)',
   tagShadow: 'rgba(28,33,28,.55)',
   shade: 'rgba(28,33,28,.28)',
+} as const
+
+// The live map's keys (#1468): a half see-through face, a hairline ink-45
+// border and a thin ink strip for the ledge, so the map shows through them.
+// A latched key goes back to full ink.
+export const MAP_KEY = {
+  face: 'rgba(251,248,241,0.5)',
+  pressed: 'rgba(228,220,202,0.6)',
+  edge: P.ink45,
+  ledge: 1.5,
 } as const
 
 export const R = 3

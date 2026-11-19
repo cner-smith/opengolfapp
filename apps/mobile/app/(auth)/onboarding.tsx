@@ -5,7 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
   GOALS,
+  PLUS_HANDICAP_EXPLAINER,
+  PLUS_HANDICAP_QUESTION,
+  plusHandicapToggle,
+  plusStartText,
+  readHandicapIndexField,
   SKILL_LEVELS,
+  stepPlusHandicap,
+  typedHandicapSign,
   type Goal,
   type SkillLevel,
 } from '@oga/core'
@@ -39,6 +46,13 @@ export default function MobileOnboarding() {
   const insets = useSafeAreaInsets()
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [handicap, setHandicap] = useState('15')
+  const [plusToggle, setPlusToggle] = useState(() => plusHandicapToggle(null))
+  // Turning plus on over a number past the plus end lands on a plus 1.
+  const stepPlus = (action: Parameters<typeof stepPlusHandicap>[1]) => {
+    const next = stepPlusHandicap(plusToggle, action)
+    if (next.plus && !plusToggle.plus) setHandicap((t) => plusStartText(t))
+    setPlusToggle(next)
+  }
   const [goal, setGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
   // The import offer comes after the profile save, so the onboarding gate
@@ -68,13 +82,9 @@ export default function MobileOnboarding() {
       Alert.alert('Pick a skill level and a goal first')
       return
     }
-    const numericHandicap = handicap === '' ? null : Number(handicap)
-    if (handicap !== '' && Number.isNaN(numericHandicap)) {
-      Alert.alert('Handicap must be a number')
-      return
-    }
-    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
-      Alert.alert('Handicap must be between -10 and 54')
+    const handicapField = readHandicapIndexField({ text: handicap, plus: plusToggle.plus })
+    if ('error' in handicapField) {
+      Alert.alert(handicapField.error)
       return
     }
     setSaving(true)
@@ -103,7 +113,7 @@ export default function MobileOnboarding() {
     // gate still flips so the user isn't trapped on /onboarding.
     const { error } = await updateProfile(supabase, user.id, {
       skill_level: skill,
-      handicap_index: numericHandicap,
+      handicap_index: handicapField.index,
       goal,
       onboarding_completed: true,
     })
@@ -191,23 +201,56 @@ export default function MobileOnboarding() {
       </Field>
 
       <Field label="Handicap index">
-        <TextInput
-          keyboardType="decimal-pad"
-          value={handicap}
-          onChangeText={setHandicap}
-          maxFontSizeMultiplier={FONT_CAP}
-          style={{
-            backgroundColor: P.raised,
-            borderWidth: 1,
-            borderColor: P.ink,
-            borderRadius: R,
-            paddingHorizontal: 12,
-            paddingVertical: 11,
-            fontSize: 15,
-            color: P.ink,
-            fontFamily: FONT.body,
-          }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TextInput
+            keyboardType="decimal-pad"
+            value={handicap}
+            accessibilityLabel="Handicap index"
+            onChangeText={(v) => {
+              const typed = typedHandicapSign(v)
+              setHandicap(typed.text)
+              if (typed.plus) stepPlus('on')
+            }}
+            maxFontSizeMultiplier={FONT_CAP}
+            style={{
+              flex: 1,
+              backgroundColor: P.raised,
+              borderWidth: 1,
+              borderColor: P.ink,
+              borderRadius: R,
+              paddingHorizontal: 12,
+              paddingVertical: 11,
+              fontSize: 15,
+              color: P.ink,
+              fontFamily: FONT.body,
+            }}
+          />
+          <Chip
+            label="Plus handicap"
+            active={plusToggle.plus}
+            onPress={() => stepPlus(plusToggle.plus ? 'off' : 'on')}
+          />
+        </View>
+        {plusToggle.asking ? (
+          // Asked in place, and neither key is the forest primary: an
+          // amateur shouldn't turn this on by accident.
+          <View style={{ marginTop: 12 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 17, lineHeight: 22 }]}>
+              {PLUS_HANDICAP_QUESTION}
+            </Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+              {PLUS_HANDICAP_EXPLAINER}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <Key accessibilityLabel="Turn on plus handicap" onPress={() => stepPlus('confirm')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                <KeyText size={13}>Turn on</KeyText>
+              </Key>
+              <Key accessibilityLabel="Cancel" onPress={() => stepPlus('cancel')} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+                <KeyText size={13}>Cancel</KeyText>
+              </Key>
+            </View>
+          </View>
+        ) : null}
       </Field>
 
       <Field label="Goal">
@@ -248,11 +291,11 @@ export default function MobileOnboarding() {
         tone="primary"
         accessibilityLabel="Start tracking"
         onPress={() => save({ seedBag: true })}
-        disabled={saving}
+        disabled={saving || plusToggle.asking}
         style={{ marginTop: 8 }}
         faceStyle={{ minHeight: 50 }}
       >
-        <KeyText tone="primary" bold size={15} disabled={saving}>
+        <KeyText tone="primary" bold size={15} disabled={saving || plusToggle.asking}>
           {saving ? 'Saving…' : 'Start tracking'}
         </KeyText>
       </Key>
@@ -260,11 +303,11 @@ export default function MobileOnboarding() {
       <Key
         accessibilityLabel="Set up bag later"
         onPress={() => save({ seedBag: false })}
-        disabled={saving}
+        disabled={saving || plusToggle.asking}
         style={{ marginTop: 12 }}
         faceStyle={{ minHeight: 46 }}
       >
-        <KeyText size={14} disabled={saving}>
+        <KeyText size={14} disabled={saving || plusToggle.asking}>
           Set up later →
         </KeyText>
       </Key>

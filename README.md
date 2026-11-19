@@ -81,7 +81,7 @@ deploy, EAS setup, troubleshooting), see [docs/self-hosting.md](./docs/self-host
 
 ### Prerequisites
 
-- Node.js 20.19.4 or newer (React Native 0.81's minimum)
+- Node.js 24 (what CI and EAS builds use); the minimum is 22
 - pnpm 10+
 - Supabase account (free tier is plenty)
 - Mapbox account (free tier covers 50,000 map loads/month — required

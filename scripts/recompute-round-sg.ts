@@ -10,8 +10,11 @@
 // pin. Typed or imported lengths don't match and are left alone. The stored SG
 // is checked against the ORIGINAL rows; the new SG is computed from the repaired
 // ones.
-// Mirrors the SG step of the finish flow (apps/mobile/lib/completeRound.ts):
-// per-round par overrides, the player's handicap (DEFAULT_HANDICAP when unset).
+// Mirrors the SG step of the finish flow (core finishRoundPlan): each hole's par
+// as played (hole_scores.par, else the round tee's hole_tees.par, #1456; a round
+// finished on holes.par before that won't reproduce and is left alone), a
+// category with no valued shot stored as null (#1436; per hole #1450), the
+// player's handicap (DEFAULT_HANDICAP when unset).
 // Rounds don't record the handicap SG was first computed with, so the current
 // profile value is used.
 //
@@ -32,13 +35,23 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_HANDICAP, computeRoundSG, haversineYards } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  holesAsPlayed,
+  computeRoundSG,
+  haversineYards,
+  resolveCourseTee,
+  roundSGPatch,
+  sgCategoryColumns,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 const SG = ['sg_off_tee', 'sg_approach', 'sg_around_green', 'sg_putting'] as const
 
 const apply = process.argv.includes('--apply')
@@ -110,7 +123,7 @@ async function main() {
   const engines = await loadEngines()
   const { data: rounds, error } = await supabase
     .from('rounds')
-    .select('id, user_id, course_id, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total')
+    .select('id, user_id, course_id, course_tee_id, tee_color, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total')
     .not('completed_at', 'is', null)
     .range(0, 9999)
   if (error) throw error
@@ -119,38 +132,45 @@ async function main() {
   const skipped = { noShots: 0, notReproduced: [] as unknown[], holesNotReproduced: 0 }
   let puttFixCount = 0
   for (const r of rounds ?? []) {
-    const [holesRes, hsRes, profRes] = await Promise.all([
+    const [holesRes, hsRes, profRes, teesRes] = await Promise.all([
       supabase.from('holes').select('*').eq('course_id', r.course_id),
       supabase.from('hole_scores').select('*').eq('round_id', r.id),
       supabase.from('profiles').select('handicap_index').eq('id', r.user_id).maybeSingle(),
+      supabase.from('course_tees').select('*').eq('course_id', r.course_id),
     ])
-    if (holesRes.error || hsRes.error || profRes.error) throw holesRes.error ?? hsRes.error ?? profRes.error
+    if (holesRes.error || hsRes.error || profRes.error || teesRes.error) {
+      throw holesRes.error ?? hsRes.error ?? profRes.error ?? teesRes.error
+    }
+    const tee = resolveCourseTee((teesRes.data ?? []) as CourseTeeRow[], r.course_tee_id, r.tee_color)
+    const teeRowsRes = tee
+      ? await supabase.from('hole_tees').select('*').eq('course_tee_id', tee.id)
+      : { data: [], error: null }
+    if (teeRowsRes.error) throw teeRowsRes.error
     const holeScores = (hsRes.data ?? []) as HoleScoreRow[]
     const shotsRes = await supabase
       .from('shots')
       .select('*')
       .in('hole_score_id', holeScores.map((h) => h.id))
     if (shotsRes.error) throw shotsRes.error
-    const parOverride = new Map(holeScores.filter((h) => h.par != null).map((h) => [h.hole_id, h.par!]))
-    const holes = ((holesRes.data ?? []) as HoleRow[]).map((h) =>
-      parOverride.has(h.id) ? { ...h, par: parOverride.get(h.id)! } : h,
-    )
+    const holes = holesAsPlayed((holesRes.data ?? []) as HoleRow[], holeScores, (teeRowsRes.data ?? []) as HoleTeeRow[])
     const shots = (shotsRes.data ?? []) as ShotRow[]
     if (shots.length === 0) {
       skipped.noShots++
       continue
     }
     const input = { holes, holeScores, shots, handicap: profRes.data?.handicap_index ?? DEFAULT_HANDICAP }
+    // A stored null is a category with no valued shot (#1436): the engine's 0 there.
     const matches = (b: ReturnType<typeof computeRoundSG>) => {
       const was = stamp(b.round)
-      return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === r[k])
+      return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === (r[k] ?? 0))
     }
     const runs = engines.map((e) => ({ e, out: e.computeRoundSG(input) }))
     // Strict: the round's stored SG reproduces to the cent. Else, holes-only:
     // every hole with stored SG reproduces (a shot synced after the finish onto
     // a never-stamped hole moves the round total but not any stamped hole); the
     // round total then moves by the stamped holes' changes alone.
-    const stamped = holeScores.filter((h) => SG.every((k) => h[k] != null))
+    // A stamped hole has SG in at least one category; its nulls are the engine's 0 (#1450).
+    const stamped = holeScores.filter((h) => SG.some((k) => h[k] != null))
     const holesFit = (out: ReturnType<typeof computeRoundSG>) =>
       stamped.length > 0 &&
       stamped.every((h) => {
@@ -175,19 +195,22 @@ async function main() {
       Object.entries(result.perHoleScore)
         .filter(([id]) => stampedIds.has(id))
         .reduce((sum, [id, sg]) => sum + sg[field] - before.perHoleScore[id]![field], Number(r[key]))
-    const next = strict
-      ? stamp(result.round)
-      : stamp({
-          offTee: roundDelta('sg_off_tee', 'offTee'),
-          approach: roundDelta('sg_approach', 'approach'),
-          aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
-          putting: roundDelta('sg_putting', 'putting'),
-          total:
-            roundDelta('sg_off_tee', 'offTee') +
-            roundDelta('sg_approach', 'approach') +
-            roundDelta('sg_around_green', 'aroundGreen') +
-            roundDelta('sg_putting', 'putting'),
-        })
+    const next = roundSGPatch({
+      counted: result.counted,
+      round: strict
+        ? result.round
+        : {
+            offTee: roundDelta('sg_off_tee', 'offTee'),
+            approach: roundDelta('sg_approach', 'approach'),
+            aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
+            putting: roundDelta('sg_putting', 'putting'),
+            total:
+              roundDelta('sg_off_tee', 'offTee') +
+              roundDelta('sg_approach', 'approach') +
+              roundDelta('sg_around_green', 'aroundGreen') +
+              roundDelta('sg_putting', 'putting'),
+          },
+    })
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
     // A hole is rewritten only when the same previous engine reproduces its stored values too.
     const holesChanged = Object.entries(result.perHoleScore).flatMap(([id, sg]) => {
@@ -195,12 +218,13 @@ async function main() {
       const prev = before.perHoleScore[id]
       if (!stored || !prev || !stampedIds.has(id)) return []
       const { sg_total: _p, ...old } = stamp(prev)
-      const { sg_total: _n, ...nextHole } = stamp(sg)
-      if (SG.some((k) => stored[k] !== old[k])) {
+      if (SG.some((k) => (stored[k] ?? 0) !== old[k])) {
         skipped.holesNotReproduced++
         return []
       }
-      return SG.some((k) => old[k] !== nextHole[k]) ? [{ id, old, next: nextHole }] : []
+      const nextHole = sgCategoryColumns(sg, result.perHoleCounted[id]!)
+      const was = Object.fromEntries(SG.map((k) => [k, stored[k]]))
+      return SG.some((k) => stored[k] !== nextHole[k]) ? [{ id, old: was, next: nextHole }] : []
     })
     if (!roundChanged && holesChanged.length === 0 && repaired.fixes.length === 0) continue
     puttFixCount += repaired.fixes.length

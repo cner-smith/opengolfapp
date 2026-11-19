@@ -80,7 +80,8 @@ test.describe('Import OGA JSON (signed in, mutating)', () => {
       }, { timeout: 15_000 })
       .toMatchObject({
         completed_at: expect.any(String),
-        sg_total: expect.any(Number),
+        // Scores only, no shots: no SG category is counted, so no total (#1436).
+        sg_total: null,
         total_score: 9,
         total_putts: 4,
       })

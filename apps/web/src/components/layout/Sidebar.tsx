@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { HANDICAP_PROVENANCE_LABEL } from '@oga/core'
+import { formatHandicapIndex, HANDICAP_PROVENANCE_LABEL } from '@oga/core'
 import { supabase } from '../../lib/supabase'
 import { useProfile } from '../../hooks/useProfile'
 import { useHandicapMeta } from '../../hooks/useHandicapMeta'
@@ -192,7 +192,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 <>
                   Handicap{' '}
                   <span className="font-serif text-white/80" style={{ fontStyle: 'italic', fontSize: 13 }}>
-                    {profile.handicap_index}
+                    {formatHandicapIndex(profile.handicap_index)}
                   </span>
                   {handicapMeta && (
                     <span className="block text-white/40">{HANDICAP_PROVENANCE_LABEL[handicapMeta.provenance]}</span>

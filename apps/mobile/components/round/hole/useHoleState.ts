@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type S
 import { AppState, PermissionsAndroid, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { locationManager } from '@rnmapbox/maps'
-import { awaitingNewSpot, initialLiveBall, liveBall, markSpot, type BallSource, type LiveBallEvent } from '@oga/core'
+import { autoAimPoint, awaitingNewSpot, initialLiveBall, liveBall, markSpot, type BallSource, type LiveBallEvent } from '@oga/core'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
@@ -17,14 +17,6 @@ const AIM_HINT_KEY = 'oga.aim-hint-shown'
 // holds those rounds' ids, so a resumed round keeps its hint.
 const AIM_DRAG_HINT_KEY = 'oga.aim-drag-hint-rounds-v1'
 const AIM_DRAG_HINT_ROUNDS = 3
-
-// Fraction of the straight ball→pin line where the aim auto-spawns when
-// the player enters SET_AIM without having dropped one yet. ~0.65 puts the
-// target two-thirds up the hole — a sensible default aim the player then
-// drags to refine (refs ux-09). A long-press still repositions it freely.
-// Capped at the auto-picked club's typical distance when that is known at spawn time,
-// so it doesn't ask for a shot the club can't hit (#1006).
-const AIM_AUTOSPAWN_FRACTION = 0.65
 
 interface UseHoleStateInput {
   roundId: string | undefined
@@ -186,8 +178,8 @@ export function useHoleState({
   }, [hasAim, roundId, isPastMode])
 
   // Auto-spawn the aim target when the player enters SET_AIM. With a ball
-  // and a pin but no aim yet, seed one on the straight ball→pin line at
-  // AIM_AUTOSPAWN_FRACTION so the aim line, crosshair, and aim/remaining
+  // and a pin but no aim yet, seed one on the straight ball→pin line
+  // (core autoAimPoint) so the aim line, crosshair, and aim/remaining
   // readouts appear immediately — no long-press needed to start (refs
   // ux-09). Guarded on `!aim` so a dragged or long-pressed aim is never
   // overwritten; markBallHere resets aim to null for the next shot, so this
@@ -199,13 +191,8 @@ export function useHoleState({
     if (isRevisitingPlayedHole) return
     if (roundState !== 'SET_AIM') return
     if (aim || !ball || !effectivePin) return
-    const clubYards = autoClubYardsRef.current
-    const toPin = distanceYards(ball, effectivePin)
-    const f = clubYards && toPin > 0 ? Math.min(AIM_AUTOSPAWN_FRACTION, clubYards / toPin) : AIM_AUTOSPAWN_FRACTION
-    setAim({
-      lat: ball.lat + f * (effectivePin.lat - ball.lat),
-      lng: ball.lng + f * (effectivePin.lng - ball.lng),
-    })
+    // Capped at the auto-picked club's typical distance when known (core autoAimPoint, shared with web).
+    setAim(autoAimPoint(ball, effectivePin, autoClubYardsRef.current))
   }, [
     isRevisitingPlayedHole,
     roundState,

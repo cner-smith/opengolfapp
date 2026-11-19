@@ -4,6 +4,7 @@ import {
   computeAimRelativeDispersion,
   haversineYards,
   median,
+  pickClub,
   type AimRelativeDispersion,
   type Club,
   type DistanceRange,
@@ -151,32 +152,8 @@ export function useClubDispersion(
   }, [rows])
 
   const selectClub = useCallback(
-    (distanceToTargetYards: number | null): ClubDispersion | null => {
-      const candidates = [...byClub.values()]
-      if (candidates.length === 0) return null
-
-      // Tee shot / no aim yet → the player's longest club.
-      if (distanceToTargetYards == null || !Number.isFinite(distanceToTargetYards)) {
-        return candidates.reduce((best, c) =>
-          (c.medianDistanceYards ?? -Infinity) > (best.medianDistanceYards ?? -Infinity)
-            ? c
-            : best,
-        )
-      }
-
-      // Otherwise the club whose median distance is closest to the distance.
-      return candidates.reduce((best, c) => {
-        const cDelta =
-          c.medianDistanceYards == null
-            ? Infinity
-            : Math.abs(c.medianDistanceYards - distanceToTargetYards)
-        const bestDelta =
-          best.medianDistanceYards == null
-            ? Infinity
-            : Math.abs(best.medianDistanceYards - distanceToTargetYards)
-        return cDelta < bestDelta ? c : best
-      })
-    },
+    (distanceToTargetYards: number | null): ClubDispersion | null =>
+      pickClub(byClub.values(), distanceToTargetYards),
     [byClub],
   )
 

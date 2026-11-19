@@ -53,7 +53,6 @@ export interface OsmImportSummary {
   missingParRefs: number[]
   missingYardsRefs: number[]
   dedupedRefs: number[]
-  wipedHoles: number
 }
 
 async function devFetch<T>(path: string, init?: RequestInit): Promise<T> {

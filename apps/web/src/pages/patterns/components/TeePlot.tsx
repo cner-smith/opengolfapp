@@ -1,7 +1,5 @@
 import { useMemo, useRef } from 'react'
 import {
-  SHOT_SHAPES,
-  SHOT_START_LINES,
   NOT_RECORDED,
   YARDS_TO_METERS,
   averageAimDistance,
@@ -10,11 +8,12 @@ import {
   flightControls,
   insideRing,
   shotWords,
-  startLineAngleDeg,
-  teeBreakYards,
+  teeAxis,
+  teeView,
+  typicalFlight,
+  typicalFlightFixed,
   type DispersionPoint,
   type DispersionRing,
-  type DispersionStats,
   type FlightKind,
   type FlightPoint,
   type ShotShape,
@@ -52,6 +51,7 @@ import {
   type Placed,
   type ScreenRing,
 } from './chartParts'
+import { UNRECORDED_INK } from '../layers'
 
 // From the tee, still from above. Each flight leaves on its recorded start
 // line, bends by its recorded shape and finishes on the ball (core
@@ -77,15 +77,16 @@ export function flightPath(E: FlightPoint, startLine: ShotStartLine | null, shap
 }
 
 /** Every finish placed as if aimed at the average aim distance, so the dots,
- *  the rings (built from aim-relative offsets) and the one pennant agree. */
-export function teeGeometry(points: DispersionPoint[], leftHanded: boolean) {
+ *  the rings (built from aim-relative offsets) and the one pennant agree. The
+ *  older shots under Latest are placed by the same aim, which they don't move. */
+export function teeGeometry(points: DispersionPoint[], leftHanded: boolean, older: DispersionPoint[] = []) {
   const aim = averageAimDistance(points)
   const avgAim = aim ?? 0
-  const shots: TeeShot[] = points.map((p) => {
+  const place = (p: DispersionPoint): TeeShot => {
     const E = { x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }
     return { p, E, ...flightPath(E, p.startLine ?? null, p.shape ?? null, leftHanded) }
-  })
-  return { avgAim, hasStart: aim != null, shots }
+  }
+  return { avgAim, hasStart: aim != null, shots: points.map(place), olderShots: older.map(place) }
 }
 
 /** A straight line from the tee to (lat, d), sampled so it follows the curve. */
@@ -93,20 +94,6 @@ const wedgeEdge = (lat: number, d: number) => Array.from({ length: 49 }, (_, i) 
 
 const TRIGHT = 12
 const SHORTENED_PX = 64
-const MAX_POWER = 3
-
-const mostCommon = <K extends string>(keys: readonly K[], values: (K | null | undefined)[]): K | null => {
-  let best: K | null = null
-  let n = 0
-  for (const k of keys) {
-    const c = values.filter((v) => v === k).length
-    if (c > n) {
-      best = k
-      n = c
-    }
-  }
-  return best
-}
 
 export function TeePlot(props: ChartProps) {
   const { points, older, stats, ghost, unit, layers, extras, kinds, leftHanded, colourBy } = props
@@ -120,36 +107,17 @@ export function TeePlot(props: ChartProps) {
   const u = unit === 'meters' ? YARDS_TO_METERS : 1
 
   const geo = useMemo(() => {
-    const { avgAim, hasStart, shots } = teeGeometry(points, leftHanded)
-    const olderEnds = older.map((p) => ({ x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }))
-    const ringYs = (s: DispersionStats) => [avgAim + s.avgDistanceOffset - s.cone95.distance, avgAim + s.avgDistanceOffset + s.cone95.distance]
-    const ys = [...shots.map((s) => s.E.y), ...olderEnds.map((e) => e.y), ...(stats ? ringYs(stats) : []), avgAim]
-    const brk = teeBreakYards(ys, 1 / u)
-    const maxY = Math.max(...ys, 1) + 6
-    const wedge = Math.tan((Math.abs(startLineAngleDeg('push', leftHanded)) * Math.PI) / 180) * (brk || avgAim * 0.35)
-    const xs = [0, -wedge, wedge, ...shots.flatMap((s) => s.path.filter((q) => q.y >= brk).map((q) => q.x)), ...olderEnds.map((e) => e.x)]
-    if (stats) xs.push(stats.avgLateralOffset - stats.cone95.lateral, stats.avgLateralOffset + stats.cone95.lateral)
-    const lo = Math.min(...xs)
-    const hi = Math.max(...xs)
-    const halfW = Math.max((hi - lo) / 2, 10) * 1.1
-    // The shortened band is at least SHORTENED_PX tall, and tall enough that
-    // its curve's power stays at or under MAX_POWER: a steeper curve leaves the
-    // tee flat, and every flight would start sideways.
-    const H = TEE_Y - 16
-    const wide = (TW - TLEFT - TRIGHT) / 2 / halfW
-    const steep = Math.min(H / (maxY - brk + brk / MAX_POWER), wide)
-    const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
-    const scale = Math.min((H - comp) / (maxY - brk), wide)
-    return { avgAim, hasStart, shots, olderEnds, maxY, brk, comp, centre: (lo + hi) / 2, scale }
-  }, [points, older, stats, leftHanded, u, TW, TLEFT, TEE_Y])
+    const { avgAim, hasStart, shots, olderShots } = teeGeometry(points, leftHanded, older)
+    const view = teeView(
+      { points: [...points, ...older], flights: shots.map((s) => s.path), stats, ghost: ghost?.stats ?? null, avgAim, yardsPerUnit: 1 / u },
+      { left: TLEFT, right: TW - TRIGHT, top: 16, teeY: TEE_Y, minBandPx: SHORTENED_PX },
+    )
+    return { avgAim, hasStart, shots, olderShots, view }
+  }, [points, older, stats, ghost, leftHanded, u, TW, TLEFT, TEE_Y])
 
-  const { avgAim, shots, olderEnds, maxY, brk, comp, centre, scale } = geo
+  const { avgAim, shots, olderShots, view } = geo
+  const { maxY, brk, comp, centre, scale, x, y } = view
   const midX = TLEFT + (TW - TLEFT - TRIGHT) / 2
-  const x = (l: number) => midX + (l - centre) * scale
-  // Below the break: comp·(d/brk)^r, with r chosen so its slope at the break
-  // equals the true scale above it (no kink in the flights).
-  const r = brk > 0 ? (scale * brk) / comp : 1
-  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? Math.pow(Math.max(d, 0) / brk, r) * comp : 0) : TEE_Y - comp - (d - brk) * scale)
   const line = (pts: FlightPoint[]) => pts.map((q, i) => `${i ? 'L' : 'M'} ${x(q.x).toFixed(1)} ${y(q.y).toFixed(1)}`).join(' ')
 
   const styled = shots.map((s) => ({ ...s, s: markStyle(s.p, props, dense), dx: x(s.E.x), dy: y(s.E.y) }))
@@ -181,25 +149,18 @@ export function TeePlot(props: ChartProps) {
 
   const teeX = x(0)
   const breakY = TEE_Y - comp
-  // Rules in the player's unit: every 5, 10 or 25, labelled every 10, 25 or 50.
   const stepPx = (s: number) => (s / u) * scale
-  const ruleStep = stepPx(5) >= 14 ? 5 : stepPx(10) >= 12 ? 10 : 25
-  const labelStep = stepPx(10) >= 26 ? 10 : stepPx(25) >= 26 ? 25 : 50
-  const rules: number[] = []
-  for (let d = Math.ceil((brk * u + 1) / ruleStep) * ruleStep; d <= maxY * u; d += ruleStep) rules.push(d)
+  const { ruleStep, barStep: barDisp, rules } = teeAxis(scale, brk, maxY, 1 / u)
   const latStep = ruleStep === 25 ? 10 : ruleStep
   const lat: number[] = []
   for (let v = Math.ceil(((centre - (midX - TLEFT) / scale) * u) / latStep) * latStep; x(v / u) <= TW - TRIGHT; v += latStep) if (x(v / u) >= TLEFT) lat.push(v)
   const bounds: Box = { x: TLEFT + 2, y: 2, w: TW - TLEFT - TRIGHT - 4, h: breakY - 6 }
-  const barDisp = stepPx(10) >= 30 ? 10 : 25
-
   // The protractor: a straight push or pull from the tee, as drawn here.
-  const wedgeD = brk || avgAim * 0.35
-  const wedgeX = Math.tan((Math.abs(startLineAngleDeg('push', leftHanded)) * Math.PI) / 180) * wedgeD
+  const { x: wedgeX, d: wedgeD } = view.wedge
 
   // Over 40 shots each flight is a faint hair and one typical flight per
-  // visible group carries the reading.
-  const typical = dense && layers.flights ? typicalFlights(visible, colourBy, props.hidden, props.colours, leftHanded) : []
+  // visible group of 3 or more (core typicalFlight) carries the reading.
+  const typical = dense && layers.flights ? typicalFlights(visible, avgAim, colourBy, props.hidden, props.colours, leftHanded) : []
   const lineOp = colourBy === 'none' ? 0.7 : 0.85
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
 
@@ -217,7 +178,10 @@ export function TeePlot(props: ChartProps) {
     taken.push(at.box)
     return at
   })
-  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) : null
+  const olderAt = olderShots.map((s) => ({ ...s, dx: x(s.E.x), dy: y(s.E.y) }))
+  const olderOn = layers.shots || layers.flights
+  const hotOlder = nav.shown ? olderAt.find((d) => d.p.id === nav.shown) ?? null : null
+  const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) ?? hotOlder : null
   const label = (disp: number) => String(Math.round(disp))
 
   return (
@@ -235,10 +199,10 @@ export function TeePlot(props: ChartProps) {
         {lat.map((v) => (
           <line key={`v${v}`} x1={x(v / u)} x2={x(v / u)} y1={y(maxY)} y2={breakY} stroke={v === 0 ? 'transparent' : v % 10 === 0 ? RULE : '#F2EDE2'} strokeWidth={1} />
         ))}
-        {rules.map((d) => (
+        {rules.map(({ d, label: major }) => (
           <g key={d}>
-            <line x1={TLEFT} x2={TW - TRIGHT} y1={y(d / u)} y2={y(d / u)} stroke={d % labelStep === 0 ? RULE_MAJOR : RULE} strokeWidth={1} />
-            {d % labelStep === 0 && <text x={TLEFT - 6} y={y(d / u) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{label(d)}</text>}
+            <line x1={TLEFT} x2={TW - TRIGHT} y1={y(d / u)} y2={y(d / u)} stroke={major ? RULE_MAJOR : RULE} strokeWidth={1} />
+            {major && <text x={TLEFT - 6} y={y(d / u) + 4} textAnchor="end" fontFamily={SERIF} fontSize={13} fill={DIM}>{label(d)}</text>}
           </g>
         ))}
         <line x1={TLEFT} x2={TLEFT} y1={y(maxY)} y2={brk > 0 ? breakY - 5 : TEE_Y} stroke={AXIS} strokeWidth={1} />
@@ -295,6 +259,10 @@ export function TeePlot(props: ChartProps) {
             />
           )
         })}
+        {/* An older shot's flight shows only while it is chosen. */}
+        {hotOlder && (
+          <path d={line(hotOlder.path)} stroke={colourBy === 'none' ? INK : UNRECORDED_INK} strokeWidth={2.4} strokeLinecap="round" strokeDasharray={hotOlder.kind === 'none' ? '4 3' : undefined} />
+        )}
         {typical.map((t) => (
           <path key={t.key} d={line(t.path)} stroke={t.color} strokeWidth={2.2} strokeLinecap="round" opacity={props.focus && props.focus !== t.key ? 0.2 : 1} />
         ))}
@@ -305,7 +273,15 @@ export function TeePlot(props: ChartProps) {
         </g>
       )}
 
-      <OlderDots dots={olderEnds.map((e) => ({ x: x(e.x), y: y(e.y) }))} />
+      <OlderDots
+        dots={olderAt.map((d) => ({ id: d.p.id, x: d.dx, y: d.dy }))}
+        shown={nav.shown}
+        nav={olderOn ? nav.dotProps : null}
+        label={(id) => {
+          const d = olderAt.find((o) => o.p.id === id)!
+          return shotWords(d.p, extras[id], unit, d.kind).join('. ')
+        }}
+      />
       <g style={fade(layers.shots || layers.flights)}>
         {styled.map((d, i) => (
           <g key={d.p.id} style={{ opacity: layers.shots ? 1 : 0 }}>
@@ -400,6 +376,7 @@ interface Typical {
 
 function typicalFlights(
   visible: (TeeShot & { s: ReturnType<typeof markStyle> })[],
+  avgAim: number,
   colourBy: ChartProps['colourBy'],
   hidden: Set<string>,
   colours: ChartProps['colours'],
@@ -408,19 +385,17 @@ function typicalFlights(
   const groups = new Map<string, TeeShot[]>()
   for (const d of visible) {
     const k = colourBy === 'none' ? 'all' : d.s.k
-    if (k === NOT_RECORDED || hidden.has(k)) continue
+    if (hidden.has(k)) continue
     groups.set(k, [...(groups.get(k) ?? []), d])
   }
   const out: Typical[] = []
   for (const [k, members] of groups) {
-    const E = {
-      x: members.reduce((a, m) => a + m.E.x, 0) / members.length,
-      y: members.reduce((a, m) => a + m.E.y, 0) / members.length,
-    }
-    const startLine = colourBy === 'start' ? (k as ShotStartLine) : mostCommon(SHOT_START_LINES, members.map((m) => m.p.startLine))
-    const shape = colourBy === 'shape' ? (k as ShotShape) : mostCommon(SHOT_SHAPES, members.map((m) => m.p.shape))
-    const word = colourBy === 'none' ? 'typical flight' : `typical ${labelOf(k)}`
-    out.push({ key: k, label: word, color: colourBy === 'none' ? INK : colours.get(k)?.color ?? INK, E, path: flightPath(E, startLine, shape, leftHanded).path })
+    const t = typicalFlight(members.map((m) => m.p), avgAim, leftHanded, typicalFlightFixed(colourBy, k))
+    if (!t) continue
+    const unrecorded = colourBy !== 'none' && k === NOT_RECORDED
+    const word = colourBy === 'none' ? 'typical flight' : unrecorded ? 'typical, not recorded' : `typical ${labelOf(k)}`
+    const color = colourBy === 'none' ? INK : unrecorded ? UNRECORDED_INK : colours.get(k)?.color ?? INK
+    out.push({ key: k, label: word, color, E: t.end, path: flightPath(t.end, t.startLine, t.shape, leftHanded).path })
   }
   return out
 }

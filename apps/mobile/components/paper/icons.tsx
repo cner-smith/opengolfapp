@@ -42,21 +42,20 @@ export const Icon = {
       <Circle cx={12} cy={19} r={1.9} fill={color} />
     </Svg>
   ),
+  // Shots fanning out from the ball to a dotted landing ellipse (#1468).
   pattern: ({ size, color = P.ink }: IconProps) => (
     <Svg width={size} height={size} viewBox="0 0 26 26">
-      <Ellipse cx={13} cy={13} rx={10.5} ry={7} fill="none" stroke={color} strokeWidth={1.3} strokeDasharray="2.4 2" />
+      <Path d="M13 22.6 6.2 10.6M13 22.6l6.8-12" {...stroke(color, 1.3)} />
+      <Ellipse cx={13} cy={7.4} rx={9} ry={4.6} {...stroke(color, 1.3)} strokeDasharray="2.2 1.9" />
       {[
-        [8, 11, 1.5],
-        [12.5, 9.5, 1.5],
-        [17, 12, 1.5],
-        [10.5, 15, 1.5],
-        [15, 16, 1.5],
-        [21.5, 8, 1.3],
-        [4, 18, 1.3],
-      ].map(([x, y, r]) => (
-        <Circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill={color} />
+        [10, 7.6],
+        [13.4, 6],
+        [16.4, 8.2],
+        [12.6, 9.2],
+      ].map(([x, y]) => (
+        <Circle key={`${x}-${y}`} cx={x} cy={y} r={1.4} fill={color} />
       ))}
-      <Circle cx={13} cy={12.8} r={2.3} fill={color} />
+      <Circle cx={13} cy={22.6} r={1.9} fill={color} />
     </Svg>
   ),
   // Pin-key glyph (§9): G4 flag in miniature.

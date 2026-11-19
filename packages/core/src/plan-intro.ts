@@ -92,7 +92,8 @@ function shortCourseName(name: string): string {
   return short.length > 0 ? short : name.trim()
 }
 
-function ordinal(n: number): string {
+// "1st", "2nd", "11th", "23rd".
+export function ordinal(n: number): string {
   const tens = n % 100
   if (tens >= 11 && tens <= 13) return `${n}th`
   return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`

@@ -174,6 +174,26 @@ describe('sgTrend', () => {
       '2026-03-01',
     ])
   })
+
+  // Owner ruling Q3 (2026-11-09): a round with no value in a category is a
+  // gap for that category (null), never a 0. A round with no SG at all
+  // (sg_total null) is not a point.
+  it('a missing category is a gap (null), never 0', () => {
+    const rounds = [
+      makeRound({ id: 'r3', played_at: '2026-03-01', sg_total: -1, sg_off_tee: 0.5, sg_approach: -1.2, sg_around_green: null, sg_putting: -0.3, hole_scores: [] }),
+      makeRound({ id: 'r2', played_at: '2026-02-01', sg_total: null, hole_scores: [] }),
+      makeRound({ id: 'r1', played_at: '2026-01-01', sg_total: 0.4, sg_off_tee: 0.1, sg_approach: null, sg_around_green: 0.2, sg_putting: 0.1, hole_scores: [] }),
+    ]
+    expect(sgTrend(rounds)).toEqual([
+      { date: '2026-01-01', offTee: 0.1, approach: null, aroundGreen: 0.2, putting: 0.1 },
+      { date: '2026-03-01', offTee: 0.5, approach: -1.2, aroundGreen: null, putting: -0.3 },
+    ])
+  })
+
+  it('a stored 0 stays a 0 (it is a value, not a gap)', () => {
+    const r = makeRound({ played_at: '2026-01-01', sg_total: 0, sg_off_tee: 0, sg_approach: 0, sg_around_green: 0, sg_putting: 0, hole_scores: [] })
+    expect(sgTrend([r])).toEqual([{ date: '2026-01-01', offTee: 0, approach: 0, aroundGreen: 0, putting: 0 }])
+  })
 })
 
 describe('computeDetailedStats — sgAverages', () => {

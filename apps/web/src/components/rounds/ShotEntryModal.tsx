@@ -4,13 +4,13 @@ import {
   LIE_TYPES,
   LIE_TYPE_LABELS,
   combinedBreakDirection,
-  combinedPuttResult,
+  draftToShotUpdate,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
+  savedPuttFt,
   horizontalBreakFromAim,
   isPuttShot,
-  legacyShotResult,
   projectShotMove,
   summarizePuttParts,
   summarizeShotParts,
@@ -191,57 +191,11 @@ export function ShotEntryModal({
     const shotNumber = editing
       ? holeShots.find((s) => s.id === editing)?.shot_number ?? draft.shotNumber
       : nextNumber()
-    const isPuttSave = isPuttShot(draft.lieType)
-    const made = draft.puttMade
-    const distanceResult = made ? null : draft.puttDistanceResult ?? null
-    const directionResult = made ? null : draft.puttDirectionResult ?? null
-    const legacyPuttResult = isPuttSave
-      ? combinedPuttResult({
-          made,
-          distance: distanceResult,
-          direction: directionResult,
-        })
-      : null
     const insert: ShotInsert = {
       hole_score_id: holeScoreId,
       user_id: user.id,
       shot_number: shotNumber,
-      club: isPuttSave ? 'putter' : draft.club ?? null,
-      lie_type: draft.lieType ?? null,
-      lie_slope: null,
-      // Slope grid is hidden in putting mode — clear both axes.
-      lie_slope_forward: isPuttSave ? null : draft.lieSlopeForward ?? null,
-      lie_slope_side: isPuttSave ? null : draft.lieSlopeSide ?? null,
-      shot_result: isPuttSave ? null : legacyShotResult(draft),
-      contact: isPuttSave ? null : draft.contact ?? null,
-      shape: isPuttSave ? null : draft.shape ?? null,
-      start_line: isPuttSave ? null : draft.startLine ?? null,
-      distance_to_target: isPuttSave ? null : draft.distanceToTarget ?? null,
-      putt_distance_ft: isPuttSave ? draft.puttDistanceFt ?? null : null,
-      putt_result: legacyPuttResult,
-      putt_distance_result: isPuttSave ? distanceResult : null,
-      putt_direction_result: isPuttSave ? directionResult : null,
-      putt_slope_pct: isPuttSave ? draft.puttSlopePct ?? null : null,
-      green_speed: isPuttSave ? draft.greenSpeed ?? null : null,
-      break_direction: isPuttSave
-        ? combinedBreakDirection({
-            vertical: draft.breakDirectionVertical,
-            horizontal: draft.breakDirectionHorizontal,
-          })
-        : null,
-      break_direction_vertical: isPuttSave
-        ? draft.breakDirectionVertical ?? null
-        : null,
-      break_direction_horizontal: isPuttSave
-        ? draft.breakDirectionHorizontal ?? null
-        : null,
-      aim_offset_yards:
-        isPuttSave && draft.aimOffsetInches != null
-          ? Math.round((draft.aimOffsetInches / 36) * 10) / 10
-          : null,
-      penalty: !isPuttSave && !!draft.penalty,
-      ob: !isPuttSave && !!draft.ob,
-      notes: draft.notes ?? null,
+      ...draftToShotUpdate(draft),
     }
     try {
       if (editing) {
@@ -319,11 +273,12 @@ export function ShotEntryModal({
   const nextShot: ShotRow | 'new' | null = !editingRow ? null : holeShots[idx + 1] ?? 'new'
   const mapped =
     editingRow?.start_lat != null && editingRow.start_lng != null && pinLat != null && pinLng != null
+  const puttFt = editingRow ? savedPuttFt(editingRow) : null
   const toPin = !editingRow
     ? `par ${holePar}`
     : isPuttShot(editingRow.lie_type)
-      ? editingRow.putt_distance_ft != null
-        ? `${formatPuttDistance(editingRow.putt_distance_ft, units.unit)} to the pin`
+      ? puttFt != null
+        ? `${formatPuttDistance(puttFt, units.unit)} to the pin`
         : null
       : editingRow.distance_to_target != null
         ? `${formatDistance(editingRow.distance_to_target, units.unit)} to the pin`

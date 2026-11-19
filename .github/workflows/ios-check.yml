@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.4
+          node-version: 24.22.2
       - run: node --test scripts/ci/ios-gate.test.mjs scripts/ci/ios-pick-build.test.mjs
       - id: g
         env:
@@ -73,7 +73,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.4
+          node-version: 24.22.2
 
       - uses: actions/setup-java@v4
         with:

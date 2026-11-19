@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import Svg, { Circle, Path } from 'react-native-svg'
 import {
+  aimPlateSpot,
+  aimStrokesGained,
   bearingDegrees,
-  calculateShotSG,
   fanPlates,
   flagCupK,
-  getExpectedStrokes,
-  startCategory,
+  wholeDistance,
   NEAR_GREEN_YARDS,
+  type ScreenBox,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -23,12 +23,14 @@ import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
-import { AimOverlay } from './markers/AimOverlay'
+import { AimCrosshair, AimOverlay, AimReticle } from './markers/AimOverlay'
+import { dragPoint, Magnifier, type MagnifierHandle } from './Magnifier'
 import { AimPath } from './markers/AimPath'
-import { ObCallout, offscreenArrow } from './markers/Callouts'
+import { ObCallout, offscreenArrow, WayfinderLayer } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
+import type { WayfinderFeed } from './hooks/useWayfinder'
 import { TeeBadge } from './HoleMapOverlays'
-import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow, PlateSide } from './HoleMap.types'
+import type { HoleMapPhase, HoleMapProps, LatLng, MapPlate, OffscreenArrow, PlateSide } from './HoleMap.types'
 
 ensureMapboxInitialized()
 
@@ -45,19 +47,6 @@ function toCoord(l: LatLng): [number, number] {
 // Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
 // still track the finger; onDragEnd always applies the final position.
 const AIM_DRAG_THROTTLE_MS = 40
-// The aim handle's box and its four grip arrows (N/E/S/W): tips 37 out from
-// the centre, bases just outside the ring's halo.
-const AIM_BOX = 84
-const AIM_C = AIM_BOX / 2
-const AIM_GRIPS = [0, 90, 180, 270].map((deg) => {
-  const pt = (along: number, across: number) => {
-    const a = (deg * Math.PI) / 180
-    const x = AIM_C + along * Math.sin(a) + across * Math.cos(a)
-    const y = AIM_C - along * Math.cos(a) + across * Math.sin(a)
-    return `${Math.round(x * 100) / 100} ${Math.round(y * 100) / 100}`
-  }
-  return `M${pt(37, 0)} L${pt(29, 5.5)} L${pt(29, -5.5)} Z`
-})
 // Distance labels are @rnmapbox MarkerViews that capture touches (their content
 // wrapper hardcodes the touch responder), so a label sitting at its leg's
 // midpoint steals the drag from the aim handle when that leg is short — the
@@ -106,7 +95,9 @@ export function HoleMap({
   putting = false,
   ornamentsTop = false,
   tagClearBottom,
+  plateClearBottom,
   tagClearDrawer,
+  wayfinderBottom,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -135,8 +126,9 @@ export function HoleMap({
   projectRef,
   hideBall = false,
   teeShot = false,
+  greenLayers,
 }: HoleMapProps) {
-  const { toDisplay, toDisplayFt } = useUnits()
+  const { unit, toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
   // Native side fires "Source X is not in style" when a ShapeSource /
   // LineLayer mounts before the satellite style has finished loading.
@@ -205,6 +197,14 @@ export function HoleMap({
   useEffect(() => {
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
+
+  // The wayfinder renders in its own layer, fed the camera from here.
+  const wayfinderFeed = useRef<WayfinderFeed | null>(null)
+  const [aimPlate, setAimPlate] = useState<MapPlate | null>(null)
+  const wayfinderAvoid: ScreenBox[] =
+    legTagClamp?.drawer && mapSize
+      ? [{ left: legTagClamp.drawer.x0, top: legTagClamp.drawer.maxY, right: legTagClamp.drawer.x1, bottom: mapSize.h }]
+      : []
 
   const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
@@ -411,33 +411,21 @@ export function HoleMap({
     return distanceYards(aim, effectivePin)
   }, [effectivePin, aim])
 
-  // Live strokes readout: expected strokes to hole out from the ball, and
-  // the best-case SG of advancing to the aim — expected(Ds) − expected(Dt)
-  // − 1, i.e. calculateShotSG. Category is a distance band (no polygons):
-  // within NEAR_GREEN_YARDS → around_green ("GRN"), else approach ("FWY").
-  // HONEST: this is "value of reaching the target if struck clean", not a
-  // dispersion-weighted SG. Null (→ "—") until a pin + baseline resolve.
-  const liveStrokes = useMemo(() => {
-    if (pinDistance == null) return { expected: null, sg: null, lieLabel: null }
-    const startCat = startCategory(pinDistance, teeShot)
-    const expected = getExpectedStrokes(startCat, pinDistance, undefined, handicap)
-    if (aimToPinYards == null || expected == null) {
-      return { expected, sg: null, lieLabel: null }
-    }
-    const targetCat = aimToPinYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
-    const targetExpected = getExpectedStrokes(targetCat, aimToPinYards, undefined, handicap)
-    if (targetExpected == null) return { expected, sg: null, lieLabel: null }
+  // The aim pill's strokes gained: the value of reaching the aim if struck
+  // clean (aimStrokesGained). Its word says where the aim sits: inside the
+  // green radius "green", else "fairway". Null (→ no sublabel) until a pin.
+  const aimSg = useMemo(() => {
+    if (pinDistance == null || aimToPinYards == null) return { sg: null, lieLabel: null }
     return {
-      expected,
-      sg: calculateShotSG(expected, targetExpected),
-      lieLabel: targetCat === 'around_green' ? 'green' : 'fairway',
+      sg: aimStrokesGained({ startYards: pinDistance, aimToPinYards, teeShot, handicap }),
+      lieLabel: aimToPinYards <= NEAR_GREEN_YARDS ? 'green' : 'fairway',
     }
-  }, [pinDistance, aimToPinYards, handicap])
+  }, [pinDistance, aimToPinYards, teeShot, handicap])
 
 
   const showAim = isAimPhase || isPlaceBallPhase
 
-  // The ring's rods say the spread; the rail's arc steps back to a hairline.
+  // The ring is up: the plate says the spread; the rail's arc steps back to a hairline.
   const patternRing = !!pattern?.dispersion && pattern.dispersion.sampleSize >= RING_MIN_SHOTS
 
   const aimDistanceYards = useMemo(() => {
@@ -445,10 +433,16 @@ export function HoleMap({
     return distanceYards(ball, aim)
   }, [showAim, ball, aim])
 
-  const aimMidpoint: LatLng | null = useMemo(() => {
+  // The aim plate stands on the aim line, short of the pattern's 95% ring
+  // (#1468). With no pattern, a nominal 15 yd ring keeps it where it'd be.
+  const ringShort = pattern?.dispersion ? pattern.dispersion.along95 - pattern.dispersion.alongMean : 15
+  const aimPlateAt: LatLng | null = useMemo(() => {
     if (!showAim || !ball || !aim) return null
-    return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
-  }, [showAim, ball, aim])
+    return aimPlateSpot(ball, aim, ringShort)
+  }, [showAim, ball, aim, ringShort])
+  const spread = pattern?.dispersion && patternRing
+    ? `±${wholeDistance(pattern.dispersion.perp68, unit)} wide · ±${wholeDistance(pattern.dispersion.along68, unit)} long`
+    : null
 
   // @rnmapbox PointAnnotation is a PureComponent that renders its children to a
   // bitmap; it re-renders (and re-bitmaps — dropping the in-flight native drag)
@@ -490,22 +484,9 @@ export function HoleMap({
   // amber ring, ink halo and four grip arrows say it drags (#950). The outer
   // box just centers it. Proper fix is a MarkerView + gesture-handler
   // rewrite — see the tracking issue.
-  const aimHandle = useMemo(
-    () => (
-      <View style={{ width: AIM_BOX, height: AIM_BOX }}>
-        <Svg width={AIM_BOX} height={AIM_BOX} viewBox={`0 0 ${AIM_BOX} ${AIM_BOX}`}>
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.ink} strokeOpacity={0.55} strokeWidth={7} />
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="rgba(166,106,31,0.30)" stroke={P.warn} strokeWidth={4} />
-          <Circle cx={AIM_C} cy={AIM_C} r={24} fill="none" stroke={P.raised} strokeWidth={1.2} />
-          {AIM_GRIPS.map((d) => (
-            <Path key={d} d={d} fill={P.raised} stroke={P.ink} strokeWidth={1.2} strokeLinejoin="round" />
-          ))}
-          <Circle cx={AIM_C} cy={AIM_C} r={4.5} fill={P.warn} stroke={P.raised} strokeWidth={2} />
-        </Svg>
-      </View>
-    ),
-    [],
-  )
+  const aimHandle = useMemo(() => <AimReticle />, [])
+  // With the pattern on, the reticle shrinks to a crosshair (#1468): the ring is the target.
+  const smallAimHandle = useMemo(() => <AimCrosshair />, [])
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
   // sits — mirrors the aim pill on the ball→aim leg.
@@ -516,6 +497,10 @@ export function HoleMap({
       lng: (aim.lng + effectivePin.lng) / 2,
     }
   }, [showAim, aim?.lat, aim?.lng, effectivePin?.lat, effectivePin?.lng])
+
+  // The live aim drag's magnifier (#1356); the past round's drags come later.
+  const loupe = useRef<MagnifierHandle>(null)
+  const loupeLive = isAimPhase && !pastCrumbs
 
   // Wall-clock gate for the aim-drag throttle (see AIM_DRAG_THROTTLE_MS).
   const lastAimDragRef = useRef(0)
@@ -632,6 +617,7 @@ export function HoleMap({
     <GestureDetector gesture={longPress}>
       <View
         style={{ flex: 1, position: 'relative' }}
+        onTouchStart={loupeLive && aim ? () => loupe.current?.warm(aim) : undefined}
         onLayout={(e) =>
           setMapSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
         }
@@ -654,19 +640,22 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
+            wayfinderFeed.current?.idle(state)
             setCupK(flagCupK(state.properties.pitch))
             setIdleTick((t) => t + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
-          // round's callout, and the aim view's gesture latch.
+          // round's callout, the aim view's gesture latch, and the wayfinder.
           onCameraChanged={
-            onCameraChanged || isAimPhase
+            onCameraChanged || isAimPhase || wayfinderBottom != null
               ? (state) => {
                   if (state.gestures.isGestureActive) userGesturedRef.current = true
-                  if (isAimPhase) {
-                    clearTimeout(camStillTimer.current ?? undefined)
-                    camStillTimer.current = setTimeout(() => setIdleTick((t) => t + 1), 200)
-                  }
+                  wayfinderFeed.current?.move(state)
+                  clearTimeout(camStillTimer.current ?? undefined)
+                  camStillTimer.current = setTimeout(() => {
+                    if (isAimPhase) setIdleTick((t) => t + 1)
+                    wayfinderFeed.current?.settle()
+                  }, 200)
                   onCameraChanged?.()
                 }
               : undefined
@@ -692,6 +681,8 @@ export function HoleMap({
               Conditional mount (not visible={...}) is required to actually
               pause the native GPS subscription — see HoleMapProps.showLocationPuck. */}
           {showLocationPuck && <Mapbox.LocationPuck visible />}
+
+          {styleLoaded && !isPinMode && greenLayers}
 
           {pastCrumbs ? (
             <BreadcrumbLayers
@@ -743,12 +734,7 @@ export function HoleMap({
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
-            <DispersionLayers
-              ball={ball}
-              aim={aim}
-              pattern={pattern}
-              frame={{ map: mapViewRef, mapWidth: mapSize?.w ?? null, idleTick, lefty }}
-            />
+            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
           )}
 
           {styleLoaded && showAim && ball && aim && <AimPath ball={ball} aim={aim} pin={effectivePin} />}
@@ -807,31 +793,47 @@ export function HoleMap({
               view stays uncluttered. */}
           {aim && aimCoordMemo && (
             <Mapbox.PointAnnotation
+              // It bitmaps its child once: remount it when the handle swaps.
+              key={pattern ? 'aim-small' : 'aim-full'}
               id="aim"
               coordinate={aimCoordMemo}
               draggable={isAimPhase}
-              onDragStart={() => haptic('grab')}
-              onDrag={onAimDrag}
-              onDragEnd={onAimDragEnd}
+              onDragStart={(e) => {
+                haptic('grab')
+                const p = loupeLive ? dragPoint(e) : null
+                if (p) loupe.current?.show(p.at, p.x, p.y)
+              }}
+              onDrag={(e) => {
+                const p = loupeLive ? dragPoint(e) : null
+                if (p) loupe.current?.move(p.at, p.x, p.y)
+                onAimDrag(e)
+              }}
+              onDragEnd={(e) => {
+                loupe.current?.hide()
+                onAimDragEnd(e)
+              }}
             >
-              {aimHandle}
+              {pattern ? smallAimHandle : aimHandle}
             </Mapbox.PointAnnotation>
           )}
 
           {/* The past round's flag callout carries the leg distance instead
               (§19.9 C), so its map shows no leg tags. */}
           {!pastCrumbs &&
-            aimMidpoint &&
+            aimPlateAt &&
             aimDistanceYards !== null &&
             aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
             <AimTag
-              at={aimMidpoint}
+              at={aimPlateAt}
               display={toDisplay(aimDistanceYards, 1)}
-              lie={liveStrokes.lieLabel}
-              sg={liveStrokes.sg}
+              lie={aimSg.lieLabel}
+              sg={aimSg.sg}
+              spread={spread}
               lefty={lefty}
               toward={aim ?? undefined}
-              clamp={legTagClamp}
+              // Clears only the keys on its own side (the left column stands taller).
+              clamp={legTagClamp && plateClearBottom != null && mapSize ? { ...legTagClamp, maxY: mapSize.h - plateClearBottom } : legTagClamp}
+              onBox={setAimPlate}
             />
           )}
 
@@ -906,7 +908,29 @@ export function HoleMap({
             <ObCallout at={lastShot} onPress={obCallout.onPress} busy={obCallout.busy} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
-
+        <WayfinderLayer
+          feed={wayfinderFeed}
+          mapViewRef={mapViewRef}
+          mapSize={mapSize}
+          bottom={wayfinderBottom}
+          ball={ball}
+          pin={roundPin ?? pin}
+          hidden={isPinMode}
+          avoid={wayfinderAvoid}
+          plates={aimPlate ? [aimPlate] : []}
+          ornamentsTop={ornamentsTop}
+          unit={unit}
+        />
+        <Magnifier
+          ref={loupe}
+          live={loupeLive}
+          map={mapViewRef}
+          heading={() => settledCamRef.current?.heading ?? 0}
+          size={mapSize}
+          pin={roundPin ?? pin ?? null}
+          lefty={lefty}
+          ornamentsTop={ornamentsTop}
+        />
       </View>
     </GestureDetector>
   )

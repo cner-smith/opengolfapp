@@ -1,29 +1,20 @@
-import { useMemo } from 'react'
 import { Text, View } from 'react-native'
-import { barScale, formatSG, sgBreakdown, type SGBreakdownKey, type SGRoundLike } from '@oga/core'
+import { barScale, formatSG, type HomeSummaryArea } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
 
-const SG_LABELS: Record<SGBreakdownKey, string> = {
-  sg_off_tee: 'Off the tee',
-  sg_approach: 'Approach',
-  sg_around_green: 'Around the green',
-  sg_putting: 'Putting',
-}
-
-export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
-  const { breakdown, maxAbs } = useMemo(() => sgBreakdown(rounds), [rounds])
+export function SGBreakdown({ areas, maxAbs, count }: { areas: HomeSummaryArea[]; maxAbs: number; count: number }) {
   const scale = barScale(maxAbs)
 
   return (
     <View style={{ marginBottom: 22 }}>
       <SectionHead title="Strokes gained" />
       <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, marginTop: -6, marginBottom: 12 }]}>
-        Per round, last {rounds.length} round{rounds.length === 1 ? '' : 's'}.
+        Per round, last {count} round{count === 1 ? '' : 's'}.
       </Text>
       <View style={{ gap: 14 }}>
-        {breakdown.map((b) => (
-          <SGBar key={b.key} label={SG_LABELS[b.key]} value={b.value} max={scale} />
+        {areas.map((a) => (
+          <SGBar key={a.key} label={a.label} value={a.value} max={scale} />
         ))}
       </View>
     </View>
@@ -37,13 +28,15 @@ export function SGBar({
   bold,
 }: {
   label: string
-  value: number
+  /** null = no round has this category: no bar, "—". */
+  value: number | null
   max: number
   bold?: boolean
 }) {
-  const pct = Math.min(Math.abs(value) / max, 1) * 50
-  const isPositive = value > 0
-  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
+  const v = value ?? 0
+  const pct = Math.min(Math.abs(v) / max, 1) * 50
+  const isPositive = v > 0
+  const color = v > 0 ? '#1F3D2C' : v < 0 ? '#A33A2A' : '#8A8B7E'
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <Text style={[bold ? TYPE.bodyBold : TYPE.body, { color: '#1C211C', fontSize: 13, width: 124 }]}>
@@ -93,7 +86,7 @@ export function SGBar({
           },
         ]}
       >
-        {formatSG(value)}
+        {value == null ? '—' : formatSG(value)}
       </Text>
     </View>
   )

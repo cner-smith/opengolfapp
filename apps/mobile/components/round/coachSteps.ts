@@ -20,10 +20,10 @@ const pattern: CoachStep = {
   title: 'Pattern',
   body: 'Shows where your shots with the chosen club usually finish, around your aim — the ring holds about two in three.',
 }
-const pin: CoachStep = {
-  id: 'live.pin',
-  title: 'Pin',
-  body: "Tap, then tap the map where today's flag is. Distances and the pattern use it.",
+const green: CoachStep = {
+  id: 'live.green',
+  title: 'Green',
+  body: "The green turned to your line, with today's pin. Tap it for slope and height, and drag the flag to move the pin.",
 }
 const wheel: CoachStep = {
   id: 'live.wheel',
@@ -52,8 +52,8 @@ export const LIVE_PLACE_STEPS: CoachStep[] = [
     body: 'Stand at your ball and tap Mark my ball. On the green switches to putting; Finish hole opens the hole review.',
   },
   recenter,
+  green,
   pattern,
-  pin,
   wheel,
 ]
 

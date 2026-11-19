@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatSG, isPartialRound, parseLocalDate, partialRoundLabel } from '@oga/core'
+import { formatHandicapIndex, formatSG, isPartialRound, parseLocalDate, partialRoundLabel } from '@oga/core'
 import { useDeleteRound, useRounds } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -254,7 +254,7 @@ function ScoreTrend({ points, handicap }: { points: { date: string; score: numbe
           {average.toFixed(1)}
         </div>
         <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 6 }}>
-          average, last {points.length} rounds{handicap != null ? ` · ${handicap} handicap` : ''}
+          average, last {points.length} rounds{handicap != null ? ` · ${formatHandicapIndex(handicap)} handicap` : ''}
         </div>
       </div>
       <div ref={box} className="min-w-0">

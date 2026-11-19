@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { MIN_SAMPLES_FOR_STATS, clubNoun, type Club, type DistanceUnit } from '@oga/core'
+import { MIN_SAMPLES_FOR_STATS, clubLadderNotes, clubNoun, type Club, type DistanceUnit } from '@oga/core'
 import { FOCUS_RING, rovingKey } from './LayerControls'
 
 // The club row as a yardage-book gapping chart: each cell is the club over its
@@ -34,15 +34,8 @@ export function ClubLadder({
     else if (cell.offsetLeft + cell.offsetWidth > el.scrollLeft + el.clientWidth) el.scrollLeft = cell.offsetLeft + cell.offsetWidth - el.clientWidth + 8
   }, [value])
 
-  // The widest hole between two clubs that both have a number.
-  const numbered = clubs.filter((c) => c !== 'putter' && typical(c) != null)
-  let gap: { from: Club; to: Club; size: number } | null = null
-  for (let i = 1; i < numbered.length; i++) {
-    const size = typical(numbered[i - 1]!)! - typical(numbered[i]!)!
-    if (!gap || size > gap.size) gap = { from: numbered[i - 1]!, to: numbered[i]!, size }
-  }
+  const notes = clubLadderNotes(clubs, typical, unit)
   const i = clubs.indexOf(value)
-  const showsGaps = numbered.length > 1 && clubs.some((c, j) => j > 0 && c !== 'putter' && typical(c) != null && typical(clubs[j - 1]!) != null)
 
   return (
     // width 0 / min-width 100%: the row scrolls inside the page instead of widening it.
@@ -129,14 +122,14 @@ export function ClubLadder({
           )
         })}
       </div>
-      {showsGaps && (
+      {notes.key && (
         <div className="text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
-          The small number on each rule is the gap between clubs.
+          {notes.key}
         </div>
       )}
-      {gap && gap.size > 25 && (
+      {notes.widest && (
         <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 6 }}>
-          {gap.size} {unit === 'meters' ? 'm' : 'yd'} between your {clubNoun(gap.from)} and {clubNoun(gap.to)}, the widest gap in the bag.
+          {notes.widest}
         </div>
       )}
     </div>
