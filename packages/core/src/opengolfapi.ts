@@ -4,6 +4,7 @@
 // upstream data is community-maintained.
 
 const BASE_URL = 'https://api.opengolfapi.org/v1'
+const SEARCH_TIMEOUT_MS = 3000
 
 export interface OpenGolfApiSearchResult {
   id: string
@@ -182,10 +183,16 @@ export async function searchOpenGolfApi(
 ): Promise<OpenGolfApiSearchResult[]> {
   const trimmed = query.trim()
   if (!trimmed) return []
-  const data = (await fetchJson(
-    `/courses/search?q=${encodeURIComponent(trimmed)}`,
-    signal,
-  )) as { results?: RawCourse[]; data?: RawCourse[] } | RawCourse[]
+  // The directory can hang with no answer; both apps wait on this call before
+  // showing our own results, so give up after a few seconds.
+  const timedOut = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), SEARCH_TIMEOUT_MS),
+  )
+  const data = (await Promise.race([
+    fetchJson(`/courses/search?q=${encodeURIComponent(trimmed)}`, signal),
+    timedOut,
+  ])) as { results?: RawCourse[]; data?: RawCourse[] } | RawCourse[] | null
+  if (data === null) return []
   const results: RawCourse[] = Array.isArray(data)
     ? data
     : Array.isArray(data.results)
