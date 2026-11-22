@@ -791,7 +791,8 @@ export function HoleMap({
               when the player returns. Only the marker persists here — the
               aim line/arc/pills stay gated on showAim, so the pin-placement
               view stays uncluttered. */}
-          {aim && aimCoordMemo && (
+          {/* A past round's map shows the disc only where it can drag (#1497). */}
+          {aim && aimCoordMemo && (isAimPhase || !isPast) && (
             <Mapbox.PointAnnotation
               // It bitmaps its child once: remount it when the handle swaps.
               key={pattern ? 'aim-small' : 'aim-full'}

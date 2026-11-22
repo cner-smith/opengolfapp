@@ -20,6 +20,8 @@ import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import {
   DEFAULT_BAG,
   LIE_TYPE_LABELS,
+  combinedBreakDirection,
+  horizontalBreakFromAim,
   LIE_TYPES,
   draftToShotUpdate,
   formatClubLabel,
@@ -56,6 +58,7 @@ import {
   type ResultValue,
 } from '../paper/Pickers'
 import { Icon } from '../paper/icons'
+import { GreenDiagram } from './GreenDiagram'
 import { FONT_CAP, GAP, P, R } from '../paper/tokens'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -541,6 +544,25 @@ function EditShotSheet({
               <PickerField title="Break">
                 <RockerRows label="Line" options={BREAK_LINE_OPTIONS} value={draft.breakDirectionHorizontal ?? null} onChange={(v) => edit({ breakDirectionHorizontal: v ?? undefined })} stacked={stacked} />
                 <RockerRows label="Slope" options={BREAK_SLOPE_OPTIONS} value={draft.breakDirectionVertical ?? null} onChange={(v) => edit({ breakDirectionVertical: v ?? undefined })} stacked={stacked} />
+              </PickerField>
+              {/* The read (#1496), as on web's editor: aim off the pin also sets the break line. */}
+              <PickerField title="Read">
+                <GreenDiagram
+                  distanceFt={draft.puttDistanceFt ?? null}
+                  aimOffsetInches={draft.aimOffsetInches ?? 0}
+                  breakDirection={
+                    combinedBreakDirection({
+                      vertical: draft.breakDirectionVertical ?? null,
+                      horizontal: draft.breakDirectionHorizontal ?? null,
+                    }) ?? 'straight'
+                  }
+                  onAimChange={(n) =>
+                    edit({
+                      aimOffsetInches: n,
+                      breakDirectionHorizontal: horizontalBreakFromAim(n) ?? draft.breakDirectionHorizontal,
+                    })
+                  }
+                />
               </PickerField>
             </>
           ) : (
