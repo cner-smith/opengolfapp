@@ -214,8 +214,12 @@ function NewRoundScreen() {
     searchAbort.current = ctrl
     setSearching(true)
     ;(async () => {
-      const [api, local, facilitySearch] = await Promise.allSettled([
-        searchOpenGolfApi(term, ctrl.signal),
+      // The outside directory runs alongside our search but never holds our
+      // results back: its hits join the list when (if) they arrive.
+      const apiCall = searchOpenGolfApi(term, ctrl.signal).catch(
+        () => [] as OpenGolfApiSearchResult[],
+      )
+      const [local, facilitySearch] = await Promise.allSettled([
         searchCourses(supabase, term, 10, ctrl.signal, near).then(({ data, error }) => {
           // Abort propagates here as a PostgrestError shape with code:'' and
           // message starting "AbortError:" — but the cleanest gate is the
@@ -252,8 +256,12 @@ function NewRoundScreen() {
         },
       )
       if (ctrl.signal.aborted) return
-      const apiRaw: OpenGolfApiSearchResult[] =
-        api.status === 'fulfilled' ? api.value : []
+      setApiResults([])
+      setLocalResults(standalone)
+      setFacilityResults(facilities)
+      setSearching(false)
+      const apiRaw = await apiCall
+      if (ctrl.signal.aborted) return
       const apiDeduped = apiRaw.filter(
         (h) =>
           !localRows.some((c) => isProbableSameCourse(h, c)) &&
@@ -262,8 +270,6 @@ function NewRoundScreen() {
           ),
       )
       setApiResults(apiDeduped)
-      setLocalResults(standalone)
-      setFacilityResults(facilities)
     })().finally(() => {
       if (!ctrl.signal.aborted) setSearching(false)
     })
