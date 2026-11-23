@@ -43,19 +43,17 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 // facility row itself.
 export function useCourseSearch(query: string, near: { lat: number; lng: number } | null = null) {
   const debounced = useDebounce(query, 300)
+  const enabled = debounced.trim().length > 0
 
-  return useQuery({
+  const ours = useQuery({
     // ~1 km of rounding, so GPS jitter doesn't refetch.
     queryKey: ['courses', 'search', debounced, near && [near.lat.toFixed(2), near.lng.toFixed(2)]],
-    enabled: debounced.trim().length > 0,
-    queryFn: async ({ signal }) => {
-      const [api, local, facilitySearch] = await Promise.allSettled([
-        searchOpenGolfApi(debounced, signal),
+    enabled,
+    queryFn: async () => {
+      const [local, facilitySearch] = await Promise.allSettled([
         searchCourses(supabase, debounced, 10, undefined, near),
         searchFacilities(supabase, debounced, 10),
       ])
-      const apiHits: OpenGolfApiSearchResult[] =
-        api.status === 'fulfilled' ? api.value : []
       // searchCourses now returns the narrow column subset (created_by /
       // created_at dropped). Cast via unknown to the wider CourseRow so
       // consumers that pick up a course from this list and pass it around
@@ -78,20 +76,7 @@ export function useCourseSearch(query: string, near: { lat: number; lng: number 
         },
       )
 
-      // Drop API hits that duplicate a course we already have (crawled rows
-      // won't match by external_id since their id is OSM-based, so match on
-      // normalized name + state). Facility names are matched too, so an API
-      // hit doesn't shadow its own facility card.
-      const dedupedApi = apiHits.filter(
-        (h) =>
-          !localRows.some((c) => isProbableSameCourse(h, c)) &&
-          !facilities.some((f) =>
-            isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
-          ),
-      )
-
       return {
-        api: dedupedApi,
         // `local` keeps ALL matching local courses (incl. facility units) for
         // consumers that just need a course row to route on (e.g. CoursePlanPage).
         // `standalone` excludes units — the facility-first picker renders those
@@ -99,10 +84,34 @@ export function useCourseSearch(query: string, near: { lat: number; lng: number 
         local: localRows,
         standalone,
         facilities,
-        apiAvailable: api.status === 'fulfilled',
       }
     },
   })
+
+  // The outside directory is slow or down at times: its hits join the list
+  // when (if) they arrive and never hold our results back.
+  const outside = useQuery({
+    queryKey: ['courses', 'search-outside', debounced],
+    enabled,
+    retry: false,
+    queryFn: ({ signal }) => searchOpenGolfApi(debounced, signal),
+  })
+
+  // Drop API hits that duplicate a course we already have (crawled rows
+  // won't match by external_id since their id is OSM-based, so match on
+  // normalized name + state). Facility names are matched too, so an API
+  // hit doesn't shadow its own facility card.
+  const data = ours.data && {
+    ...ours.data,
+    api: (outside.data ?? []).filter(
+      (h: OpenGolfApiSearchResult) =>
+        !ours.data.local.some((c) => isProbableSameCourse(h, c)) &&
+        !ours.data.facilities.some((f) =>
+          isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
+        ),
+    ),
+  }
+  return { data, isLoading: ours.isLoading, error: ours.error }
 }
 
 // Direct course-row fetch by id. Used by RoundDetailPage to read
