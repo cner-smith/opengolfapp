@@ -13,7 +13,7 @@ interface NavLinkDef {
 const links: NavLinkDef[] = [
   { to: '/dashboard', label: 'Home', section: 'menu' },
   { to: '/rounds', label: 'Rounds', section: 'menu' },
-  { to: '/stats', label: 'Strokes gained', section: 'menu' },
+  { to: '/stats', label: 'Stats', section: 'menu' },
   { to: '/patterns', label: 'Shot patterns', section: 'menu' },
   { to: '/practice', label: 'Practice', section: 'menu' },
   // Planner hidden from nav until the redesign lands (on-map HUD + notes,
