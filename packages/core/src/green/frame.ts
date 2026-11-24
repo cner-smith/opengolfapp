@@ -2,7 +2,8 @@
 // (y, away from the player) of an origin, with the flat-earth step pinSheet uses.
 import type { GeoPoint } from '../shot-dispersion-geo'
 import { bearingDegrees, YARDS_TO_METERS } from '../units'
-import { GREEN_CELL_M } from './codec'
+import { pointInRing } from '../green-outline'
+import { GREEN_CELL_M, type GreenGrid } from './codec'
 import { pinSheet } from './pin-sheet'
 
 const M_PER_DEG = 111_320
@@ -68,4 +69,30 @@ export function gridCorners(width: number, height: number): [number, number][] {
   const e = width * GREEN_CELL_M - h
   const s = height * GREEN_CELL_M - h
   return [[-h, -h], [e, -h], [e, s], [-h, s]]
+}
+
+/**
+ * The grid cut to the outline the player sees (#1502): a cell stays only if it
+ * was surveyed and its centre is inside `ring`. Padded grids run past the
+ * green, so redrawing the outline redraws the heat map with no new survey.
+ */
+export function clipGreenGrid(g: GreenGrid, lng0: number, lat0: number, ring: GeoPoint[]): GreenGrid {
+  let south = Infinity, north = -Infinity, west = Infinity, east = -Infinity
+  for (const p of ring) {
+    south = Math.min(south, p.lat); north = Math.max(north, p.lat)
+    west = Math.min(west, p.lng); east = Math.max(east, p.lng)
+  }
+  const mask = new Uint8Array(g.mask.length)
+  const heightsMm = new Float64Array(g.heightsMm.length).fill(NaN)
+  for (let r = 0; r < g.height; r++)
+    for (let c = 0; c < g.width; c++) {
+      const j = r * g.width + c
+      if (!g.mask[j]) continue
+      const p = gridPointGeo(lng0, lat0, c * GREEN_CELL_M, r * GREEN_CELL_M)
+      // The box test only skips work; pointInRing decides.
+      if (p.lat < south || p.lat > north || p.lng < west || p.lng > east || !pointInRing(p, ring)) continue
+      mask[j] = 1
+      heightsMm[j] = g.heightsMm[j]!
+    }
+  return { ...g, mask, heightsMm }
 }
