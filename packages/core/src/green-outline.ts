@@ -37,7 +37,8 @@ export function ringAreaM2(ring: GeoPoint[]): number {
 
 /**
  * Whether a player's outline (#1504; points in order, first not repeated) crosses
- * itself once closed: a bow-tie isn't an area. Edges sharing a point don't count.
+ * itself once closed: a bow-tie isn't an area. Edges sharing a point don't count,
+ * and only a proper crossing does: a tap landing exactly on an edge passes.
  */
 export function outlineCrossesItself(pts: GeoPoint[]): boolean {
   const n = pts.length

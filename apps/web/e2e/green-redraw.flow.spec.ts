@@ -58,10 +58,13 @@ async function openRedraw(page: Page) {
   const cx = box.x + box.width / 2
   const cy = box.y + box.height / 2
   // Points in pixels from the map's centre (the pin).
+  // Each click waits for its point's marker, not a fixed sleep.
+  const markers = redraw.locator('.mapboxgl-marker')
   const click = async (pts: [number, number][]) => {
     for (const [x, y] of pts) {
+      const before = await markers.count()
       await page.mouse.click(cx + x, cy + y)
-      await page.waitForTimeout(150)
+      await expect(markers).toHaveCount(before + 1)
     }
   }
   return { redraw, click }
