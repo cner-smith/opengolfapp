@@ -82,17 +82,17 @@ const NOTE_SUSPECT = 'The slope survey may not match this green'
 
 async function loadCourse(courseId: string, holeIds: string[], key: string | null, offline: boolean): Promise<Cached> {
   const saved = key ? await readCache<Cached>(key) : null
-  const mine = saved?.courseId === courseId ? saved : null
-  if (offline && mine) return mine
+  const cached = saved?.courseId === courseId ? saved : null
+  if (offline && cached) return cached
   const [{ data, error }, own] = await Promise.all([getGreenOutlines(supabase, holeIds), getMyGreenOutlines(supabase, holeIds)])
   if (error) {
-    if (mine && isNetworkFailure(error)) return mine
+    if (cached && isNetworkFailure(error)) return cached
     logDiag('green_outlines_failed', { msg: error.message.slice(0, 120) })
     return { courseId, outlines: [], grids: {} }
   }
   if (own.error) logDiag('my_green_outlines_failed', { msg: own.error.message.slice(0, 120) })
   // One course at a time: the round's. Grids already read for it stay.
-  const out: Cached = { courseId, outlines: data, grids: mine?.grids ?? {}, mine: own.data ?? mine?.mine ?? [] }
+  const out: Cached = { courseId, outlines: data, grids: cached?.grids ?? {}, mine: own.data ?? cached?.mine ?? [] }
   if (key) void writeCache(key, out)
   return out
 }
@@ -157,13 +157,28 @@ function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[], judge: Jud
   }
 }
 
-/** Stores a player's drawn points (#1504) as their outline for the green, closed. */
-export async function saveDrawnOutline(holeId: string, drawn: GeoPoint[]): Promise<{ ring: GeoPoint[]; outline: string } | { error: string }> {
-  if (drawn.length < 3) return { error: 'An outline needs at least 3 points.' }
+/** Fewer taps is rarely a green (the mock's bar). */
+export const MIN_OUTLINE_POINTS = 4
+
+/**
+ * Stores a player's drawn points (#1504) as their outline for the green,
+ * closed, and puts it in the offline course cache so an offline start shows it.
+ */
+export async function saveDrawnOutline(
+  holeId: string,
+  drawn: GeoPoint[],
+  userId: string | undefined,
+): Promise<{ ring: GeoPoint[]; outline: string } | { error: string }> {
+  if (drawn.length < MIN_OUTLINE_POINTS) return { error: `An outline needs at least ${MIN_OUTLINE_POINTS} points.` }
   const ring = [...drawn, drawn[0]!]
   const outline = encodePolyline(ring)
   const { error } = await saveMyGreenOutline(supabase, holeId, outline)
-  if (!error) return { ring, outline }
+  if (!error) {
+    const key = userId ? offlineKeys.greenMaps(userId) : null
+    const c = key ? await readCache<Cached>(key) : null
+    if (key && c) await writeCache(key, { ...c, mine: [...(c.mine ?? []).filter((m) => m.hole_id !== holeId), { hole_id: holeId, outline }] })
+    return { ring, outline }
+  }
   logDiag('my_green_outline_save_failed', { msg: error.message.slice(0, 120) })
   return { error: isNetworkFailure(error) ? 'Saving needs signal. Try again when you have it.' : 'Couldn’t save your outline. Try again.' }
 }
@@ -207,6 +222,8 @@ export function useGreenMaps(
   const live = useRef({ holes, firstHoleNumber, offline })
   live.current = { holes, firstHoleNumber, offline }
   const course = useRef<{ c: Cached; key: string | null } | null>(null)
+  // Greens the player redrew this round: the idle pass must not overwrite them with our outline's read.
+  const redrawn = useRef(new Set<string>())
   const holeKey = holes.map((h) => h.id).join(',')
 
   const settle = (id: string, r: { lidar: PreparedGreen['lidar']; note?: string }) =>
@@ -225,6 +242,7 @@ export function useGreenMaps(
     void loadCourse(courseId, hs.map((h) => h.id), key, off).then((c) => {
       if (cancelled) return
       course.current = { c, key }
+      redrawn.current = new Set()
       const own = new Map((c.mine ?? []).map((m) => [m.hole_id, outlineOf(m)]))
       const rows = new Map(c.outlines.map((r) => [r.hole_id, r]))
       const start = new Map<string, PreparedGreen>()
@@ -244,6 +262,7 @@ export function useGreenMaps(
       const next = async () => {
         const id = queue.shift()
         if (!id || cancelled) return
+        if (redrawn.current.has(id)) return void setTimeout(next, 16)
         const row = await loadGrid(id, c, key, off).catch((err: Error) => {
           logDiag('green_grid_read_failed', { hole: id, msg: err.message.slice(0, 120) })
           return null
@@ -260,6 +279,7 @@ export function useGreenMaps(
         const g = start.get(id)!
         InteractionManager.runAfterInteractions(() => {
           if (cancelled) return
+          if (redrawn.current.has(id)) return void setTimeout(next, 16)
           settle(id, prepareLidar(id, row, g.ring, g.mine ? judgeOf(rows.get(id)!) : null))
           // Let a frame through between greens.
           setTimeout(next, 16)
@@ -277,11 +297,11 @@ export function useGreenMaps(
     const row = cur?.c.outlines.find((r) => r.hole_id === holeId)
     const ours = row ? outlineOf(row) : null
     if (!cur || !row || !ours) return 'This green isn’t loaded yet.'
-    const saved = await saveDrawnOutline(holeId, drawn)
+    const saved = await saveDrawnOutline(holeId, drawn, userId)
     if ('error' in saved) return saved.error
     const { ring, outline } = saved
+    redrawn.current.add(holeId)
     cur.c.mine = [...(cur.c.mine ?? []).filter((m) => m.hole_id !== holeId), { hole_id: holeId, outline }]
-    if (cur.key) void writeCache(cur.key, cur.c)
     const g = greenFrom(row, ours, ring)
     setGreens((m) => new Map(m).set(holeId, g))
     if (g.lidar !== 'pending') return null

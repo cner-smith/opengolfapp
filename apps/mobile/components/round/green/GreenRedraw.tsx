@@ -11,7 +11,7 @@ import { haptic } from '../../../lib/haptics'
 import { TYPE } from '../../../lib/typography'
 import { Primary, Secondary } from '../../paper/Dock'
 import { P } from '../../paper/tokens'
-import { saveDrawnOutline } from './greenData'
+import { MIN_OUTLINE_POINTS as MIN_POINTS, saveDrawnOutline } from './greenData'
 
 // Fix this green (#1504, owner pick A: tap points; click path in the
 // fix-green mock). The app's satellite map: one finger taps a point, two move
@@ -22,8 +22,6 @@ import { saveDrawnOutline } from './greenData'
 const OURS = '#FBF8F1'
 const YOURS = '#FFD666'
 const FIRST = '#B5521F'
-/** Fewer is rarely a green; the mock's bar. */
-const MIN_POINTS = 4
 
 const coord = (p: GeoPoint): [number, number] => [p.lng, p.lat]
 
@@ -302,19 +300,19 @@ export function GreenFixCard({ userId, roundId }: { userId: string; roundId: str
         </View>
       )}
       {open && (
-          <GreenRedraw
-            holeNumber={open.item.holeNumber}
-            ours={open.ours}
-            pin={null}
-            survey={open.survey}
-            onSave={async (drawn) => {
-              const r = await saveDrawnOutline(open.item.holeId, drawn)
-              if ('error' in r) return r.error
-              await dropFixLater(userId, roundId, open.item.holeId)
-              return null
-            }}
-            onClose={close}
-          />
+        <GreenRedraw
+          holeNumber={open.item.holeNumber}
+          ours={open.ours}
+          pin={null}
+          survey={open.survey}
+          onSave={async (drawn) => {
+            const r = await saveDrawnOutline(open.item.holeId, drawn, userId)
+            if ('error' in r) return r.error
+            await dropFixLater(userId, roundId, open.item.holeId)
+            return null
+          }}
+          onClose={close}
+        />
       )}
     </>
   )
