@@ -5,11 +5,14 @@ import {
   clipGreenGrid,
   decodeGreenGrid,
   decodePolyline,
+  encodePolyline,
   greenContours,
   greenHachures,
   greenPlaneTilt,
   greenShape,
   greenSlopeField,
+  outlineCoverage,
+  playerOutlineHideReason,
   type GeoPoint,
   type GreenContours,
   type GreenGrid,
@@ -18,7 +21,7 @@ import {
   type PlaneTilt,
   type SlopeField,
 } from '@oga/core'
-import { byteaBytes, getGreenGrid, getGreenOutlines } from '@oga/supabase'
+import { byteaBytes, getGreenGrid, getGreenOutlines, getMyGreenOutlines, saveMyGreenOutline } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { logDiag } from '../../../lib/db'
 import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../../lib/offlineCache'
@@ -44,7 +47,12 @@ export interface GreenLidar {
 }
 
 export interface PreparedGreen {
+  /** The outline shown: the player's own when they drew one (#1504), else ours. */
   ring: GeoPoint[]
+  /** Our outline, drawn faintly under a redraw. */
+  ours: GeoPoint[]
+  /** The player drew `ring` themselves. */
+  mine: boolean
   outlineSource: string
   gridSource: string | null
   /** Why there's no read; the view says so in its place. */
@@ -56,22 +64,35 @@ export interface PreparedGreen {
 /** Padded grids (#1501): ~18.5k cells at p95, 43k the biggest on OK. A bigger grid shows as no survey. */
 const MAX_CELLS = 65_000
 
-type OutlineRow = { hole_id: string; outline: string; outline_source: string; grid_source: string | null; grid_flagged: boolean }
+type OutlineRow = {
+  hole_id: string
+  outline: string
+  outline_source: string
+  grid_source: string | null
+  grid_flagged: boolean
+  grid_flag_reason: string | null
+}
 type GridRow = { grid: string | null; grid_lng0: number | null; grid_lat0: number | null }
-type Cached = { courseId: string; outlines: OutlineRow[]; grids: Record<string, GridRow> }
+type MineRow = { hole_id: string; outline: string }
+type Cached = { courseId: string; outlines: OutlineRow[]; grids: Record<string, GridRow>; mine?: MineRow[] }
+
+/** A player's outline gets a heat map only where the survey covers this much of it (the loader's bar for ours). */
+const MIN_COVERAGE = 0.97
+const NOTE_SUSPECT = 'The slope survey may not match this green'
 
 async function loadCourse(courseId: string, holeIds: string[], key: string | null, offline: boolean): Promise<Cached> {
   const saved = key ? await readCache<Cached>(key) : null
-  const mine = saved?.courseId === courseId ? saved : null
-  if (offline && mine) return mine
-  const { data, error } = await getGreenOutlines(supabase, holeIds)
+  const cached = saved?.courseId === courseId ? saved : null
+  if (offline && cached) return cached
+  const [{ data, error }, own] = await Promise.all([getGreenOutlines(supabase, holeIds), getMyGreenOutlines(supabase, holeIds)])
   if (error) {
-    if (mine && isNetworkFailure(error)) return mine
+    if (cached && isNetworkFailure(error)) return cached
     logDiag('green_outlines_failed', { msg: error.message.slice(0, 120) })
     return { courseId, outlines: [], grids: {} }
   }
+  if (own.error) logDiag('my_green_outlines_failed', { msg: own.error.message.slice(0, 120) })
   // One course at a time: the round's. Grids already read for it stay.
-  const out = { courseId, outlines: data, grids: mine?.grids ?? {} }
+  const out: Cached = { courseId, outlines: data, grids: cached?.grids ?? {}, mine: own.data ?? cached?.mine ?? [] }
   if (key) void writeCache(key, out)
   return out
 }
@@ -91,7 +112,7 @@ async function loadGrid(holeId: string, c: Cached, key: string | null, offline: 
   return data
 }
 
-function outlineOf(row: OutlineRow): GeoPoint[] | null {
+function outlineOf(row: { outline: string }): GeoPoint[] | null {
   try {
     const ring = decodePolyline(row.outline)
     return ring.length >= 4 ? ring : null
@@ -100,37 +121,89 @@ function outlineOf(row: OutlineRow): GeoPoint[] | null {
   }
 }
 
-function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[]): GreenLidar | 'none' {
-  if (!row.grid || row.grid_lng0 == null || row.grid_lat0 == null) return 'none'
+/** A player's outline is judged afresh (#1504): ours was judged by the loader. */
+type Judge = { flagged: boolean; reason: string | null }
+
+function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[], judge: Judge | null, tag = ''): { lidar: GreenLidar | 'none'; note?: string } {
+  if (!row.grid || row.grid_lng0 == null || row.grid_lat0 == null) return { lidar: 'none' }
   try {
     const bytes = byteaBytes(row.grid)
     // Header bytes 2–5 are the grid's width and height. A green is a few
     // thousand cells; refuse a big one before decoding allocates for it.
-    if (bytes.length < 6 || (bytes[2]! | (bytes[3]! << 8)) * (bytes[4]! | (bytes[5]! << 8)) > MAX_CELLS) return 'none'
+    if (bytes.length < 6 || (bytes[2]! | (bytes[3]! << 8)) * (bytes[4]! | (bytes[5]! << 8)) > MAX_CELLS) return { lidar: 'none' }
+    const full = decodeGreenGrid(bytes)
+    if (judge && outlineCoverage(full, row.grid_lng0, row.grid_lat0, ring) < MIN_COVERAGE)
+      return { lidar: 'none', note: 'The slope survey doesn’t reach all of your outline' }
     // Padded grids run past the green: draw only what the outline holds (#1502).
-    const grid = clipGreenGrid(decodeGreenGrid(bytes), row.grid_lng0, row.grid_lat0, ring)
+    const grid = clipGreenGrid(full, row.grid_lng0, row.grid_lat0, ring)
+    const tilt = greenPlaneTilt(grid)
+    if (judge && playerOutlineHideReason(judge.flagged, judge.reason, tilt?.tiltPct ?? null)) return { lidar: 'none', note: NOTE_SUSPECT }
     const field = greenSlopeField(grid)
-    return {
+    return { lidar: {
       grid,
       field,
       lng0: row.grid_lng0,
       lat0: row.grid_lat0,
-      tilt: greenPlaneTilt(grid),
+      tilt,
       shape: greenShape(grid),
       hachures: greenHachures(grid, field),
       contours: greenContours(grid),
-      slopeUri: writePng(`${holeId}-slope.png`, raster(grid, field, 'slope')),
-      heightUri: writePng(`${holeId}-height.png`, raster(grid, field, 'height')),
-    }
+      slopeUri: writePng(`${holeId}${tag}-slope.png`, raster(grid, field, 'slope')),
+      heightUri: writePng(`${holeId}${tag}-height.png`, raster(grid, field, 'height')),
+    } }
   } catch (err) {
     logDiag('green_grid_failed', { hole: holeId, msg: (err as Error).message.slice(0, 120) })
-    return 'none'
+    return { lidar: 'none' }
   }
 }
+
+/** Fewer taps is rarely a green (the mock's bar). */
+export const MIN_OUTLINE_POINTS = 4
+
+/**
+ * Stores a player's drawn points (#1504) as their outline for the green,
+ * closed, and puts it in the offline course cache so an offline start shows it.
+ */
+export async function saveDrawnOutline(
+  holeId: string,
+  drawn: GeoPoint[],
+  userId: string | undefined,
+): Promise<{ ring: GeoPoint[]; outline: string } | { error: string }> {
+  if (drawn.length < MIN_OUTLINE_POINTS) return { error: `An outline needs at least ${MIN_OUTLINE_POINTS} points.` }
+  const ring = [...drawn, drawn[0]!]
+  const outline = encodePolyline(ring)
+  const { error } = await saveMyGreenOutline(supabase, holeId, outline)
+  if (!error) {
+    const key = userId ? offlineKeys.greenMaps(userId) : null
+    const c = key ? await readCache<Cached>(key) : null
+    if (key && c) await writeCache(key, { ...c, mine: [...(c.mine ?? []).filter((m) => m.hole_id !== holeId), { hole_id: holeId, outline }] })
+    return { ring, outline }
+  }
+  logDiag('my_green_outline_save_failed', { msg: error.message.slice(0, 120) })
+  return { error: isNetworkFailure(error) ? 'Saving needs signal. Try again when you have it.' : 'Couldn’t save your outline. Try again.' }
+}
+
+function greenFrom(row: OutlineRow, ours: GeoPoint[], mine: GeoPoint[] | null): PreparedGreen {
+  // Our hide rules judged our outline; a player's is judged when its grid is read.
+  const usable = row.grid_source != null && (mine != null || !row.grid_flagged)
+  return {
+    ring: mine ?? ours,
+    ours,
+    mine: mine != null,
+    outlineSource: mine ? 'player' : row.outline_source,
+    gridSource: row.grid_source,
+    gridNote: !usable && row.grid_flagged ? NOTE_SUSPECT : null,
+    lidar: usable ? 'pending' : 'none',
+  }
+}
+
+const judgeOf = (row: OutlineRow): Judge => ({ flagged: row.grid_flagged, reason: row.grid_flag_reason })
 
 /**
  * Greens by green_maps hole id. A loop hole reads its front-nine hole's
  * (holes.loop_of), which is in `holes` too. `firstHoleNumber` orders the idle pass.
+ * `saveMine` stores the player's own outline for a green (#1504) and redraws it
+ * at once; it resolves to an error to show, or null.
  */
 export function useGreenMaps(
   courseId: string | undefined,
@@ -138,13 +211,27 @@ export function useGreenMaps(
   firstHoleNumber: number,
   userId: string | undefined,
   offline: boolean,
-): { loaded: boolean; greens: ReadonlyMap<string, PreparedGreen> } {
+): {
+  loaded: boolean
+  greens: ReadonlyMap<string, PreparedGreen>
+  saveMine: (holeId: string, drawn: GeoPoint[]) => Promise<string | null>
+} {
   const [greens, setGreens] = useState<ReadonlyMap<string, PreparedGreen>>(new Map())
   const [loaded, setLoaded] = useState(false)
   // Read when the course loads: the idle pass starts where the player is then.
   const live = useRef({ holes, firstHoleNumber, offline })
   live.current = { holes, firstHoleNumber, offline }
+  const course = useRef<{ c: Cached; key: string | null } | null>(null)
+  // Greens the player redrew this round: the idle pass must not overwrite them with our outline's read.
+  const redrawn = useRef(new Set<string>())
   const holeKey = holes.map((h) => h.id).join(',')
+
+  const settle = (id: string, r: { lidar: PreparedGreen['lidar']; note?: string }) =>
+    setGreens((cur) => {
+      const g = cur.get(id)
+      if (!g) return cur
+      return new Map(cur).set(id, { ...g, lidar: r.lidar, gridNote: r.note ?? g.gridNote })
+    })
 
   useEffect(() => {
     if (!courseId || !holeKey) return
@@ -154,18 +241,14 @@ export function useGreenMaps(
     const key = userId ? offlineKeys.greenMaps(userId) : null
     void loadCourse(courseId, hs.map((h) => h.id), key, off).then((c) => {
       if (cancelled) return
+      course.current = { c, key }
+      redrawn.current = new Set()
+      const own = new Map((c.mine ?? []).map((m) => [m.hole_id, outlineOf(m)]))
+      const rows = new Map(c.outlines.map((r) => [r.hole_id, r]))
       const start = new Map<string, PreparedGreen>()
       for (const row of c.outlines) {
-        const ring = outlineOf(row)
-        if (!ring) continue
-        const usable = row.grid_source != null && !row.grid_flagged
-        start.set(row.hole_id, {
-          ring,
-          outlineSource: row.outline_source,
-          gridSource: row.grid_source,
-          gridNote: row.grid_flagged ? 'The slope survey may not match this green' : null,
-          lidar: usable ? 'pending' : 'none',
-        })
+        const ours = outlineOf(row)
+        if (ours) start.set(row.hole_id, greenFrom(row, ours, own.get(row.hole_id) ?? null))
       }
       setGreens(start)
       setLoaded(true)
@@ -175,18 +258,11 @@ export function useGreenMaps(
       const numberOf = new Map(hs.map((h) => [h.id, h.number]))
       const away = (id: string) => ((((numberOf.get(id) ?? n) - first) % n) + n) % n
       const queue = [...start.keys()].filter((id) => start.get(id)!.lidar === 'pending').sort((a, b) => away(a) - away(b))
-      const settle = (id: string, lidar: PreparedGreen['lidar'], note?: string) =>
-        setGreens((cur) => {
-          const g = cur.get(id)
-          if (!g) return cur
-          const m = new Map(cur)
-          m.set(id, { ...g, lidar, gridNote: note ?? g.gridNote })
-          return m
-        })
       const retried = new Set<string>()
       const next = async () => {
         const id = queue.shift()
         if (!id || cancelled) return
+        if (redrawn.current.has(id)) return void setTimeout(next, 16)
         const row = await loadGrid(id, c, key, off).catch((err: Error) => {
           logDiag('green_grid_read_failed', { hole: id, msg: err.message.slice(0, 120) })
           return null
@@ -197,13 +273,14 @@ export function useGreenMaps(
           if (!retried.has(id)) {
             retried.add(id)
             queue.push(id)
-          } else settle(id, 'none', 'Height and slope load with signal')
+          } else settle(id, { lidar: 'none', note: 'Height and slope load with signal' })
           return void setTimeout(next, 16)
         }
-        const ring = start.get(id)!.ring
+        const g = start.get(id)!
         InteractionManager.runAfterInteractions(() => {
           if (cancelled) return
-          settle(id, prepareLidar(id, row, ring))
+          if (redrawn.current.has(id)) return void setTimeout(next, 16)
+          settle(id, prepareLidar(id, row, g.ring, g.mine ? judgeOf(rows.get(id)!) : null))
           // Let a frame through between greens.
           setTimeout(next, 16)
         })
@@ -215,7 +292,26 @@ export function useGreenMaps(
     }
   }, [courseId, userId, holeKey])
 
-  return { loaded, greens }
+  const saveMine = async (holeId: string, drawn: GeoPoint[]): Promise<string | null> => {
+    const cur = course.current
+    const row = cur?.c.outlines.find((r) => r.hole_id === holeId)
+    const ours = row ? outlineOf(row) : null
+    if (!cur || !row || !ours) return 'This green isn’t loaded yet.'
+    const saved = await saveDrawnOutline(holeId, drawn, userId)
+    if ('error' in saved) return saved.error
+    const { ring, outline } = saved
+    redrawn.current.add(holeId)
+    cur.c.mine = [...(cur.c.mine ?? []).filter((m) => m.hole_id !== holeId), { hole_id: holeId, outline }]
+    const g = greenFrom(row, ours, ring)
+    setGreens((m) => new Map(m).set(holeId, g))
+    if (g.lidar !== 'pending') return null
+    const grid = await loadGrid(holeId, cur.c, cur.key, live.current.offline).catch(() => null)
+    // A new file name: the map and the view would keep showing a cached picture under the old one.
+    settle(holeId, grid ? prepareLidar(holeId, grid, ring, judgeOf(row), `-p${Date.now()}`) : { lidar: 'none', note: 'Height and slope load with signal' })
+    return null
+  }
+
+  return { loaded, greens, saveMine }
 }
 
 // ---------- pictures ----------
@@ -312,8 +408,9 @@ function prunePngs(keepHoleIds: Set<string>) {
   try {
     const dir = pngDir()
     if (!dir.exists) return
-    // Every file here is `<hole uuid>-<kind>.png` (writePng); the uuid is 36 characters.
-    for (const f of dir.list()) if (!keepHoleIds.has(f.name.slice(0, 36))) f.delete()
+    // Every file here is `<hole uuid>[-p<time>]-<kind>.png` (writePng); the uuid is 36 characters.
+    // A redraw's `-p` pictures are rewritten under the plain name at the next course load.
+    for (const f of dir.list()) if (!keepHoleIds.has(f.name.slice(0, 36)) || f.name.slice(36).startsWith('-p')) f.delete()
   } catch {
     /* a stale picture only costs disk */
   }

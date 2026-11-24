@@ -7,7 +7,7 @@ import type { OgaSupabaseClient } from '../client'
 export function getGreenOutlines(client: OgaSupabaseClient, holeIds: string[]) {
   return client
     .from('green_maps')
-    .select('hole_id, outline, outline_source, grid_source, grid_flagged')
+    .select('hole_id, outline, outline_source, grid_source, grid_flagged, grid_flag_reason')
     .in('hole_id', holeIds)
 }
 
@@ -32,4 +32,15 @@ export function byteaBytes(s: string): Uint8Array {
   const out = new Uint8Array(hex.length / 2)
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(2 * i, 2 * i + 2), 16)
   return out
+}
+
+// Fix this green (#1504/#1505): the player's own outlines (0069). RLS keeps
+// each player to their own rows, so no user filter is needed to read.
+export function getMyGreenOutlines(client: OgaSupabaseClient, holeIds: string[]) {
+  return client.from('player_green_outlines').select('hole_id, outline').in('hole_id', holeIds)
+}
+
+/** One current outline per player per green: a redraw replaces it. */
+export function saveMyGreenOutline(client: OgaSupabaseClient, holeId: string, outline: string) {
+  return client.from('player_green_outlines').upsert({ hole_id: holeId, outline }, { onConflict: 'hole_id,user_id' })
 }

@@ -40,6 +40,7 @@ import { PastRoundMap } from '../../../../components/round/PastRoundMap'
 import { RoundScorecardTab } from '../../../../components/round/past/RoundScorecardTab'
 import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
+import { GreenFixCard } from '../../../../components/round/green/GreenRedraw'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../../../../components/help/CoachMarks'
 import { PAST_CARD_STEPS, PAST_STEPS } from '../../../../components/round/coachSteps'
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog'
@@ -735,6 +736,7 @@ function RoundScreen() {
           focus={focus}
           drills={focus ? selectNudgeDrills(nudgeDrills, nudgeFacilities) : []}
           onCommit={persistHoleScore}
+          banner={user && <GreenFixCard userId={user.id} roundId={round.id} />}
           onOpenShots={(h) => {
             setShotsForHole(h)
             // The empty sheet points to the Map tab — open it on this hole (#918).

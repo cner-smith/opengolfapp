@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GreenGrid } from './codec'
-import { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo } from './frame'
+import { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo, outlineCoverage } from './frame'
 
 const LAT0 = 35.6
 const LNG0 = -97.6
@@ -118,5 +118,37 @@ describe('clipGreenGrid on a slanted edge', () => {
     const tri = [geo(0.25, -0.25), geo(2.75, -0.25), geo(0.25, -1.25)]
     const out = clipGreenGrid(g, LNG0, LAT0, tri)
     expect([...out.mask].flatMap((m, j) => (m ? [j] : []))).toEqual([7, 8, 9, 10, 13])
+  })
+})
+
+describe('outlineCoverage', () => {
+  // As clipGreenGrid's grid: 6×4 cells, (row 0, col 5) unsurveyed.
+  const W = 6, H = 4
+  const g: GreenGrid = {
+    width: W, height: H, stepMm: 2, zMinMm: 0,
+    mask: Uint8Array.from({ length: W * H }, (_, j) => (j === 5 ? 0 : 1)),
+    heightsMm: new Float64Array(W * H),
+  }
+  // Cell (r, c) centre is c·0.5 m east, r·0.5 m south of O.
+  const cells = (c0: number, c1: number, r0: number, r1: number) => [
+    geo(c0 * 0.5 - 0.25, -(r0 * 0.5 - 0.25)), geo(c1 * 0.5 + 0.25, -(r0 * 0.5 - 0.25)),
+    geo(c1 * 0.5 + 0.25, -(r1 * 0.5 + 0.25)), geo(c0 * 0.5 - 0.25, -(r1 * 0.5 + 0.25)),
+  ]
+
+  it('is 1 when every cell centre the outline holds was surveyed', () => {
+    expect(outlineCoverage(g, LNG0, LAT0, cells(1, 5, 1, 2))).toBe(1)
+  })
+
+  it('counts an unsurveyed cell inside the outline as a gap', () => {
+    expect(outlineCoverage(g, LNG0, LAT0, cells(1, 5, 0, 1))).toBeCloseTo(9 / 10)
+  })
+
+  it('counts the outline past the grid edge as a gap', () => {
+    // Columns 4–7 of rows 1–2: columns 6 and 7 are off the grid.
+    expect(outlineCoverage(g, LNG0, LAT0, cells(4, 7, 1, 2))).toBeCloseTo(4 / 8)
+  })
+
+  it('is 0 for an outline the survey never reaches', () => {
+    expect(outlineCoverage(g, LNG0, LAT0, [geo(50, 50), geo(60, 50), geo(60, 40), geo(50, 40)])).toBe(0)
   })
 })

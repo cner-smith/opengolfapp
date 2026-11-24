@@ -566,6 +566,30 @@ export type Database = {
           },
         ]
       }
+      player_green_outlines: {
+        Row: {
+          created_at: string
+          hole_id: string
+          outline: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hole_id: string
+          outline: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          hole_id?: string
+          outline?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_plans: {
         Row: {
           ai_insight: string | null
