@@ -48,7 +48,19 @@ export const HIDE_TILT_PCT = 10
  * (a comma list from the outliner).
  */
 export function heatMapHideReason(tiltPct: number | null, outlineFlagReason: string | null): string | null {
-  if (outlineFlagReason?.split(',').some((r) => r.trim() === 'area_large')) return 'outline far bigger than a green'
+  if (outlineFlagReason?.split(',').some((r) => r.trim() === 'area_large')) return AREA_REASON
   if (tiltPct != null && tiltPct > HIDE_TILT_PCT) return `tilts ${tiltPct.toFixed(1)}%, steeper than a green`
   return null
+}
+
+const AREA_REASON = 'outline far bigger than a green'
+
+/**
+ * heatMapHideReason for a player's own outline (#1504): our rules judged our
+ * outline, so they run again on theirs; any other flag (a lidar date, an
+ * unexplained one) still hides. `tiltPct` is over the grid cut to their outline.
+ */
+export function playerOutlineHideReason(gridFlagged: boolean, gridFlagReason: string | null, tiltPct: number | null): string | null {
+  if (gridFlagged && gridFlagReason !== AREA_REASON && !gridFlagReason?.startsWith('tilts ')) return gridFlagReason ?? 'flagged'
+  return heatMapHideReason(tiltPct, null)
 }

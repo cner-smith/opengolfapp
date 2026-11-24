@@ -96,3 +96,27 @@ export function clipGreenGrid(g: GreenGrid, lng0: number, lat0: number, ring: Ge
     }
   return { ...g, mask, heightsMm }
 }
+
+/**
+ * The share of `ring`'s grid points (cell centres, on the grid's lattice, past
+ * its edges too) that were surveyed. A player's outline (#1504) may run off the
+ * padded grid; under 0.97 it gets no heat map, the loader's bar for ours.
+ */
+export function outlineCoverage(g: GreenGrid, lng0: number, lat0: number, ring: GeoPoint[]): number {
+  const kx = M_PER_DEG * Math.cos((lat0 * Math.PI) / 180)
+  let c0 = Infinity, c1 = -Infinity, r0 = Infinity, r1 = -Infinity
+  for (const p of ring) {
+    const c = ((p.lng - lng0) * kx) / GREEN_CELL_M
+    const r = ((lat0 - p.lat) * M_PER_DEG) / GREEN_CELL_M
+    c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r)
+  }
+  let n = 0
+  let surveyed = 0
+  for (let r = Math.ceil(r0); r <= Math.floor(r1); r++)
+    for (let c = Math.ceil(c0); c <= Math.floor(c1); c++) {
+      if (!pointInRing(gridPointGeo(lng0, lat0, c * GREEN_CELL_M, r * GREEN_CELL_M), ring)) continue
+      n++
+      if (r >= 0 && r < g.height && c >= 0 && c < g.width && g.mask[r * g.width + c]) surveyed++
+    }
+  return n ? surveyed / n : 0
+}

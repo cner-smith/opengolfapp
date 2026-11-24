@@ -37,6 +37,7 @@ import { MAP_KEY, P } from '../../paper/tokens'
 import { fitGreen, GreenDrawing, screenFrame, type ScreenFrame, type GreenMode } from './GreenDrawing'
 import { useGreenMaps, type PreparedGreen } from './greenData'
 import { GreenMapLayers } from './GreenMapLayers'
+import { addFixLater, dropFixLater, GreenRedraw, surveyName } from './GreenRedraw'
 
 // The green view (#1381, design locked on #1379). Nothing is on the map
 // until the player asks: a mini green key sits at the top of the key column,
@@ -59,6 +60,7 @@ export interface GreenViewInput {
   /** The hole on screen; a loop hole reads its front-nine hole's green. */
   hole: { id: string; loop_of: string | null } | null
   holeNumber: number
+  roundId: string | undefined
   pin: GeoPoint | null
   ball: GeoPoint | null
   previousShots: GeoPoint[]
@@ -79,8 +81,18 @@ export function useGreenView(i: GreenViewInput): {
   open: boolean
   close: () => void
 } {
-  const { loaded, greens } = useGreenMaps(i.courseId, i.holes, i.holeNumber, i.userId, i.offline)
-  const green = i.hole ? greens.get(i.hole.loop_of ?? i.hole.id) ?? null : null
+  const { loaded, greens, saveMine } = useGreenMaps(i.courseId, i.holes, i.holeNumber, i.userId, i.offline)
+  const greenId = i.hole ? i.hole.loop_of ?? i.hole.id : null
+  const green = greenId ? greens.get(greenId) ?? null : null
+  // Fix this green (#1504): "Look off?" asks when (the round keeps going), then the redraw.
+  const [fix, setFix] = useState<'when' | 'redraw' | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const justSaved = useRef(false)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2600)
+    return () => clearTimeout(t)
+  }, [toast])
   const [from, setFrom] = useState<Rect | null>(null)
   const [closing, setClosing] = useState(false)
   const [mode, setModeState] = useState<GreenMode>('plain')
@@ -103,7 +115,10 @@ export function useGreenView(i: GreenViewInput): {
     setModeState(m)
     AsyncStorage.setItem(MODE_KEY(i.userId), m).catch(() => undefined)
   }
-  useEffect(() => setFrom(null), [i.holeNumber])
+  useEffect(() => {
+    setFrom(null)
+    setFix(null)
+  }, [i.holeNumber])
 
   // The player's line, as web reads it: from the newest start off the green.
   const approach = useMemo(() => {
@@ -116,6 +131,12 @@ export function useGreenView(i: GreenViewInput): {
 
   const open = from != null
   const close = () => setClosing(true)
+  const fixLater = () => {
+    if (i.userId && i.roundId && greenId) void addFixLater(i.userId, { roundId: i.roundId, holeId: greenId, holeNumber: i.holeNumber })
+    setFix(null)
+    close()
+    setToast(`Hole ${i.holeNumber} green saved for after your round`)
+  }
 
   const key = (
     <GreenKey
@@ -133,7 +154,27 @@ export function useGreenView(i: GreenViewInput): {
     />
   )
 
-  const view = open ? (
+  const view =
+    fix === 'redraw' && green && greenId ? (
+      <GreenRedraw
+        holeNumber={i.holeNumber}
+        ours={green.ours}
+        pin={i.pin}
+        survey={surveyName(green.gridSource)}
+        onSave={async (drawn) => {
+          const err = await saveMine(greenId, drawn)
+          if (!err && i.userId && i.roundId) void dropFixLater(i.userId, i.roundId, greenId)
+          justSaved.current = !err
+          return err
+        }}
+        // Cancel goes back to the green; Done, once saved, to the map.
+        onClose={() => {
+          setFix(null)
+          if (justSaved.current) setFrom(null)
+          justSaved.current = false
+        }}
+      />
+    ) : open ? (
     <GreenDetail
       key={i.holeNumber}
       green={loaded ? green : null}
@@ -161,7 +202,13 @@ export function useGreenView(i: GreenViewInput): {
       onSetPin={i.onSetPin}
       onStartPinPlacement={i.onStartPinPlacement}
       onHold={setHeld}
+      fixAsk={fix === 'when'}
+      onFix={(f) => (f === 'later' ? fixLater() : setFix(f))}
     />
+  ) : toast ? (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 20, right: 20, top: 140, zIndex: 30, backgroundColor: P.ink, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 14 }}>
+      <Text style={[TYPE.body, { fontSize: 16, color: P.raised }]}>{toast}</Text>
+    </View>
   ) : null
 
   const lidar = green && typeof green.lidar === 'object' ? green.lidar : null
@@ -306,6 +353,9 @@ function GreenDetail(p: {
   onSetPin: (pin: GeoPoint) => unknown
   onStartPinPlacement: () => void
   onHold: (held: boolean) => void
+  /** "Look off?" is asking when to fix it (#1504). */
+  fixAsk: boolean
+  onFix: (f: 'when' | 'later' | 'redraw' | null) => void
 }) {
   const insets = useSafeAreaInsets()
   const reduce = useReducedMotion()
@@ -386,6 +436,7 @@ function GreenDetail(p: {
           ) : (
             <Detail {...p} green={p.green} frame={p.frame} panel={panel} G0={G0} gsq={gsq} greenStyle={greenStyle} controlsStyle={controlsStyle} />
           )}
+          {p.fixAsk && <FixWhen holeNumber={p.holeNumber} bottom={insets.bottom} onFix={p.onFix} />}
         </>
       )}
     </View>
@@ -501,7 +552,7 @@ function Detail(
   const lines = lidar ? [shapeWords, ff ? falseFrontWords(ff, p.unit) : null] : []
   const source = [
     lidar ? (green.gridSource?.startsWith('3dep:') ? 'USGS 3DEP lidar' : 'Lidar') : null,
-    green.outlineSource === 'osm' ? 'OSM outline' : green.outlineSource === 'manual' ? 'Outline drawn by hand' : 'Traced outline',
+    green.mine ? 'your outline' : green.outlineSource === 'osm' ? 'OSM outline' : green.outlineSource === 'manual' ? 'Outline drawn by hand' : 'Traced outline',
     '1 pace = 1 yd',
   ]
     .filter(Boolean)
@@ -565,9 +616,17 @@ function Detail(
             {lines.map((l) => l && <Small key={l} style={{ marginTop: 3, fontSize: 13 }}>{l}</Small>)}
           </>
         ) : (
-          <Small style={{ marginTop: 8, fontSize: 13 }}>
-            {green.lidar === 'pending' ? 'Reading the green…' : green.gridNote ?? 'No slope survey covers this green yet'}
-          </Small>
+          <>
+            <Small style={{ marginTop: 8, fontSize: 13 }}>
+              {green.lidar === 'pending' ? 'Reading the green…' : green.gridNote ?? 'No slope survey covers this green yet'}
+            </Small>
+            {/* Our check hid the heat map: the fix is one button here (#1504). */}
+            {green.lidar === 'none' && green.gridNote && !green.mine && (
+              <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                <Primary label="Redraw the green" sub="about 30 seconds" onPress={() => p.onFix('redraw')} />
+              </View>
+            )}
+          </>
         )}
         <View style={{ marginTop: 12, gap: 8 }}>
           {lidar && p.mode !== 'plain' && (
@@ -576,12 +635,40 @@ function Detail(
           <Check label="Pace lines on the map" on={p.paceOn} onChange={p.onPaceOn} />
         </View>
         <View style={{ flex: 1 }} />
-        <Small style={{ fontSize: 10.5, marginBottom: 8 }}>{source}</Small>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+          <Small style={{ fontSize: 10.5, flex: 1 }}>{source}</Small>
+          <Pressable accessibilityRole="button" onPress={() => p.onFix('when')} hitSlop={10}>
+            <Text style={[TYPE.bodyBold, { fontSize: 14, color: P.forest }]}>Look off? Fix it ›</Text>
+          </Pressable>
+        </View>
         <View style={{ flexDirection: 'row' }}>
           <Primary label="Done" onPress={p.onClose} />
         </View>
       </Animated.View>
     </>
+  )
+}
+
+/** "Look off?": fix it after the round (play goes on) or now. Never required. */
+function FixWhen({ holeNumber, bottom, onFix }: { holeNumber: number; bottom: number; onFix: (f: 'later' | 'redraw' | null) => void }) {
+  return (
+    <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 5 }}>
+      <Pressable accessibilityLabel="Cancel" style={{ flex: 1, backgroundColor: P.scrim }} onPress={() => onFix(null)} />
+      <View style={{ backgroundColor: P.raised, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 22, paddingBottom: bottom + 24, gap: 12 }}>
+        <Text style={[TYPE.serif, { fontSize: 24, color: P.ink }]}>Fix hole {holeNumber}'s green</Text>
+        <Text style={[TYPE.body, { fontSize: 15, color: P.inkDim }]}>Your round keeps going. It waits on the round's page until you do it.</Text>
+        <View style={{ flexDirection: 'row' }}>
+          <Primary label="After the round" sub="1 tap now" onPress={() => onFix('later')} />
+        </View>
+        <Key accessibilityLabel="Now, about 30 seconds" onPress={() => onFix('redraw')} stretch faceStyle={{ minHeight: 49, paddingVertical: 3 }}>
+          <KeyText>Now</KeyText>
+          <Text style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}>about 30 seconds</Text>
+        </Key>
+        <Pressable accessibilityRole="button" onPress={() => onFix(null)} hitSlop={8}>
+          <Text style={[TYPE.body, { fontSize: 15, color: P.inkDim, textAlign: 'center' }]}>Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
   )
 }
 

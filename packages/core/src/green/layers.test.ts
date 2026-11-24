@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { greenLayersVisible, heatMapHideReason } from './layers'
+import { greenLayersVisible, heatMapHideReason, playerOutlineHideReason } from './layers'
 
 // The fixed marks: the outline, the pin and the margin bars always show;
 // the rails show only while the flag is held.
@@ -97,5 +97,26 @@ describe('heatMapHideReason', () => {
 
   it('shows when there is no tilt to judge', () => {
     expect(heatMapHideReason(null, null)).toBeNull()
+  })
+})
+
+describe('playerOutlineHideReason', () => {
+  it('judges a player outline afresh when our outline was hidden as too big or too steep', () => {
+    expect(playerOutlineHideReason(true, 'outline far bigger than a green', 4.2)).toBeNull()
+    expect(playerOutlineHideReason(true, 'tilts 12.0%, steeper than a green', 3)).toBeNull()
+  })
+
+  it('still hides a player outline that tilts more than 10%', () => {
+    expect(playerOutlineHideReason(true, 'outline far bigger than a green', 11)).toBe('tilts 11.0%, steeper than a green')
+    expect(playerOutlineHideReason(false, null, 10.5)).toBe('tilts 10.5%, steeper than a green')
+  })
+
+  it('keeps a survey hidden for a reason that is not about the outline', () => {
+    expect(playerOutlineHideReason(true, 'lidar predates the green', 2)).toBe('lidar predates the green')
+    expect(playerOutlineHideReason(true, null, 2)).toBe('flagged')
+  })
+
+  it('shows an unflagged survey of ordinary tilt', () => {
+    expect(playerOutlineHideReason(false, null, 3)).toBeNull()
   })
 })

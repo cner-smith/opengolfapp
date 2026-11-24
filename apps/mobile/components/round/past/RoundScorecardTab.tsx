@@ -48,6 +48,7 @@ export function RoundScorecardTab({
   drills,
   onCommit,
   onOpenShots,
+  banner,
   children,
 }: {
   round: RoundRow
@@ -66,6 +67,8 @@ export function RoundScorecardTab({
   drills: DrillRow[]
   onCommit: (holeId: string, patch: { score?: number; putts?: number | null }) => void
   onOpenShots: (hole: HoleRow) => void
+  /** Under the totals: the greens to fix (#1504). */
+  banner?: ReactNode
   /** Tee selector + Save SG + Delete, below the card. */
   children: ReactNode
 }) {
@@ -139,6 +142,8 @@ export function RoundScorecardTab({
         ))}
       </View>
       </CoachTarget>
+
+      {banner}
 
       {focus && <RoundNudge focus={focus} picks={drills} />}
 
