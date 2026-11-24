@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { greenLayersVisible, heatMapHideReason, playerOutlineHideReason } from './layers'
+import type { GreenGrid } from './codec'
+import { MIN_OUTLINE_COVERAGE } from './frame'
+import { greenLayersVisible, heatMapHideReason, playerOutlineHideReason, playerOutlineSurvey } from './layers'
 
 // The fixed marks: the outline, the pin and the margin bars always show;
 // the rails show only while the flag is held.
@@ -118,5 +120,41 @@ describe('playerOutlineHideReason', () => {
 
   it('shows an unflagged survey of ordinary tilt', () => {
     expect(playerOutlineHideReason(false, null, 3)).toBeNull()
+  })
+})
+
+describe('playerOutlineSurvey', () => {
+  // 20×20 cells (10 m square), all surveyed. Cell (r, c) centre is c·0.5 m east, r·0.5 m south of (LNG0, LAT0).
+  const LAT0 = 35.6, LNG0 = -97.6, M = 111_320, KX = M * Math.cos((LAT0 * Math.PI) / 180)
+  const geo = (east: number, south: number) => ({ lat: LAT0 - south / M, lng: LNG0 + east / KX })
+  const grid = (slopePerCell: number): GreenGrid => ({
+    width: 20, height: 20, stepMm: 2, zMinMm: 0,
+    mask: new Uint8Array(400).fill(1),
+    // Heights fall eastward: slopePerCell mm per 0.5 m cell.
+    heightsMm: Float64Array.from({ length: 400 }, (_, j) => 1000 - (j % 20) * slopePerCell),
+  })
+  const inside = [geo(0.75, 0.75), geo(8.25, 0.75), geo(8.25, 8.25), geo(0.75, 8.25)]
+
+  it('cuts the grid to a covered outline and gives its tilt', () => {
+    const r = playerOutlineSurvey(grid(10), LNG0, LAT0, inside, false, null)
+    if ('hidden' in r) throw new Error(`hidden: ${r.hidden}`)
+    expect(r.grid.mask.reduce((a, b) => a + b, 0)).toBe(15 * 15)
+    expect(r.tilt?.tiltPct).toBeCloseTo(2, 1)
+  })
+
+  it('hides an outline the survey covers less than MIN_OUTLINE_COVERAGE of', () => {
+    // Half of this square lies east of the grid.
+    expect(playerOutlineSurvey(grid(10), LNG0, LAT0, [geo(4.75, 0.75), geo(14.25, 0.75), geo(14.25, 8.25), geo(4.75, 8.25)], false, null)).toEqual({ hidden: 'not_reached' })
+    expect(MIN_OUTLINE_COVERAGE).toBe(0.97)
+  })
+
+  it('shows a player outline our size rule hid, and hides it when the green is steeper than 10%', () => {
+    expect('grid' in playerOutlineSurvey(grid(10), LNG0, LAT0, inside, true, 'outline far bigger than a green')).toBe(true)
+    // 60 mm per 0.5 m = 12%.
+    expect(playerOutlineSurvey(grid(60), LNG0, LAT0, inside, true, 'outline far bigger than a green')).toEqual({ hidden: 'suspect' })
+  })
+
+  it('keeps a survey flagged for another reason hidden', () => {
+    expect(playerOutlineSurvey(grid(10), LNG0, LAT0, inside, true, 'lidar predates the green')).toEqual({ hidden: 'suspect' })
   })
 })

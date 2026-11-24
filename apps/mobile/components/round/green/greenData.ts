@@ -11,8 +11,8 @@ import {
   greenPlaneTilt,
   greenShape,
   greenSlopeField,
-  outlineCoverage,
-  playerOutlineHideReason,
+  MIN_OUTLINE_POINTS,
+  playerOutlineSurvey,
   type GeoPoint,
   type GreenContours,
   type GreenGrid,
@@ -76,8 +76,6 @@ type GridRow = { grid: string | null; grid_lng0: number | null; grid_lat0: numbe
 type MineRow = { hole_id: string; outline: string }
 type Cached = { courseId: string; outlines: OutlineRow[]; grids: Record<string, GridRow>; mine?: MineRow[] }
 
-/** A player's outline gets a heat map only where the survey covers this much of it (the loader's bar for ours). */
-const MIN_COVERAGE = 0.97
 const NOTE_SUSPECT = 'The slope survey may not match this green'
 
 async function loadCourse(courseId: string, holeIds: string[], key: string | null, offline: boolean): Promise<Cached> {
@@ -132,12 +130,12 @@ function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[], judge: Jud
     // thousand cells; refuse a big one before decoding allocates for it.
     if (bytes.length < 6 || (bytes[2]! | (bytes[3]! << 8)) * (bytes[4]! | (bytes[5]! << 8)) > MAX_CELLS) return { lidar: 'none' }
     const full = decodeGreenGrid(bytes)
-    if (judge && outlineCoverage(full, row.grid_lng0, row.grid_lat0, ring) < MIN_COVERAGE)
-      return { lidar: 'none', note: 'The slope survey doesn’t reach all of your outline' }
-    // Padded grids run past the green: draw only what the outline holds (#1502).
-    const grid = clipGreenGrid(full, row.grid_lng0, row.grid_lat0, ring)
-    const tilt = greenPlaneTilt(grid)
-    if (judge && playerOutlineHideReason(judge.flagged, judge.reason, tilt?.tiltPct ?? null)) return { lidar: 'none', note: NOTE_SUSPECT }
+    // A player's outline is judged afresh (#1504); padded grids run past the green, so cut to the outline (#1502).
+    const cut = judge ? playerOutlineSurvey(full, row.grid_lng0, row.grid_lat0, ring, judge.flagged, judge.reason) : null
+    if (cut && 'hidden' in cut)
+      return { lidar: 'none', note: cut.hidden === 'not_reached' ? 'The slope survey doesn’t reach all of your outline' : NOTE_SUSPECT }
+    const grid = cut ? cut.grid : clipGreenGrid(full, row.grid_lng0, row.grid_lat0, ring)
+    const tilt = cut ? cut.tilt : greenPlaneTilt(grid)
     const field = greenSlopeField(grid)
     return { lidar: {
       grid,
@@ -156,9 +154,6 @@ function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[], judge: Jud
     return { lidar: 'none' }
   }
 }
-
-/** Fewer taps is rarely a green (the mock's bar). */
-export const MIN_OUTLINE_POINTS = 4
 
 /**
  * Stores a player's drawn points (#1504) as their outline for the green,

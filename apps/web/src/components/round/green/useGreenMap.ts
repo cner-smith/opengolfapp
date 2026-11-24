@@ -9,6 +9,7 @@ import {
   greenPlaneTilt,
   greenShape,
   greenSlopeField,
+  playerOutlineSurvey,
   type GeoPoint,
   type GreenContours,
   type GreenGrid,
@@ -17,8 +18,10 @@ import {
   type PlaneTilt,
   type SlopeField,
 } from '@oga/core'
-import { byteaBytes, getGreenGrid, getGreenOutlines, type Database } from '@oga/supabase'
+import { byteaBytes, getGreenGrid, getGreenOutlines, getMyGreenOutlines, type Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
+
+const NOTE_SUSPECT = 'The slope survey may not match this green.'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 
@@ -36,7 +39,16 @@ export interface GreenSurvey {
 }
 
 export interface GreenData {
+  /** The green_maps hole id (a loop hole's front-nine hole): where a redraw is saved. */
+  greenId: string
+  /** The outline shown: the player's own when they drew one (#1504), else ours. */
   outline: GeoPoint[]
+  /** Our outline, drawn dashed under a redraw. */
+  ours: GeoPoint[]
+  /** The player drew `outline` themselves. */
+  mine: boolean
+  /** When the survey was flown (YYYY-MM-DD), for the redraw panel. */
+  flownOn: string | null
   /** Where the outline came from, for the source line. */
   outlineSource: string
   /** 'none' = no height grid for this green (or one flagged as suspect); 'error' = it didn't load. Both: Plain only. */
@@ -69,9 +81,22 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
       return data ?? []
     },
   })
+  // The player's own outlines (#1504, private): theirs replaces ours for them.
+  const mineQ = useQuery({
+    queryKey: ['my-green-outlines', ids],
+    enabled: ids.length > 0,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data, error } = await getMyGreenOutlines(supabase, ids)
+      if (error) throw error
+      return data ?? []
+    },
+  })
   const hole = holes.find((h) => h.id === holeId)
   const row = hole ? outlines.data?.find((r) => r.hole_id === greenIdOf(hole)) : undefined
-  const wantGrid = row != null && row.grid_source != null && !row.grid_flagged
+  const mineRow = row ? mineQ.data?.find((r) => r.hole_id === row.hole_id) : undefined
+  // Our hide rules judged our outline; a player's is judged on its own below.
+  const wantGrid = row != null && row.grid_source != null && (mineRow != null || !row.grid_flagged)
   const grid = useQuery({
     queryKey: ['green-grid', row?.hole_id],
     enabled: wantGrid,
@@ -83,57 +108,75 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
     },
   })
 
-  const outline = useMemo(() => {
-    if (!row) return null
-    try {
-      const pts = decodePolyline(row.outline)
-      return pts.length >= 3 ? pts : null
-    } catch {
-      return null
-    }
-  }, [row?.outline])
+  const ours = useMemo(() => ringOf(row?.outline), [row?.outline])
+  const mine = useMemo(() => ringOf(mineRow?.outline), [mineRow?.outline])
+  const outline = mine ?? ours
+  const flagged = row?.grid_flagged ?? false
+  const flagReason = row?.grid_flag_reason ?? null
 
-  const survey = useMemo<GreenSurvey | null>(() => {
+  const { survey, note } = useMemo<{ survey: GreenSurvey | null; note: string | null }>(() => {
     const d = grid.data
-    if (!wantGrid || !outline || !d?.grid || d.grid_lng0 == null || d.grid_lat0 == null) return null
+    if (!wantGrid || !outline || !d?.grid || d.grid_lng0 == null || d.grid_lat0 == null) return { survey: null, note: null }
     try {
-      // Padded grids run past the green: draw only what the current outline holds (#1502).
-      const g = clipGreenGrid(decodeGreenGrid(byteaBytes(d.grid)), d.grid_lng0, d.grid_lat0, outline)
+      const full = decodeGreenGrid(byteaBytes(d.grid))
+      // A player's outline is judged afresh (#1504); padded grids run past the green, so cut to the outline (#1502).
+      const cut = mine ? playerOutlineSurvey(full, d.grid_lng0, d.grid_lat0, mine, flagged, flagReason) : null
+      if (cut && 'hidden' in cut)
+        return { survey: null, note: cut.hidden === 'not_reached' ? 'The slope survey doesn’t reach all of your outline.' : NOTE_SUSPECT }
+      const g = cut ? cut.grid : clipGreenGrid(full, d.grid_lng0, d.grid_lat0, outline)
+      const tilt = cut ? cut.tilt : greenPlaneTilt(g)
       const field = greenSlopeField(g)
       return {
-        lng0: d.grid_lng0,
-        lat0: d.grid_lat0,
-        g,
-        field,
-        hachures: greenHachures(g, field),
-        tilt: greenPlaneTilt(g),
-        contours: greenContours(g),
-        shape: greenShape(g),
+        survey: {
+          lng0: d.grid_lng0,
+          lat0: d.grid_lat0,
+          g,
+          field,
+          hachures: greenHachures(g, field),
+          tilt,
+          contours: greenContours(g),
+          shape: greenShape(g),
+        },
+        note: null,
       }
     } catch (e) {
       // A grid that won't decode shows as Plain, like a green with no survey.
       console.error('[green grid]', e)
-      return null
+      return { survey: null, note: null }
     }
-  }, [wantGrid, grid.data, outline])
+  }, [wantGrid, grid.data, outline, mine, flagged, flagReason])
 
   const lidar: GreenData['lidar'] = !wantGrid ? 'none' : survey ? 'ready' : grid.isPending ? 'loading' : grid.isError ? 'error' : 'none'
   // Stable while nothing changes: the map overlay repaints on a new object.
   const green = useMemo<GreenData | null>(
     () =>
-      row && outline
+      row && outline && ours
         ? {
+            greenId: row.hole_id,
             outline,
-            outlineSource: row.outline_source,
+            ours,
+            mine: mine != null,
+            flownOn: row.grid_flown_on,
+            outlineSource: mine ? 'player' : row.outline_source,
             lidar,
             gridSource: row.grid_source,
-            gridNote: row.grid_flagged ? 'The slope survey may not match this green.' : null,
+            gridNote: note ?? (flagged && !mine ? NOTE_SUSPECT : null),
             survey,
           }
         : null,
-    [row?.outline_source, row?.grid_source, row?.grid_flagged, outline, lidar, survey],
+    [row?.hole_id, row?.outline_source, row?.grid_source, row?.grid_flown_on, flagged, outline, ours, mine, lidar, survey, note],
   )
   return { courseHasGreens: (outlines.data?.length ?? 0) > 0, green }
+}
+
+function ringOf(polyline: string | undefined): GeoPoint[] | null {
+  if (!polyline) return null
+  try {
+    const pts = decodePolyline(polyline)
+    return pts.length >= 3 ? pts : null
+  } catch {
+    return null
+  }
 }
 
 // Soft green viridis (owner pick, #1379 round 5, palette v2): flat at a soft

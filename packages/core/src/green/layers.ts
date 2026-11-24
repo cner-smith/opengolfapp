@@ -1,3 +1,8 @@
+import type { GeoPoint } from '../shot-dispersion-geo'
+import type { GreenGrid } from './codec'
+import { clipGreenGrid, MIN_OUTLINE_COVERAGE, outlineCoverage } from './frame'
+import { greenPlaneTilt, type PlaneTilt } from './slope'
+
 export interface GreenLayers {
   /** The slope or height picture. */
   colour: boolean
@@ -65,4 +70,25 @@ const AREA_REASON = 'outline far bigger than a green'
 export function playerOutlineHideReason(gridFlagged: boolean, gridFlagReason: string | null, tiltPct: number | null): string | null {
   if (gridFlagged && gridFlagReason !== AREA_REASON && !gridFlagReason?.startsWith('tilts ')) return gridFlagReason ?? 'flagged'
   return heatMapHideReason(tiltPct, null)
+}
+
+/**
+ * A player's own outline (#1504) over the green's survey, as both apps draw it:
+ * the survey cut to their outline with its tilt, or why it stays hidden.
+ * `not_reached`: the survey covers under MIN_OUTLINE_COVERAGE of the outline;
+ * `suspect`: playerOutlineHideReason says hide. The apps word each.
+ */
+export function playerOutlineSurvey(
+  full: GreenGrid,
+  lng0: number,
+  lat0: number,
+  ring: GeoPoint[],
+  gridFlagged: boolean,
+  gridFlagReason: string | null,
+): { grid: GreenGrid; tilt: PlaneTilt | null } | { hidden: 'not_reached' | 'suspect' } {
+  if (outlineCoverage(full, lng0, lat0, ring) < MIN_OUTLINE_COVERAGE) return { hidden: 'not_reached' }
+  const grid = clipGreenGrid(full, lng0, lat0, ring)
+  const tilt = greenPlaneTilt(grid)
+  if (playerOutlineHideReason(gridFlagged, gridFlagReason, tilt?.tiltPct ?? null)) return { hidden: 'suspect' }
+  return { grid, tilt }
 }
