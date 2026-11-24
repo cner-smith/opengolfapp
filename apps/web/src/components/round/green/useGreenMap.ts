@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  clipGreenGrid,
   decodeGreenGrid,
   decodePolyline,
   greenContours,
@@ -92,9 +93,10 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
 
   const survey = useMemo<GreenSurvey | null>(() => {
     const d = grid.data
-    if (!wantGrid || !d?.grid || d.grid_lng0 == null || d.grid_lat0 == null) return null
+    if (!wantGrid || !outline || !d?.grid || d.grid_lng0 == null || d.grid_lat0 == null) return null
     try {
-      const g = decodeGreenGrid(byteaBytes(d.grid))
+      // Padded grids run past the green: draw only what the current outline holds (#1502).
+      const g = clipGreenGrid(decodeGreenGrid(byteaBytes(d.grid)), d.grid_lng0, d.grid_lat0, outline)
       const field = greenSlopeField(g)
       return {
         lng0: d.grid_lng0,
@@ -111,7 +113,7 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
       console.error('[green grid]', e)
       return null
     }
-  }, [wantGrid, grid.data])
+  }, [wantGrid, grid.data, outline])
 
   const lidar: GreenData['lidar'] = !wantGrid ? 'none' : survey ? 'ready' : grid.isPending ? 'loading' : grid.isError ? 'error' : 'none'
   // Stable while nothing changes: the map overlay repaints on a new object.

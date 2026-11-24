@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo } from './frame'
+import type { GreenGrid } from './codec'
+import { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo } from './frame'
 
 const LAT0 = 35.6
 const LNG0 = -97.6
@@ -73,5 +74,49 @@ describe('greenApproach', () => {
 describe('gridCorners', () => {
   it('puts the image edges half a cell outside the cell centres', () => {
     expect(gridCorners(4, 2)).toEqual([[-0.25, -0.25], [1.75, -0.25], [1.75, 0.75], [-0.25, 0.75]])
+  })
+})
+
+describe('clipGreenGrid', () => {
+  // 6×4 cells, all surveyed except (row 0, col 5); heights = cell index.
+  const W = 6, H = 4
+  const g: GreenGrid = {
+    width: W, height: H, stepMm: 2, zMinMm: 0,
+    mask: Uint8Array.from({ length: W * H }, (_, j) => (j === 5 ? 0 : 1)),
+    heightsMm: Float64Array.from({ length: W * H }, (_, j) => (j === 5 ? NaN : j)),
+  }
+  // Cell (r, c) centre is c·0.5 m east, r·0.5 m south of O. This box holds columns 1–5 of rows 1–2.
+  const box = [geo(0.25, -0.25), geo(2.75, -0.25), geo(2.75, -1.25), geo(0.25, -1.25)]
+
+  it('keeps surveyed cells whose centre is inside the outline, with their heights', () => {
+    const out = clipGreenGrid(g, LNG0, LAT0, box)
+    const kept = [...out.mask].flatMap((m, j) => (m ? [j] : []))
+    expect(kept).toEqual([7, 8, 9, 10, 11, 13, 14, 15, 16, 17])
+    expect(kept.map((j) => out.heightsMm[j])).toEqual(kept)
+    expect(out.heightsMm[0]).toBeNaN()
+    expect([out.width, out.height, out.stepMm, out.zMinMm]).toEqual([W, H, 2, 0])
+  })
+
+  it('never turns on an unsurveyed cell and leaves the input alone', () => {
+    const all = [geo(-1, 1), geo(5, 1), geo(5, -5), geo(-1, -5)]
+    const out = clipGreenGrid(g, LNG0, LAT0, all)
+    expect([...out.mask]).toEqual([...g.mask])
+    expect(g.mask[5]).toBe(0)
+    expect(clipGreenGrid(g, LNG0, LAT0, box).mask).not.toBe(g.mask)
+  })
+
+  it('drops every cell when the outline is elsewhere', () => {
+    const away = [geo(50, 50), geo(60, 50), geo(60, 40), geo(50, 40)]
+    expect(clipGreenGrid(g, LNG0, LAT0, away).mask.some((m) => m)).toBe(false)
+  })
+})
+
+describe('clipGreenGrid on a slanted edge', () => {
+  it('cuts along the outline, not its bounding box', () => {
+    const g: GreenGrid = { width: 6, height: 4, stepMm: 2, zMinMm: 0, mask: new Uint8Array(24).fill(1), heightsMm: new Float64Array(24) }
+    // Hypotenuse from 2.75 m east, 0.25 m south to 0.25 m east, 1.25 m south.
+    const tri = [geo(0.25, -0.25), geo(2.75, -0.25), geo(0.25, -1.25)]
+    const out = clipGreenGrid(g, LNG0, LAT0, tri)
+    expect([...out.mask].flatMap((m, j) => (m ? [j] : []))).toEqual([7, 8, 9, 10, 13])
   })
 })

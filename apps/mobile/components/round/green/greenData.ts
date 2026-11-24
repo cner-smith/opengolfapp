@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { InteractionManager } from 'react-native'
 import { Directory, File, Paths } from 'expo-file-system'
 import {
+  clipGreenGrid,
   decodeGreenGrid,
   decodePolyline,
   greenContours,
@@ -52,8 +53,8 @@ export interface PreparedGreen {
   lidar: GreenLidar | 'pending' | 'none'
 }
 
-/** A 100 m square at 0.5 m; the biggest greens are under a quarter of that. */
-const MAX_CELLS = 40_000
+/** Padded grids (#1501) reach ~18.5k cells at p95 and 80k at the very most. */
+const MAX_CELLS = 65_000
 
 type OutlineRow = { hole_id: string; outline: string; outline_source: string; grid_source: string | null; grid_flagged: boolean }
 type GridRow = { grid: string | null; grid_lng0: number | null; grid_lat0: number | null }
@@ -99,14 +100,15 @@ function outlineOf(row: OutlineRow): GeoPoint[] | null {
   }
 }
 
-function prepareLidar(holeId: string, row: GridRow): GreenLidar | 'none' {
+function prepareLidar(holeId: string, row: GridRow, ring: GeoPoint[]): GreenLidar | 'none' {
   if (!row.grid || row.grid_lng0 == null || row.grid_lat0 == null) return 'none'
   try {
     const bytes = byteaBytes(row.grid)
     // Header bytes 2–5 are the grid's width and height. A green is a few
     // thousand cells; refuse a big one before decoding allocates for it.
     if (bytes.length < 6 || (bytes[2]! | (bytes[3]! << 8)) * (bytes[4]! | (bytes[5]! << 8)) > MAX_CELLS) return 'none'
-    const grid = decodeGreenGrid(bytes)
+    // Padded grids run past the green: draw only what the outline holds (#1502).
+    const grid = clipGreenGrid(decodeGreenGrid(bytes), row.grid_lng0, row.grid_lat0, ring)
     const field = greenSlopeField(grid)
     return {
       grid,
@@ -200,7 +202,7 @@ export function useGreenMaps(
         }
         InteractionManager.runAfterInteractions(() => {
           if (cancelled) return
-          settle(id, prepareLidar(id, row))
+          settle(id, prepareLidar(id, row, start.get(id)!.ring))
           // Let a frame through between greens.
           setTimeout(next, 16)
         })
