@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { osmGreenMap, pointInRing, ringAreaM2 } from './green-outline'
+import { osmGreenMap, outlineCrossesItself, pointInRing, ringAreaM2 } from './green-outline'
 import { encodePolyline } from './green/polyline'
 import type { GeoPoint } from './shot-dispersion-geo'
 
@@ -148,5 +148,21 @@ describe('osmGreenMap', () => {
     expect(got!.areaM2).toBeGreaterThan(346.8 * 0.99)
     expect(got!.areaM2).toBeLessThan(346.8 * 1.01)
     expect(got!.outline).toBe(encodePolyline(ring))
+  })
+})
+
+// A player's tapped points (#1504), first point not repeated: the closing edge counts.
+describe('outlineCrossesItself', () => {
+  it('is false for a simple shape, convex or not', () => {
+    expect(outlineCrossesItself([m(0, 0), m(10, 0), m(10, 10), m(0, 10)])).toBe(false)
+    // An L: concave, still simple.
+    expect(outlineCrossesItself([m(0, 0), m(10, 0), m(10, 4), m(4, 4), m(4, 10), m(0, 10)])).toBe(false)
+  })
+  it('is true for a bow-tie', () => {
+    expect(outlineCrossesItself([m(0, 0), m(10, 10), m(10, 0), m(0, 10)])).toBe(true)
+  })
+  it('counts the closing edge', () => {
+    // A Z: the open path is simple; only the closing edge (10,10) -> (0,0) cuts across (10,0) -> (0,10).
+    expect(outlineCrossesItself([m(0, 0), m(10, 0), m(0, 10), m(10, 10)])).toBe(true)
   })
 })

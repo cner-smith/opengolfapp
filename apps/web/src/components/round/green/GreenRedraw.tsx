@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { encodePolyline, MIN_OUTLINE_POINTS, type GeoPoint } from '@oga/core'
+import { encodePolyline, MIN_OUTLINE_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
 import { saveMyGreenOutline } from '@oga/supabase'
 import { createMap, mapboxgl } from '../../../lib/mapbox'
 import { supabase } from '../../../lib/supabase'
@@ -123,7 +123,8 @@ export function GreenRedraw(p: GreenRedrawProps) {
   }, [ready, pts, closed, saved])
 
   const n = pts.length
-  const canSave = n >= MIN_OUTLINE_POINTS && !saving && !saved
+  const crosses = n >= MIN_OUTLINE_POINTS && outlineCrossesItself(pts)
+  const canSave = n >= MIN_OUTLINE_POINTS && !crosses && !saving && !saved
   const undo = () => (closed ? setClosed(false) : setPts((c) => c.slice(0, -1)))
   const save = async () => {
     if (!canSave) return
@@ -161,7 +162,7 @@ export function GreenRedraw(p: GreenRedrawProps) {
   }, [])
 
   const surveyName = p.gridSource ? (p.gridSource.startsWith('3dep') ? 'USGS 3DEP lidar' : 'Lidar') : null
-  const hint = closed ? 'Closed · Save when happy' : n >= 3 ? 'Click the first point to close' : 'Click around the edge'
+  const hint = crosses ? 'It crosses itself · drag a point to fix it' : closed ? 'Closed · Save when happy' : n >= 3 ? 'Click the first point to close' : 'Click around the edge'
   const kbd: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 12, border: `1px solid ${P.inkDim}`, borderRadius: 3, padding: '0 4px' }
 
   return (

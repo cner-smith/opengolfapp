@@ -35,6 +35,23 @@ export function ringAreaM2(ring: GeoPoint[]): number {
   return Math.abs(twice) / 2
 }
 
+/**
+ * Whether a player's outline (#1504; points in order, first not repeated) crosses
+ * itself once closed: a bow-tie isn't an area. Edges sharing a point don't count.
+ */
+export function outlineCrossesItself(pts: GeoPoint[]): boolean {
+  const n = pts.length
+  // ponytail: O(n²), fine for a few dozen taps.
+  const side = (a: GeoPoint, b: GeoPoint, c: GeoPoint) => Math.sign((b.lng - a.lng) * (c.lat - a.lat) - (b.lat - a.lat) * (c.lng - a.lng))
+  for (let i = 0; i < n; i++)
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue // the closing edge meets the first at point 0
+      const a = pts[i]!, b = pts[(i + 1) % n]!, c = pts[j]!, d = pts[(j + 1) % n]!
+      if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true
+    }
+  return false
+}
+
 function samePoint(a: GeoPoint, b: GeoPoint): boolean {
   return Math.abs(a.lat - b.lat) < 1e-9 && Math.abs(a.lng - b.lng) < 1e-9
 }
