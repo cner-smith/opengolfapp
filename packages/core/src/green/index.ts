@@ -26,4 +26,4 @@ export { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gri
 export { greenContours, type GreenContours, type GreenPoint } from './contours'
 export { paceLines } from './pace-lines'
 export { ellipsePoint, nearestTurn, viewPoint, wayfinder, WAYFINDER_MIN_ZOOM, type MapCamera, type ScreenBox, type Wayfinder, type WayfinderEllipse } from './wayfinder'
-export { greenLayersVisible, type GreenLayers } from './layers'
+export { greenLayersVisible, heatMapHideReason, HIDE_TILT_PCT, type GreenLayers } from './layers'
