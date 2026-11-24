@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { greenLayersVisible } from './layers'
+import { greenLayersVisible, heatMapHideReason } from './layers'
 
 // The fixed marks: the outline, the pin and the margin bars always show;
 // the rails show only while the flag is held.
@@ -71,5 +71,31 @@ describe('greenLayersVisible', () => {
       rails: false,
     })
     expect(greenLayersVisible({ held: false, view: 'height', lidar: false, paceLines: true }).contours).toBe(false)
+  })
+})
+
+describe('heatMapHideReason', () => {
+  it('shows a green of ordinary tilt with no outline flag', () => {
+    expect(heatMapHideReason(3.1, null)).toBeNull()
+    expect(heatMapHideReason(10, '')).toBeNull()
+  })
+
+  it('shows a flagged outline unless it is too big (the middle band shows)', () => {
+    expect(heatMapHideReason(6.5, 'solidity,shade_edge,lidar_shade_overrun')).toBeNull()
+    expect(heatMapHideReason(2, 'area_small')).toBeNull()
+  })
+
+  it('hides an outline flagged far too big, whatever its tilt', () => {
+    expect(heatMapHideReason(6.5, 'area_large,solidity,shade_edge')).toBe('outline far bigger than a green')
+    expect(heatMapHideReason(null, 'solidity, area_large')).toBe('outline far bigger than a green')
+  })
+
+  it('hides a green that tilts more than 10%', () => {
+    expect(heatMapHideReason(10.04, null)).toBe('tilts 10.0%, steeper than a green')
+    expect(heatMapHideReason(14.26, 'start_moved')).toBe('tilts 14.3%, steeper than a green')
+  })
+
+  it('shows when there is no tilt to judge', () => {
+    expect(heatMapHideReason(null, null)).toBeNull()
   })
 })

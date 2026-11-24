@@ -37,3 +37,18 @@ export function greenLayersVisible(i: { held: boolean; view: 'plain' | 'slope' |
     bars: true,
   }
 }
+
+/** Overall tilt past this is almost never a real green (#1503: 11 of 12 graded steep greens were bad outlines). */
+export const HIDE_TILT_PCT = 10
+
+/**
+ * Why a green's heat map stays hidden (#1503), or null to show it. The outline
+ * still shows, so a player can fix it. `tiltPct` is greenPlaneTilt over the grid
+ * cut to the outline shown; `outlineFlagReason` is green_maps.outline_flag_reason
+ * (a comma list from the outliner).
+ */
+export function heatMapHideReason(tiltPct: number | null, outlineFlagReason: string | null): string | null {
+  if (outlineFlagReason?.split(',').some((r) => r.trim() === 'area_large')) return 'outline far bigger than a green'
+  if (tiltPct != null && tiltPct > HIDE_TILT_PCT) return `tilts ${tiltPct.toFixed(1)}%, steeper than a green`
+  return null
+}
