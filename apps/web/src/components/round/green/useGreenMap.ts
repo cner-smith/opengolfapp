@@ -42,6 +42,8 @@ export interface GreenData {
   /** 'none' = no height grid for this green (or one flagged as suspect); 'error' = it didn't load. Both: Plain only. */
   lidar: 'loading' | 'none' | 'error' | 'ready'
   gridSource: string | null
+  /** Set when the survey exists but was hidden as suspect; replaces "no survey" (matches mobile). */
+  gridNote: string | null
   survey: GreenSurvey | null
 }
 
@@ -120,9 +122,16 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
   const green = useMemo<GreenData | null>(
     () =>
       row && outline
-        ? { outline, outlineSource: row.outline_source, lidar, gridSource: row.grid_source, survey }
+        ? {
+            outline,
+            outlineSource: row.outline_source,
+            lidar,
+            gridSource: row.grid_source,
+            gridNote: row.grid_flagged ? 'The slope survey may not match this green.' : null,
+            survey,
+          }
         : null,
-    [row?.outline_source, row?.grid_source, outline, lidar, survey],
+    [row?.outline_source, row?.grid_source, row?.grid_flagged, outline, lidar, survey],
   )
   return { courseHasGreens: (outlines.data?.length ?? 0) > 0, green }
 }

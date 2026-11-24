@@ -163,7 +163,7 @@ function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg:
         ? ['Loading the slope survey…', 'The outline is ready; slope follows.']
         : green.lidar === 'error'
           ? ['Outline only', 'The slope survey didn’t load. Check your connection and reopen the hole.']
-          : ['Outline only', 'No slope survey covers this green yet.']
+          : ['Outline only', green.gridNote ?? 'No slope survey covers this green yet.']
     return (
       <div>
         <div style={{ ...serif, fontSize: 18, lineHeight: 1.25 }}>{head}</div>
