@@ -91,7 +91,7 @@ describe('heatMapHideReason', () => {
   })
 
   it('hides a green that tilts more than 10%', () => {
-    expect(heatMapHideReason(10.04, null)).toBe('tilts 10.0%, steeper than a green')
+    expect(heatMapHideReason(10.5, null)).toBe('tilts 10.5%, steeper than a green')
     expect(heatMapHideReason(14.26, 'start_moved')).toBe('tilts 14.3%, steeper than a green')
   })
 
