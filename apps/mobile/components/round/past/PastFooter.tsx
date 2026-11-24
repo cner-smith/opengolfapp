@@ -5,6 +5,8 @@ import { TYPE } from '../../../lib/typography'
 import { Icon } from '../../paper/icons'
 import { Key, PaperSurface, Rocker } from '../../paper/Paper'
 import { FONT_CAP, GAP, MARGIN, P } from '../../paper/tokens'
+import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../../paper/Dock'
+import { CoachTarget } from '../../help/CoachMarks'
 
 export type PastMode = 'PLACE_BALL' | 'SET_AIM' | 'PIN'
 
@@ -94,5 +96,135 @@ export function ModeRocker({
       iconBeside
       style={{ width: 186 }}
     />
+  )
+}
+
+// The past-round footer's controls: logging (§19.4) or review (§19.5), one
+// branch per state. Layout only; PastRoundMap owns the state and the saves.
+export function PastControls(p: {
+  completed: boolean
+  mode: PastMode
+  hasPin: boolean
+  /** The selected shot's number. */
+  n: number
+  placedNow: boolean
+  startedCount: number
+  onlyDraft: boolean
+  adding: boolean
+  addingNumber: number
+  count: number
+  pos: number
+  summary: string
+  isLast: boolean
+  canEdit: boolean
+  onMode: (m: PastMode) => void
+  onRemove: () => void
+  onAdd: () => void
+  onStartAdd: () => void
+  onCancelAdd: () => void
+  onStep: (pos: number) => void
+  onEdit: () => void
+}) {
+  const { completed, mode, hasPin, n, placedNow, startedCount, onlyDraft, adding, addingNumber, count, pos, summary, isLast, canEdit } = p
+  const { onMode, onRemove, onAdd, onStartAdd, onCancelAdd, onStep, onEdit } = p
+  return (
+    <CoachTarget id="past.footer">
+    <PastFooter>
+      {!completed ? (
+        /* ───────── LOGGING (§19.4) ───────── */
+        <>
+          {mode === 'PIN' ? (
+            <Voice
+              trailing={
+                <SmallKey label="Cancel" a11y="Cancel pin placement" onPress={() => onMode('PLACE_BALL')} />
+              }
+            >
+              <Em>Where’s the flag?</Em> Tap it on the map.
+            </Voice>
+          ) : !hasPin ? (
+            <NoPinVoice onPress={() => onMode('PIN')} />
+          ) : mode === 'SET_AIM' ? (
+            <Voice>
+              <Em>Tap where you aimed shot {n}.</Em>
+            </Voice>
+          ) : !placedNow ? (
+            startedCount === 0 ? (
+              <Voice>
+                <Em>Tap the map where you hit shot {n}.</Em>
+              </Voice>
+            ) : (
+              <Voice>
+                Shot {n - 1} is on the map. <Em>Tap where you hit shot {n}.</Em>
+              </Voice>
+            )
+          ) : (
+            <Voice>
+              {/* The primary below says "Add shot N+1"; repeating it here
+                  orphaned the number onto a second line. */}
+              Shot {n} is on the map. <Em>Drag to fine-tune.</Em>
+            </Voice>
+          )}
+          <ButtonRow>
+            <Secondary
+              // Broken on purpose: at maxWidth 120 it wrapped as "Remove shot / 1".
+              label={`Remove\nshot ${n}`}
+              a11y="Remove this shot"
+              onPress={onRemove}
+              disabled={!placedNow && onlyDraft}
+            />
+            <Primary
+              plus
+              label={`Add shot ${n + 1}`}
+              a11y="Add another shot"
+              onPress={onAdd}
+              disabled={!placedNow}
+            />
+          </ButtonRow>
+        </>
+      ) : adding ? (
+        /* ───────── REVIEW: placing a newly added shot ───────── */
+        <Voice trailing={<SmallKey label="Cancel" a11y="Cancel adding shot" onPress={onCancelAdd} />}>
+          <Em>Tap the map where you hit shot {addingNumber}.</Em>
+        </Voice>
+      ) : count === 0 ? (
+        /* ───────── REVIEW: finalized hole with no shots ───────── */
+        <>
+          <Voice>No shots logged for this hole.</Voice>
+          <ButtonRow>
+            <Primary plus label="Add shot" a11y="Add the first shot" onPress={onStartAdd} />
+          </ButtonRow>
+        </>
+      ) : (
+        /* ───────── REVIEW: shot stepper (§19.5) ───────── */
+        <>
+          <ShotStepperRow
+            pos={pos}
+            count={count}
+            summary={summary}
+            onPrev={() => onStep(pos - 1)}
+            onNext={() => onStep(pos + 1)}
+          />
+          <ButtonRow>
+            <Secondary label="Remove" a11y="Remove this shot" color={P.neg} onPress={onRemove} />
+            {/* Adding is only offered off the last shot (#593). */}
+            {isLast && (
+              <Secondary
+                label="Add shot"
+                a11y="Add another shot"
+                icon={<Icon.plus size={18} />}
+                onPress={onStartAdd}
+              />
+            )}
+            <Primary
+              label={`Edit shot ${pos + 1}`}
+              a11y="Edit this shot's details"
+              disabled={!canEdit}
+              onPress={onEdit}
+            />
+          </ButtonRow>
+        </>
+      )}
+    </PastFooter>
+    </CoachTarget>
   )
 }
