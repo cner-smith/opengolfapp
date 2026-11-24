@@ -128,8 +128,14 @@ export function GreenRedraw(p: GreenRedrawProps) {
   const save = async () => {
     if (!canSave) return
     setSaving(true)
-    const { error: err } = await saveMyGreenOutline(supabase, p.greenId, encodePolyline([...pts, pts[0]!]))
-    setSaving(false)
+    let err: unknown
+    try {
+      err = (await saveMyGreenOutline(supabase, p.greenId, encodePolyline([...pts, pts[0]!]))).error
+    } catch (e) {
+      err = e
+    } finally {
+      setSaving(false)
+    }
     if (err) return setError(toUserMessage(err))
     await qc.invalidateQueries({ queryKey: ['my-green-outlines'] })
     setClosed(true)
@@ -139,7 +145,9 @@ export function GreenRedraw(p: GreenRedrawProps) {
   keys.current = { undo, save, close: p.onClose, saved }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      // Leave the browser's own shortcuts and a focused button's Enter alone.
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLButtonElement && e.key === 'Enter')) return
       const k = keys.current
       if (e.key === 'Escape') k.close()
       else if (k.saved) return

@@ -9,9 +9,7 @@ import {
   greenPlaneTilt,
   greenShape,
   greenSlopeField,
-  MIN_OUTLINE_COVERAGE,
-  outlineCoverage,
-  playerOutlineHideReason,
+  playerOutlineSurvey,
   type GeoPoint,
   type GreenContours,
   type GreenGrid,
@@ -22,6 +20,8 @@ import {
 } from '@oga/core'
 import { byteaBytes, getGreenGrid, getGreenOutlines, getMyGreenOutlines, type Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
+
+const NOTE_SUSPECT = 'The slope survey may not match this green.'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 
@@ -119,12 +119,12 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
     if (!wantGrid || !outline || !d?.grid || d.grid_lng0 == null || d.grid_lat0 == null) return { survey: null, note: null }
     try {
       const full = decodeGreenGrid(byteaBytes(d.grid))
-      if (mine && outlineCoverage(full, d.grid_lng0, d.grid_lat0, mine) < MIN_OUTLINE_COVERAGE)
-        return { survey: null, note: 'The slope survey doesn’t reach all of your outline.' }
-      // Padded grids run past the green: draw only what the current outline holds (#1502).
-      const g = clipGreenGrid(full, d.grid_lng0, d.grid_lat0, outline)
-      const tilt = greenPlaneTilt(g)
-      if (mine && playerOutlineHideReason(flagged, flagReason, tilt?.tiltPct ?? null)) return { survey: null, note: NOTE_SUSPECT }
+      // A player's outline is judged afresh (#1504); padded grids run past the green, so cut to the outline (#1502).
+      const cut = mine ? playerOutlineSurvey(full, d.grid_lng0, d.grid_lat0, mine, flagged, flagReason) : null
+      if (cut && 'hidden' in cut)
+        return { survey: null, note: cut.hidden === 'not_reached' ? 'The slope survey doesn’t reach all of your outline.' : NOTE_SUSPECT }
+      const g = cut ? cut.grid : clipGreenGrid(full, d.grid_lng0, d.grid_lat0, outline)
+      const tilt = cut ? cut.tilt : greenPlaneTilt(g)
       const field = greenSlopeField(g)
       return {
         survey: {
@@ -168,8 +168,6 @@ export function useGreenMap(holes: HoleRow[], holeId: string | undefined) {
   )
   return { courseHasGreens: (outlines.data?.length ?? 0) > 0, green }
 }
-
-const NOTE_SUSPECT = 'The slope survey may not match this green.'
 
 function ringOf(polyline: string | undefined): GeoPoint[] | null {
   if (!polyline) return null
