@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Circle, Line, Polygon, Rect } from 'react-native-svg'
-import { decodePolyline, MIN_OUTLINE_POINTS as MIN_POINTS, type GeoPoint } from '@oga/core'
+import { decodePolyline, MIN_OUTLINE_POINTS as MIN_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
 import { getGreenOutlines } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { haptic } from '../../../lib/haptics'
@@ -101,7 +101,8 @@ function Redraw({
     setPts((cur) => [...cur, p])
   }
   const n = pts.length
-  const hint = closed ? 'Closed · Save when happy' : n >= 3 ? 'Tap the first point to close' : 'Tap around the edge'
+  const crosses = n >= MIN_POINTS && outlineCrossesItself(pts)
+  const hint = crosses ? 'It crosses itself · drag a point to fix it' : closed ? 'Closed · Save when happy' : n >= 3 ? 'Tap the first point to close' : 'Tap around the edge'
   const save = async () => {
     setSaving(true)
     const err = await onSave(pts)
@@ -183,7 +184,7 @@ function Redraw({
               setClosed(false)
             }}
           />
-          <Primary label={saving ? 'Saving…' : n < MIN_POINTS ? `Save (${MIN_POINTS - n} more)` : 'Save'} disabled={n < MIN_POINTS || saving} onPress={() => void save()} />
+          <Primary label={saving ? 'Saving…' : n < MIN_POINTS ? `Save (${MIN_POINTS - n} more)` : 'Save'} disabled={n < MIN_POINTS || crosses || saving} onPress={() => void save()} />
         </View>
       </View>
     </View>
