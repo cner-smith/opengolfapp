@@ -22,7 +22,7 @@ export {
   type SteepnessTerm,
 } from './words'
 export { greenShape, shapePhrase, type GreenShape } from './shape'
-export { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo, outlineCoverage, type GreenFrame } from './frame'
+export { clipGreenGrid, greenApproach, greenFrame, greenMiddle, gridCorners, gridPointGeo, MIN_OUTLINE_COVERAGE, MIN_OUTLINE_POINTS, outlineCoverage, type GreenFrame } from './frame'
 export { greenContours, type GreenContours, type GreenPoint } from './contours'
 export { paceLines } from './pace-lines'
 export { ellipsePoint, nearestTurn, viewPoint, wayfinder, WAYFINDER_MIN_ZOOM, type MapCamera, type ScreenBox, type Wayfinder, type WayfinderEllipse } from './wayfinder'

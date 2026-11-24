@@ -4,14 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Circle, Line, Polygon, Rect } from 'react-native-svg'
-import { decodePolyline, type GeoPoint } from '@oga/core'
+import { decodePolyline, MIN_OUTLINE_POINTS as MIN_POINTS, type GeoPoint } from '@oga/core'
 import { getGreenOutlines } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { haptic } from '../../../lib/haptics'
 import { TYPE } from '../../../lib/typography'
 import { Primary, Secondary } from '../../paper/Dock'
 import { P } from '../../paper/tokens'
-import { MIN_OUTLINE_POINTS as MIN_POINTS, saveDrawnOutline } from './greenData'
+import { saveDrawnOutline } from './greenData'
 
 // Fix this green (#1504, owner pick A: tap points; click path in the
 // fix-green mock). The app's satellite map: one finger taps a point, two move

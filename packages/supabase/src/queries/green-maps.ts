@@ -7,7 +7,7 @@ import type { OgaSupabaseClient } from '../client'
 export function getGreenOutlines(client: OgaSupabaseClient, holeIds: string[]) {
   return client
     .from('green_maps')
-    .select('hole_id, outline, outline_source, grid_source, grid_flagged, grid_flag_reason')
+    .select('hole_id, outline, outline_source, grid_source, grid_flagged, grid_flag_reason, grid_flown_on')
     .in('hole_id', holeIds)
 }
 

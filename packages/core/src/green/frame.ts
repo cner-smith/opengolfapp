@@ -97,6 +97,11 @@ export function clipGreenGrid(g: GreenGrid, lng0: number, lat0: number, ring: Ge
   return { ...g, mask, heightsMm }
 }
 
+/** A player's outline (#1504) needs this many points; fewer is rarely a green (the mock's bar). */
+export const MIN_OUTLINE_POINTS = 4
+/** outlineCoverage a player's outline needs for a heat map: the loader's bar for ours. */
+export const MIN_OUTLINE_COVERAGE = 0.97
+
 /**
  * The share of `ring`'s grid points (cell centres, on the grid's lattice, past
  * its edges too) that were surveyed. A player's outline (#1504) may run off the

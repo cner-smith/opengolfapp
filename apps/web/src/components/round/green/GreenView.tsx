@@ -65,6 +65,8 @@ export interface GreenViewProps {
   onSetPinOnMap: () => void
   /** True while the flag is held, so the map can set its other green effects aside too (#1385). */
   onHold?: (held: boolean) => void
+  /** Fix this green (#1504): opens the redraw. */
+  onRedraw: () => void
   size: number
 }
 
@@ -97,7 +99,7 @@ export function GreenView(p: GreenViewProps) {
   const mode: GreenViewMode = green.lidar === 'ready' ? p.view : 'plain'
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <ReadLine green={green} approachDeg={p.approachDeg} unit={p.unit} />
+      <ReadLine green={green} approachDeg={p.approachDeg} unit={p.unit} onRedraw={p.onRedraw} />
       <Rocker
         label="Green view"
         className="rocker-tight"
@@ -148,13 +150,20 @@ export function GreenView(p: GreenViewProps) {
         {p.pin && sheet ? 'Drag the flag to set this round’s pin. ' : ''}
         {p.unit === 'meters' ? '1 pace ≈ 0.9 m' : '1 pace = 1 yd'}
         {green.lidar === 'ready' && green.gridSource?.startsWith('3dep') ? ' · USGS 3DEP lidar' : ''}
-        {green.outlineSource === 'osm' ? ' · OSM outline' : ''}
+        {green.mine ? ' · your outline' : green.outlineSource === 'osm' ? ' · OSM outline' : ''}
       </div>
+      <button
+        type="button"
+        onClick={p.onRedraw}
+        style={{ ...sans, alignSelf: 'flex-start', justifySelf: 'start', background: 'none', border: 'none', padding: 0, fontSize: 14, fontWeight: 600, color: 'var(--caddie-accent)', cursor: 'pointer' }}
+      >
+        Look off? Fix it ›
+      </button>
     </div>
   )
 }
 
-function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg: number; unit: DistanceUnit }) {
+function ReadLine({ green, approachDeg, unit, onRedraw }: { green: GreenData; approachDeg: number; unit: DistanceUnit; onRedraw: () => void }) {
   const [pct, setPct] = useState(false)
   const s = green.survey
   if (green.lidar !== 'ready' || !s || !s.tilt) {
@@ -168,6 +177,12 @@ function ReadLine({ green, approachDeg, unit }: { green: GreenData; approachDeg:
       <div>
         <div style={{ ...serif, fontSize: 18, lineHeight: 1.25 }}>{head}</div>
         <div style={{ ...sans, fontSize: 13, color: P.inkDim }}>{sub}</div>
+        {/* Our check hid the heat map: the fix is one button here (#1504). */}
+        {green.lidar === 'none' && green.gridNote && !green.mine && (
+          <button type="button" className="key key-primary" onClick={onRedraw} style={{ marginTop: 8 }}>
+            Redraw the green <span style={{ fontWeight: 400, opacity: 0.85 }}>· about 30 seconds</span>
+          </button>
+        )}
       </div>
     )
   }

@@ -33,6 +33,7 @@ import {
 import { PhoneFoot } from '../../../components/round/map/MapBottomChrome'
 import { useUnits } from '../../../hooks/useUnits'
 import { GreenView } from '../../../components/round/green/GreenView'
+import { GreenRedraw } from '../../../components/round/green/GreenRedraw'
 import { useGreenMap, type GreenViewMode } from '../../../components/round/green/useGreenMap'
 import type { UseClubDispersionResult } from '../hooks/useClubDispersion'
 
@@ -222,6 +223,8 @@ export function MapView({
   const [pinMovedInView, setPinMovedInView] = useState(0)
   // The green view's flag is held: the map sets its other green effects aside (#1385).
   const [pinHeld, setPinHeld] = useState(false)
+  // Fix this green (#1504): the redraw covers the round view while open.
+  const [redrawing, setRedrawing] = useState(false)
   const wide = useWide()
   useEffect(() => {
     if (!sheetOpen) return
@@ -234,6 +237,7 @@ export function MapView({
     setAdding(false)
     setGreenOn(false)
     setSheetOpen(false)
+    setRedrawing(false)
   }, [activeHoleNumber])
   const found = steps.findIndex((s) => s.id === selectedId)
   const stepPos = found >= 0 ? found : steps.length - 1
@@ -370,6 +374,10 @@ export function MapView({
         handlers.onStartPlacePin()
       }}
       onHold={setPinHeld}
+      onRedraw={() => {
+        setSheetOpen(false)
+        setRedrawing(true)
+      }}
       size={size}
     />
   )
@@ -446,8 +454,19 @@ export function MapView({
           "lg:[grid-template-areas:'hole_map'_'list_map'_'foot_map'] lg:grid-cols-[400px_1fr]",
           'h-[calc(100dvh-112px)] min-h-[560px] lg:h-[calc(100vh-48px)] lg:min-h-[640px] lg:max-h-[980px]',
         ].join(' ')}
-        style={{ overflow: 'hidden', background: P.chrome }}
+        style={{ overflow: 'hidden', background: P.chrome, position: 'relative' }}
       >
+        {redrawing && green && (
+          <GreenRedraw
+            holeNumber={activeHoleNumber}
+            greenId={green.greenId}
+            ours={green.ours}
+            gridSource={green.gridSource}
+            flownOn={green.flownOn}
+            wide={wide}
+            onClose={() => setRedrawing(false)}
+          />
+        )}
         <div
           className="lg:border-r border-caddie-ink"
           style={{ gridArea: 'hole', ...chromeSurface, borderBottom: `1px solid ${P.ink}` }}
