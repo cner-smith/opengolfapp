@@ -89,6 +89,7 @@ export function clipGreenGrid(g: GreenGrid, lng0: number, lat0: number, ring: Ge
       const j = r * g.width + c
       if (!g.mask[j]) continue
       const p = gridPointGeo(lng0, lat0, c * GREEN_CELL_M, r * GREEN_CELL_M)
+      // The box test only skips work; pointInRing decides.
       if (p.lat < south || p.lat > north || p.lng < west || p.lng > east || !pointInRing(p, ring)) continue
       mask[j] = 1
       heightsMm[j] = g.heightsMm[j]!

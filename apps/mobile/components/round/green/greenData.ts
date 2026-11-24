@@ -53,7 +53,7 @@ export interface PreparedGreen {
   lidar: GreenLidar | 'pending' | 'none'
 }
 
-/** Padded grids (#1501) reach ~18.5k cells at p95 and 80k at the very most. */
+/** Padded grids (#1501): ~18.5k cells at p95, 43k the biggest on OK. A bigger grid shows as no survey. */
 const MAX_CELLS = 65_000
 
 type OutlineRow = { hole_id: string; outline: string; outline_source: string; grid_source: string | null; grid_flagged: boolean }
@@ -200,9 +200,10 @@ export function useGreenMaps(
           } else settle(id, 'none', 'Height and slope load with signal')
           return void setTimeout(next, 16)
         }
+        const ring = start.get(id)!.ring
         InteractionManager.runAfterInteractions(() => {
           if (cancelled) return
-          settle(id, prepareLidar(id, row, start.get(id)!.ring))
+          settle(id, prepareLidar(id, row, ring))
           // Let a frame through between greens.
           setTimeout(next, 16)
         })
