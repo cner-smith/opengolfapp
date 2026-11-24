@@ -120,7 +120,7 @@ function Redraw({
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={[TYPE.serif, { fontSize: 22, color: P.ink }]}>Hole {holeNumber} green</Text>
-          <Text style={[TYPE.body, { fontSize: 14, color: P.inkDim }]}>{hint}</Text>
+          <Text style={[TYPE.body, { fontSize: 14, color: P.inkDim, textAlign: 'center' }]}>{hint}</Text>
         </View>
         <View style={{ width: 70 }} />
       </View>
