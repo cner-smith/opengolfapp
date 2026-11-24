@@ -83,18 +83,21 @@ export function ModeRocker({
   value,
   onChange,
   aimDisabled,
+  noPin,
 }: {
   value: PastMode
   onChange: (m: PastMode) => void
   aimDisabled: boolean
+  /** The green view sets the pin on courses with green maps (#1504 follow-up). */
+  noPin: boolean
 }) {
   return (
     <Rocker
-      options={MODES.map((m) => ({ ...m, disabled: m.value === 'SET_AIM' && aimDisabled }))}
+      options={MODES.filter((m) => !(noPin && m.value === 'PIN')).map((m) => ({ ...m, disabled: m.value === 'SET_AIM' && aimDisabled }))}
       value={value}
       onChange={(m) => m && onChange(m)}
       iconBeside
-      style={{ width: 186 }}
+      style={{ width: noPin ? 124 : 186 }}
     />
   )
 }
@@ -130,7 +133,11 @@ export function PastControls(p: {
   return (
     <CoachTarget id="past.footer">
     <PastFooter>
-      {!completed ? (
+      {mode === 'PIN' && completed ? (
+        <Voice trailing={<SmallKey label="Cancel" a11y="Cancel pin placement" onPress={() => onMode('PLACE_BALL')} />}>
+          <Em>Where’s the flag?</Em> Tap it on the map.
+        </Voice>
+      ) : !completed ? (
         /* ───────── LOGGING (§19.4) ───────── */
         <>
           {mode === 'PIN' ? (
