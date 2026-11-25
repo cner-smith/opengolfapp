@@ -31,6 +31,7 @@ import { ModeRocker, PastControls } from './past/PastFooter'
 import { CoachTarget } from '../help/CoachMarks'
 import { PastHoleBlock, type HoleResult } from './past/PastHoleBlock'
 import { ShotCallout, type Projector } from './past/ShotCallout'
+import { useGreenView } from './green/GreenView'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -769,7 +770,33 @@ export function PastRoundMap({
 
   const n = active?.shotNumber ?? 1
 
-  const wayfinderClear = completed ? 36 : ROCKER_BOTTOM + 51
+  // The green view (#1504 follow-up, owner pick A): the live round's key, view
+  // and map layers. On a course with green maps it replaces the rocker's Pin.
+  const green = useGreenView({
+    courseId: holes[0]?.course_id,
+    holes,
+    hole: currentHole,
+    holeNumber,
+    roundId,
+    askWhen: false,
+    pin: effectivePin,
+    ball: active?.start ?? null,
+    previousShots: placedReal.slice(0, Math.max(0, activePos)).map((x) => x.s.start!),
+    tee,
+    userId,
+    offline: false,
+    unit,
+    pinPlacementOpen: mode === 'PIN',
+    onSetPin: handleSetPin,
+    onStartPinPlacement: () => setMode('PIN'),
+    onCancelPinPlacement: () => setMode('PLACE_BALL'),
+  })
+  // Bottom-left over the map: the rocker while logging, the green key above it.
+  const keyBottom = completed ? ROCKER_BOTTOM : ROCKER_BOTTOM + 47 + 8
+  const cornerH = green.hasGreens ? keyBottom + 103 : ROCKER_BOTTOM + 47
+  const cornerW = green.hasGreens ? 124 : 186
+
+  const wayfinderClear = completed && !green.hasGreens ? 36 : cornerH + 4
 
   return (
     <View style={{ flex: 1, backgroundColor: P.chrome }}>
@@ -804,7 +831,7 @@ export function PastRoundMap({
           onCameraChanged={onCameraChanged}
           // REVIEW is always flat top-down (PLACE_BALL) so the selected marker
           // drags; LOGGING follows the Ball/Aim/Pin rocker.
-          phase={completed ? 'PLACE_BALL' : mode}
+          phase={completed && mode !== 'PIN' ? 'PLACE_BALL' : mode}
           // Review: tap-to-place only while adding a new shot (otherwise
           // drag-only so stray taps don't move the selected shot). Logging:
           // always tap-to-place.
@@ -827,6 +854,7 @@ export function PastRoundMap({
           arcWidthYards={0}
           circleRadiusYards={0}
           handicap={handicap}
+          greenLayers={green.mapLayers}
         />
         {callout && active?.start && mode !== 'PIN' && (
           <ShotCallout
@@ -839,7 +867,7 @@ export function PastRoundMap({
             crumbCount={pastCrumbs.crumbs.length}
             plateWidths={plateWidths}
             onPlates={onPlates}
-            avoidCorner={completed ? undefined : { w: MARGIN + 186 + 4, h: ROCKER_BOTTOM + 47 + 4 }}
+            avoidCorner={completed && !green.hasGreens ? undefined : { w: MARGIN + cornerW + 4, h: cornerH + 4 }}
             value={callout.value}
             unit={callout.unit}
             sub={callout.sub}
@@ -849,10 +877,11 @@ export function PastRoundMap({
           // Bottom-left over the map, lifted clear of the Mapbox logo (ToS).
           <View style={{ position: 'absolute', left: MARGIN, bottom: ROCKER_BOTTOM }}>
             <CoachTarget id="past.modes">
-              <ModeRocker value={mode} onChange={setMode} aimDisabled={!active?.start} />
+              <ModeRocker value={mode} onChange={setMode} aimDisabled={!active?.start} noPin={green.hasGreens} />
             </CoachTarget>
           </View>
         )}
+        {green.hasGreens && <View style={{ position: 'absolute', left: MARGIN, bottom: keyBottom }}>{green.key}</View>}
       </View>
 
       <PastControls
@@ -891,6 +920,7 @@ export function PastRoundMap({
         onConfirm={handleGreenYes}
         onCancel={handleGreenNo}
       />
+      {green.view}
     </View>
   )
 }

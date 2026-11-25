@@ -452,6 +452,7 @@ export default function LiveRoundSession({
     hole: data.currentHole,
     holeNumber,
     roundId,
+    askWhen: true,
     pin: data.roundPin ?? data.storedPin,
     ball: heroBall,
     previousShots: shotStarts,

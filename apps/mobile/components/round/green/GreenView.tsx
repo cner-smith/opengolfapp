@@ -61,6 +61,8 @@ export interface GreenViewInput {
   hole: { id: string; loop_of: string | null } | null
   holeNumber: number
   roundId: string | undefined
+  /** A live round asks "after the round or now?"; a past round goes straight to the redraw. */
+  askWhen: boolean
   pin: GeoPoint | null
   ball: GeoPoint | null
   previousShots: GeoPoint[]
@@ -80,6 +82,8 @@ export function useGreenView(i: GreenViewInput): {
   mapLayers: ReactNode
   open: boolean
   close: () => void
+  /** The course has green maps (a past round's rocker drops its Pin then). */
+  hasGreens: boolean
 } {
   const { loaded, greens, saveMine } = useGreenMaps(i.courseId, i.holes, i.holeNumber, i.userId, i.offline)
   const greenId = i.hole ? i.hole.loop_of ?? i.hole.id : null
@@ -203,7 +207,7 @@ export function useGreenView(i: GreenViewInput): {
       onStartPinPlacement={i.onStartPinPlacement}
       onHold={setHeld}
       fixAsk={fix === 'when'}
-      onFix={(f) => (f === 'later' ? fixLater() : setFix(f))}
+      onFix={(f) => (f === 'later' ? fixLater() : setFix(f === 'when' && !i.askWhen ? 'redraw' : f))}
     />
   ) : toast ? (
     <View pointerEvents="none" style={{ position: 'absolute', left: 20, right: 20, top: 140, zIndex: 30, backgroundColor: P.ink, borderRadius: 6, paddingHorizontal: 16, paddingVertical: 14 }}>
@@ -217,7 +221,7 @@ export function useGreenView(i: GreenViewInput): {
       <GreenMapLayers green={green} mode={mapOn && lidar ? mode : 'plain'} approach={approach} pin={i.pin} paceLines={paceOn} held={held} />
     ) : null
 
-  return { key, view, mapLayers, open, close }
+  return { key, view, mapLayers, open, close, hasGreens: greens.size > 0 }
 }
 
 // ---------- the key ----------
