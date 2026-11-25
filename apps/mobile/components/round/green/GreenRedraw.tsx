@@ -249,7 +249,6 @@ const other = (roundId: string, holeId: string) => (x: FixLater) => !(x.roundId 
 export const addFixLater = (userId: string, f: FixLater) => changeFixLater(userId, (l) => [...l.filter(other(f.roundId, f.holeId)), f])
 export const dropFixLater = (userId: string, roundId: string, holeId: string) => changeFixLater(userId, (l) => l.filter(other(roundId, holeId)))
 
-
 /** The round page's card for greens saved for after the round. */
 export function GreenFixCard({ userId, roundId }: { userId: string; roundId: string }) {
   const [items, setItems] = useState<FixLater[]>([])

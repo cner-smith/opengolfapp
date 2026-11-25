@@ -556,7 +556,7 @@ function Detail(
   const shapeWords = lidar?.shape ? shapePhrase(lidar.shape, p.approach, p.unit) : null
   const lines = lidar ? [shapeWords, ff ? falseFrontWords(ff, p.unit) : null] : []
   const source = [
-    lidar ? lidarCredit(green.gridSource) : null,
+    lidar ? lidarCredit(green.gridSource) ?? 'Lidar' : null,
     green.mine ? 'your outline' : green.outlineSource === 'osm' ? 'OSM outline' : green.outlineSource === 'manual' ? 'Outline drawn by hand' : 'Traced outline',
     '1 pace = 1 yd',
   ]

@@ -147,8 +147,8 @@ export function osmGreenMap(
 }
 
 /**
- * Who flew a green's survey, as credited in the apps. DOGAMI asked for its
- * agency name spelled out (public domain, 2026-11-25).
+ * Who flew a green's survey, as credited in the apps. DOGAMI's data is public
+ * domain; it asked for its agency name spelled out.
  */
 export function lidarCredit(gridSource: string | null): string | null {
   if (!gridSource) return null
