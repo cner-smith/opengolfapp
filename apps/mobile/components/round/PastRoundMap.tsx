@@ -32,6 +32,7 @@ import { CoachTarget } from '../help/CoachMarks'
 import { PastHoleBlock, type HoleResult } from './past/PastHoleBlock'
 import { ShotCallout, type Projector } from './past/ShotCallout'
 import { useGreenView } from './green/GreenView'
+import { useAuth } from '../../hooks/useAuth'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -294,7 +295,7 @@ export function PastRoundMap({
   // review stepper walks this list; an un-placed trailing draft (while
   // adding) is excluded so "Shot N of M" counts only real shots.
   const placedReal = useMemo(
-    () => placed.map((s, i) => ({ s, i })).filter((x) => x.s.start != null),
+    () => placed.flatMap((s, i) => (s.start ? [{ s, i, start: s.start }] : [])),
     [placed],
   )
   const activePos = placedReal.findIndex((x) => x.i === activeIdx)
@@ -723,7 +724,7 @@ export function PastRoundMap({
         club: clubOf(s.id),
         plate: plateSides[ci],
       })),
-      path: placedReal.map((x) => x.s.start!),
+      path: placedReal.map((x) => x.start),
       segment: active?.start && segEnd ? [active.start, segEnd] : null,
       selectedN: active?.start ? active.shotNumber : null,
       onSelect: selectCrumbs ? (ci) => others[ci] && setActiveIdx(others[ci].i) : undefined,
@@ -772,6 +773,7 @@ export function PastRoundMap({
 
   // The green view (#1504 follow-up, owner pick A): the live round's key, view
   // and map layers. On a course with green maps it replaces the rocker's Pin.
+  const { offline } = useAuth()
   const green = useGreenView({
     courseId: holes[0]?.course_id,
     holes,
@@ -781,10 +783,10 @@ export function PastRoundMap({
     askWhen: false,
     pin: effectivePin,
     ball: active?.start ?? null,
-    previousShots: placedReal.slice(0, Math.max(0, activePos)).map((x) => x.s.start!),
+    previousShots: placedReal.slice(0, Math.max(0, activePos)).map((x) => x.start),
     tee,
     userId,
-    offline: false,
+    offline,
     unit,
     pinPlacementOpen: mode === 'PIN',
     onSetPin: handleSetPin,
