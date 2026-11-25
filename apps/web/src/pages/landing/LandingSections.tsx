@@ -162,6 +162,7 @@ export function Footer() {
           <a href="https://github.com/sponsors/cner-smith" target="_blank" rel="noreferrer noopener">Sponsors</a>
           <Link to="/privacy">Privacy</Link>
           <Link to="/support">Support</Link>
+          <Link to="/data-sources">Data sources</Link>
           {!loading && user ? <Link to="/dashboard">Go to app</Link> : <Link to="/login">Sign in</Link>}
         </nav>
         <div className="lb-footer-note">Free and open source, MIT License</div>
