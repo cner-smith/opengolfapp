@@ -22,14 +22,12 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
-import { Icon } from '../paper/icons'
 import { MARGIN, P } from '../paper/tokens'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { HoleMapPhase, PastCrumbs, PlateSide } from './HoleMap.types'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
-import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
-import { ButtonRow, ModeRocker, PastFooter, ShotStepperRow } from './past/PastFooter'
+import { ModeRocker, PastControls } from './past/PastFooter'
 import { CoachTarget } from '../help/CoachMarks'
 import { PastHoleBlock, type HoleResult } from './past/PastHoleBlock'
 import { ShotCallout, type Projector } from './past/ShotCallout'
@@ -857,104 +855,29 @@ export function PastRoundMap({
         )}
       </View>
 
-      <CoachTarget id="past.footer">
-      <PastFooter>
-        {!completed ? (
-          /* ───────── LOGGING (§19.4) ───────── */
-          <>
-            {mode === 'PIN' ? (
-              <Voice
-                trailing={
-                  <SmallKey label="Cancel" a11y="Cancel pin placement" onPress={() => setMode('PLACE_BALL')} />
-                }
-              >
-                <Em>Where’s the flag?</Em> Tap it on the map.
-              </Voice>
-            ) : !effectivePin ? (
-              <NoPinVoice onPress={() => setMode('PIN')} />
-            ) : mode === 'SET_AIM' ? (
-              <Voice>
-                <Em>Tap where you aimed shot {n}.</Em>
-              </Voice>
-            ) : !active?.start ? (
-              startedCount === 0 ? (
-                <Voice>
-                  <Em>Tap the map where you hit shot {n}.</Em>
-                </Voice>
-              ) : (
-                <Voice>
-                  Shot {n - 1} is on the map. <Em>Tap where you hit shot {n}.</Em>
-                </Voice>
-              )
-            ) : (
-              <Voice>
-                {/* The primary below says "Add shot N+1"; repeating it here
-                    orphaned the number onto a second line. */}
-                Shot {n} is on the map. <Em>Drag to fine-tune.</Em>
-              </Voice>
-            )}
-            <ButtonRow>
-              <Secondary
-                // Broken on purpose: at maxWidth 120 it wrapped as "Remove shot / 1".
-                label={`Remove\nshot ${n}`}
-                a11y="Remove this shot"
-                onPress={handleRemoveShot}
-                disabled={!active?.start && placed.length <= 1}
-              />
-              <Primary
-                plus
-                label={`Add shot ${n + 1}`}
-                a11y="Add another shot"
-                onPress={handleAddShot}
-                disabled={!active?.start}
-              />
-            </ButtonRow>
-          </>
-        ) : adding ? (
-          /* ───────── REVIEW: placing a newly added shot ───────── */
-          <Voice trailing={<SmallKey label="Cancel" a11y="Cancel adding shot" onPress={handleCancelAdd} />}>
-            <Em>Tap the map where you hit shot {active?.shotNumber ?? placedReal.length + 1}.</Em>
-          </Voice>
-        ) : placedReal.length === 0 ? (
-          /* ───────── REVIEW: finalized hole with no shots ───────── */
-          <>
-            <Voice>No shots logged for this hole.</Voice>
-            <ButtonRow>
-              <Primary plus label="Add shot" a11y="Add the first shot" onPress={handleStartAddShot} />
-            </ButtonRow>
-          </>
-        ) : (
-          /* ───────── REVIEW: shot stepper (§19.5) ───────── */
-          <>
-            <ShotStepperRow
-              pos={activePos}
-              count={placedReal.length}
-              summary={summarizeShot(activeShotRow, activeShotNext, unit)}
-              onPrev={() => stepTo(activePos - 1)}
-              onNext={() => stepTo(activePos + 1)}
-            />
-            <ButtonRow>
-              <Secondary label="Remove" a11y="Remove this shot" color={P.neg} onPress={handleRemoveShot} />
-              {/* Adding is only offered off the last shot (#593). */}
-              {isLastSelected && (
-                <Secondary
-                  label="Add shot"
-                  a11y="Add another shot"
-                  icon={<Icon.plus size={18} />}
-                  onPress={handleStartAddShot}
-                />
-              )}
-              <Primary
-                label={`Edit shot ${activePos + 1}`}
-                a11y="Edit this shot's details"
-                disabled={!active?.id}
-                onPress={() => active?.id && onEditShot(active.id)}
-              />
-            </ButtonRow>
-          </>
-        )}
-      </PastFooter>
-      </CoachTarget>
+      <PastControls
+        completed={completed}
+        mode={mode}
+        hasPin={effectivePin != null}
+        n={n}
+        placedNow={active?.start != null}
+        startedCount={startedCount}
+        onlyDraft={placed.length <= 1}
+        adding={adding}
+        addingNumber={active?.shotNumber ?? placedReal.length + 1}
+        count={placedReal.length}
+        pos={activePos}
+        summary={summarizeShot(activeShotRow, activeShotNext, unit)}
+        isLast={isLastSelected}
+        canEdit={active?.id != null}
+        onMode={setMode}
+        onRemove={handleRemoveShot}
+        onAdd={handleAddShot}
+        onStartAdd={handleStartAddShot}
+        onCancelAdd={handleCancelAdd}
+        onStep={stepTo}
+        onEdit={() => active?.id && onEditShot(active.id)}
+      />
 
       {/* "On the green?" — mirrors the live round prompt. Yes → it's a putt
           (no aim, details on the scorecard); No → aim as a chip/bunker shot
