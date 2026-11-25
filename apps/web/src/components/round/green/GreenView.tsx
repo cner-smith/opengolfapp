@@ -17,6 +17,7 @@ import {
   type DistanceUnit,
   type GeoPoint,
   type PinSheet,
+  lidarCredit,
 } from '@oga/core'
 import { Rocker } from '../../ui/Rocker'
 import { P } from '../map/PaperChrome'
@@ -149,7 +150,7 @@ export function GreenView(p: GreenViewProps) {
       <div style={{ ...sans, fontSize: 11.5, lineHeight: 1.45, color: P.inkDim }}>
         {p.pin && sheet ? 'Drag the flag to set this round’s pin. ' : ''}
         {p.unit === 'meters' ? '1 pace ≈ 0.9 m' : '1 pace = 1 yd'}
-        {green.lidar === 'ready' && green.gridSource?.startsWith('3dep') ? ' · USGS 3DEP lidar' : ''}
+        {green.lidar === 'ready' && green.gridSource ? ` · ${lidarCredit(green.gridSource)}` : ''}
         {green.mine ? ' · your outline' : green.outlineSource === 'osm' ? ' · OSM outline' : ''}
       </div>
       <button

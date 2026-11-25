@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { osmGreenMap, outlineCrossesItself, pointInRing, ringAreaM2 } from './green-outline'
+import { lidarCredit, osmGreenMap, outlineCrossesItself, pointInRing, ringAreaM2 } from './green-outline'
 import { encodePolyline } from './green/polyline'
 import type { GeoPoint } from './shot-dispersion-geo'
 
@@ -164,5 +164,14 @@ describe('outlineCrossesItself', () => {
   it('counts the closing edge', () => {
     // A Z: the open path is simple; only the closing edge (10,10) -> (0,0) cuts across (10,0) -> (0,10).
     expect(outlineCrossesItself([m(0, 0), m(10, 0), m(0, 10), m(10, 10)])).toBe(true)
+  })
+})
+
+describe('lidarCredit', () => {
+  it('credits each survey by its source prefix', () => {
+    expect(lidarCredit(null)).toBeNull()
+    expect(lidarCredit('3dep:AL_11County_2_B23')).toBe('USGS 3DEP lidar')
+    expect(lidarCredit('dogami:OLC_DESCHUTES_2011_BARE_EARTH_OGIC_HARN')).toBe('Oregon Department of Geology and Mineral Industries lidar')
+    expect(lidarCredit('other:x')).toBe('Lidar')
   })
 })
