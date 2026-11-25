@@ -510,6 +510,7 @@ export default function ProfileTab() {
             first
           />
           <NavRow label="Export diagnostic log" onPress={() => void exportDiagLog()} />
+          <NavRow label="Data sources" value="↗" onPress={() => Linking.openURL(`${WEB_URL}/data-sources`)} />
           <NavRow label="OGA on the web" value="oga.golf ↗" onPress={() => Linking.openURL(WEB_URL)} />
         </Group>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: -16, marginBottom: 28 }]}>

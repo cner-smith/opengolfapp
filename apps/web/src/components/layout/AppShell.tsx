@@ -180,7 +180,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               OpenStreetMap
             </a>{' '}
-            contributors (ODbL)
+            contributors (ODbL).{' '}
+            <Link to="/data-sources" style={{ textDecoration: 'underline' }}>
+              All data sources
+            </Link>
           </footer>
           {/* Clears the fixed bottom tab bar (mobile only). */}
           <div
