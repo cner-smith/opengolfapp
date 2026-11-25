@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { encodePolyline, MIN_OUTLINE_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
+import { encodePolyline, lidarCredit, MIN_OUTLINE_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
 import { saveMyGreenOutline } from '@oga/supabase'
 import { createMap, mapboxgl } from '../../../lib/mapbox'
 import { supabase } from '../../../lib/supabase'
@@ -161,7 +161,7 @@ export function GreenRedraw(p: GreenRedrawProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const surveyName = p.gridSource ? (p.gridSource.startsWith('3dep') ? 'USGS 3DEP lidar' : 'Lidar') : null
+  const surveyName = lidarCredit(p.gridSource)
   const hint = crosses ? 'It crosses itself · drag a point to fix it' : closed ? 'Closed · Save when happy' : n >= 3 ? 'Click the first point to close' : 'Click around the edge'
   const kbd: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 12, border: `1px solid ${P.inkDim}`, borderRadius: 3, padding: '0 4px' }
 

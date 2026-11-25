@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Circle, Line, Polygon, Rect } from 'react-native-svg'
-import { decodePolyline, MIN_OUTLINE_POINTS as MIN_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
+import { decodePolyline, lidarCredit, MIN_OUTLINE_POINTS as MIN_POINTS, outlineCrossesItself, type GeoPoint } from '@oga/core'
 import { getGreenOutlines } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { haptic } from '../../../lib/haptics'
@@ -249,8 +249,6 @@ const other = (roundId: string, holeId: string) => (x: FixLater) => !(x.roundId 
 export const addFixLater = (userId: string, f: FixLater) => changeFixLater(userId, (l) => [...l.filter(other(f.roundId, f.holeId)), f])
 export const dropFixLater = (userId: string, roundId: string, holeId: string) => changeFixLater(userId, (l) => l.filter(other(roundId, holeId)))
 
-export const surveyName = (gridSource: string | null) => (gridSource ? (gridSource.startsWith('3dep') ? 'USGS 3DEP lidar' : 'Lidar') : null)
-
 /** The round page's card for greens saved for after the round. */
 export function GreenFixCard({ userId, roundId }: { userId: string; roundId: string }) {
   const [items, setItems] = useState<FixLater[]>([])
@@ -275,7 +273,7 @@ export function GreenFixCard({ userId, roundId }: { userId: string; roundId: str
       /* shown as below */
     }
     if (!row || ours.length < 4) return setError('Opening the green needs signal.')
-    setOpen({ item, ours, survey: surveyName(row.grid_source) })
+    setOpen({ item, ours, survey: lidarCredit(row.grid_source) })
   }
   // The list updates once the redraw closes, so its "Yours now" screen stays up.
   const close = () => {

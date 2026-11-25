@@ -145,3 +145,14 @@ export function osmGreenMap(
     flagReason: `nearest green, ${Math.round(nearest.d)} m from ${from}`,
   }
 }
+
+/**
+ * Who flew a green's survey, as credited in the apps. DOGAMI's data is public
+ * domain; it asked for its agency name spelled out.
+ */
+export function lidarCredit(gridSource: string | null): string | null {
+  if (!gridSource) return null
+  if (gridSource.startsWith('3dep')) return 'USGS 3DEP lidar'
+  if (gridSource.startsWith('dogami')) return 'Oregon Department of Geology and Mineral Industries lidar'
+  return 'Lidar'
+}

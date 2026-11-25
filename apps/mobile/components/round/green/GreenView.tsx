@@ -27,6 +27,7 @@ import {
   type DistanceUnit,
   type GeoPoint,
   type PinSheet,
+  lidarCredit,
 } from '@oga/core'
 import { haptic } from '../../../lib/haptics'
 import { TYPE } from '../../../lib/typography'
@@ -37,7 +38,7 @@ import { MAP_KEY, P } from '../../paper/tokens'
 import { fitGreen, GreenDrawing, screenFrame, type ScreenFrame, type GreenMode } from './GreenDrawing'
 import { useGreenMaps, type PreparedGreen } from './greenData'
 import { GreenMapLayers } from './GreenMapLayers'
-import { addFixLater, dropFixLater, GreenRedraw, surveyName } from './GreenRedraw'
+import { addFixLater, dropFixLater, GreenRedraw } from './GreenRedraw'
 
 // The green view (#1381, design locked on #1379). Nothing is on the map
 // until the player asks: a mini green key sits at the top of the key column,
@@ -164,7 +165,7 @@ export function useGreenView(i: GreenViewInput): {
         holeNumber={i.holeNumber}
         ours={green.ours}
         pin={i.pin}
-        survey={surveyName(green.gridSource)}
+        survey={lidarCredit(green.gridSource)}
         onSave={async (drawn) => {
           const err = await saveMine(greenId, drawn)
           if (!err && i.userId && i.roundId) void dropFixLater(i.userId, i.roundId, greenId)
@@ -555,7 +556,7 @@ function Detail(
   const shapeWords = lidar?.shape ? shapePhrase(lidar.shape, p.approach, p.unit) : null
   const lines = lidar ? [shapeWords, ff ? falseFrontWords(ff, p.unit) : null] : []
   const source = [
-    lidar ? (green.gridSource?.startsWith('3dep:') ? 'USGS 3DEP lidar' : 'Lidar') : null,
+    lidar ? lidarCredit(green.gridSource) ?? 'Lidar' : null,
     green.mine ? 'your outline' : green.outlineSource === 'osm' ? 'OSM outline' : green.outlineSource === 'manual' ? 'Outline drawn by hand' : 'Traced outline',
     '1 pace = 1 yd',
   ]
